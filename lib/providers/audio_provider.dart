@@ -16,16 +16,19 @@
  */
 
 import 'dart:async';
+import 'dart:math' as dart;
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import '../audio/audio_analyzer.dart';
 import '../audio/synthesizer_engine.dart';
+import '../synthesis/synthesis_branch_manager.dart';
 
 class AudioProvider with ChangeNotifier {
   // Core audio systems
   late final SynthesizerEngine synthesizerEngine;
   late final AudioAnalyzer audioAnalyzer;
+  late final SynthesisBranchManager synthesisBranchManager;
 
   // Audio I/O
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -65,7 +68,11 @@ class AudioProvider with ChangeNotifier {
       sampleRate: sampleRate,
     );
 
-    debugPrint('✅ AudioProvider initialized');
+    synthesisBranchManager = SynthesisBranchManager(
+      sampleRate: sampleRate,
+    );
+
+    debugPrint('✅ AudioProvider initialized with SynthesisBranchManager');
   }
 
   // Getters
@@ -118,8 +125,11 @@ class AudioProvider with ChangeNotifier {
   /// Generate next audio buffer
   void _generateAudioBuffer() {
     try {
-      // Generate buffer from synthesizer
-      _currentBuffer = synthesizerEngine.generateBuffer(bufferSize);
+      // Calculate frequency from MIDI note
+      final frequency = _midiNoteToFrequency(_currentNote);
+
+      // Generate buffer from synthesis branch manager (uses current geometry/system)
+      _currentBuffer = synthesisBranchManager.generateBuffer(bufferSize, frequency);
 
       // Analyze the buffer
       if (_currentBuffer != null && _currentBuffer!.isNotEmpty) {
@@ -138,10 +148,18 @@ class AudioProvider with ChangeNotifier {
     }
   }
 
+  /// Convert MIDI note to frequency (Hz)
+  double _midiNoteToFrequency(int midiNote) {
+    // A4 (MIDI 69) = 440 Hz
+    // Each semitone is 2^(1/12) ratio
+    return 440.0 * dart.math.pow(2.0, (midiNote - 69) / 12.0);
+  }
+
   /// Play a note (MIDI note number)
   void playNote(int midiNote) {
     _currentNote = midiNote;
     synthesizerEngine.setNote(midiNote);
+    synthesisBranchManager.noteOn(); // Trigger envelope in branch manager
 
     if (!_isPlaying) {
       startAudio();
@@ -152,7 +170,41 @@ class AudioProvider with ChangeNotifier {
 
   /// Stop current note
   void stopNote() {
+    synthesisBranchManager.noteOff(); // Start release phase
     stopAudio();
+  }
+
+  /// Set geometry (0-23) for synthesis
+  void setGeometry(int geometry) {
+    synthesisBranchManager.setGeometry(geometry);
+    debugPrint('🎵 Geometry set to: $geometry (${synthesisBranchManager.configString})');
+    notifyListeners();
+  }
+
+  /// Set visual system (updates sound family)
+  void setVisualSystem(String systemName) {
+    VisualSystem system;
+    switch (systemName.toLowerCase()) {
+      case 'quantum':
+        system = VisualSystem.quantum;
+        break;
+      case 'faceted':
+        system = VisualSystem.faceted;
+        break;
+      case 'holographic':
+        system = VisualSystem.holographic;
+        break;
+      default:
+        system = VisualSystem.quantum;
+    }
+    synthesisBranchManager.setVisualSystem(system);
+    debugPrint('🎨 Visual system set to: ${system.name}');
+    notifyListeners();
+  }
+
+  /// Get current synthesis configuration
+  String getSynthesisConfig() {
+    return synthesisBranchManager.configString;
   }
 
   /// Set master volume

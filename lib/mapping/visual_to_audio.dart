@@ -98,6 +98,47 @@ class VisualToAudioModulator {
     final vertexCount = visualProvider.getActiveVertexCount();
     final voiceCount = _mapVertexCountToVoices(vertexCount);
     audioProvider.setVoiceCount(voiceCount);
+
+    // **NEW**: Sync geometry to synthesis branch manager
+    _syncGeometryToAudio();
+
+    // **NEW**: Sync visual system to sound family
+    _syncVisualSystemToAudio();
+  }
+
+  /// Sync geometry changes to audio provider
+  void _syncGeometryToAudio() {
+    final geometry = visualProvider.currentGeometry;
+    // Visual provider uses 0-7, but synthesis manager uses 0-23
+    // Need to calculate full geometry index from system + geometry
+    final systemOffset = _getSystemOffset(visualProvider.currentSystem);
+    final fullGeometry = systemOffset + geometry;
+    audioProvider.setGeometry(fullGeometry);
+  }
+
+  /// Get geometry offset based on current visual system
+  int _getSystemOffset(String system) {
+    // Each system has 8 base geometries (0-7)
+    // But they map to different polytope cores in the synthesis manager:
+    // - Quantum system → geometries 0-7 (Base core)
+    // - Faceted system → geometries 8-15 (Hypersphere core)
+    // - Holographic system → geometries 16-23 (Hypertetrahedron core)
+    switch (system.toLowerCase()) {
+      case 'quantum':
+        return 0;  // Base core (Direct synthesis)
+      case 'faceted':
+        return 8;  // Hypersphere core (FM synthesis)
+      case 'holographic':
+        return 16; // Hypertetrahedron core (Ring modulation)
+      default:
+        return 0;
+    }
+  }
+
+  /// Sync visual system to audio sound family
+  void _syncVisualSystemToAudio() {
+    final system = visualProvider.currentSystem;
+    audioProvider.setVisualSystem(system);
   }
 
   /// Extract current visual state as normalized values (0-1)
