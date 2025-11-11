@@ -12,8 +12,9 @@ build/
 .gradle/
 local.properties
 
-# VS Code
-.vscode/
+# VS Code (share team settings, but ignore local workspace state)
+.vscode/*.code-workspace
+.vscode/launch.json.user
 
 # Flutter/Dart
 .dart_tool/

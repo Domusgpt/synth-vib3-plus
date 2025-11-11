@@ -1,0 +1,57 @@
+{
+  // Synth-VIB3+ Debug Configurations
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Synth-VIB3+ (Debug)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLUTTER_WEB_USE_SKIA=true",
+        "--dart-define=FLUTTER_WEB_AUTO_DETECT=false"
+      ],
+      "flutterMode": "debug",
+      "deviceId": "android"
+    },
+    {
+      "name": "Synth-VIB3+ (Profile)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "flutterMode": "profile",
+      "deviceId": "android"
+    },
+    {
+      "name": "Synth-VIB3+ (Release)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "flutterMode": "release",
+      "deviceId": "android"
+    },
+    {
+      "name": "Synth-VIB3+ Tests",
+      "request": "launch",
+      "type": "dart",
+      "program": "test/",
+      "flutterMode": "debug"
+    },
+    {
+      "name": "Synth-VIB3+ (Audio Performance Profile)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": [
+        "--profile",
+        "--trace-startup"
+      ],
+      "flutterMode": "profile",
+      "deviceId": "android",
+      "env": {
+        "FLUTTER_ENABLE_FAST_START": "true"
+      }
+    }
+  ],
+  "compounds": []
+}
