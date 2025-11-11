@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #000;
+      overflow: hidden;
+      font-family: 'Courier New', monospace;
+      touch-action: none;
+    }
+    /* Canvas container for dynamically created 5-layer system */
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <!-- Dynamic canvas container - 5 canvases created/destroyed on system switch -->
+  <div id="canvas-container"></div>
+
+  <!-- Load the THREE JavaScript systems from assets -->
+  <script src="./js/QuantumVisualizer.js"></script>
+  <script src="./js/HolographicSystem.js"></script>
+  <script src="./js/FacetedVisualizer.js"></script>
+
+  <script>
+    // Global audio-reactive state (shared with all systems)
+    window.audioReactive = {
+      bass: 0.0,
+      mid: 0.0,
+      high: 0.0,
+      energy: 0.0
+    };
+
+    // Current active system and visualizers
+    let currentSystem = null;
+    let activeVisualizers = [];  // Current 5-layer visualizers (destroyed on switch)
+
+    // Canvas layer configuration (5 layers with unique reactivity)
+    const LAYER_CONFIG = [
+      { role: 'background', reactivity: 0.5 },
+      { role: 'shadow', reactivity: 0.7 },
+      { role: 'content', reactivity: 0.9 },
+      { role: 'highlight', reactivity: 1.1 },
+      { role: 'accent', reactivity: 1.5 }
+    ];
+
+    /**
+     * CRITICAL: Destroy current visualizers and clean up WebGL contexts
+     * Prevents memory leaks and context exhaustion on mobile
+     */
+    function destroyCurrentSystem() {
+      if (activeVisualizers.length === 0) return;
+
+      console.log(`🗑️ Destroying ${currentSystem} system (${activeVisualizers.length} layers)`);
+
+      // Destroy each visualizer and its WebGL context
+      activeVisualizers.forEach(visualizer => {
+        if (visualizer.gl) {
+          const ext = visualizer.gl.getExtension('WEBGL_lose_context');
+          if (ext) ext.loseContext();
+        }
+        if (visualizer.destroy) {
+          visualizer.destroy();
+        }
+      });
+
+      // Clear visualizer array
+      activeVisualizers = [];
+
+      // Remove all canvases from DOM
+      const container = document.getElementById('canvas-container');
+      container.innerHTML = '';
+
+      console.log('✅ System destroyed, WebGL contexts released');
+    }
+
+    /**
+     * CRITICAL: Create 5 canvas layers and initialize visualizers
+     * Called on system switch - creates fresh WebGL contexts
+     */
+    function createSystem(systemName) {
+      destroyCurrentSystem();
+
+      const container = document.getElementById('canvas-container');
+      console.log(`🎨 Creating ${systemName} system (5 layers)`);
+
+      // Create 5 canvas elements with full sizing
+      LAYER_CONFIG.forEach((layerConfig, index) => {
+        const canvas = document.createElement('canvas');
+        canvas.id = `${systemName}-${layerConfig.role}-canvas`;
+        canvas.style.zIndex = index; // Layer stacking
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        container.appendChild(canvas);
+      });
+
+      // CRITICAL: Let DOM update before creating visualizers
+      console.log('📐 Created 5 canvases, waiting for DOM update...');
+
+      // Initialize visualizers based on system type
+      // Use setTimeout to ensure DOM is updated
+      setTimeout(() => {
+        if (systemName === 'quantum' && typeof QuantumHolographicVisualizer !== 'undefined') {
+          LAYER_CONFIG.forEach((layerConfig, index) => {
+            const canvasId = `${systemName}-${layerConfig.role}-canvas`;
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) {
+              console.error(`❌ Canvas not found: ${canvasId}`);
+              return;
+            }
+            console.log(`✅ Found canvas: ${canvasId}`);
+            try {
+              const visualizer = new QuantumHolographicVisualizer(
+                canvasId,
+                layerConfig.role,
+                'bass',
+                index
+              );
+              activeVisualizers.push(visualizer);
+            } catch (e) {
+              console.error(`❌ Error creating visualizer for ${canvasId}:`, e);
+            }
+          });
+          console.log(`✅ Quantum System: ${activeVisualizers.length} layers created`);
+
+        } else if (systemName === 'holographic' && typeof HolographicSystem !== 'undefined') {
+          // HolographicSystem creates its own visualizers internally
+          try {
+            const holographicSystem = new HolographicSystem();
+            activeVisualizers.push(holographicSystem);
+            console.log('✅ Holographic System: manages own 5 layers');
+          } catch (e) {
+            console.error('❌ Error creating Holographic system:', e);
+          }
+
+        } else if (systemName === 'faceted' && typeof IntegratedHolographicVisualizer !== 'undefined') {
+          LAYER_CONFIG.forEach((layerConfig, index) => {
+            const canvasId = `${systemName}-${layerConfig.role}-canvas`;
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) {
+              console.error(`❌ Canvas not found: ${canvasId}`);
+              return;
+            }
+            console.log(`✅ Found canvas: ${canvasId}`);
+            try {
+              const visualizer = new IntegratedHolographicVisualizer(
+                canvasId,
+                layerConfig.role,
+                'bass',
+                index
+              );
+              activeVisualizers.push(visualizer);
+            } catch (e) {
+              console.error(`❌ Error creating visualizer for ${canvasId}:`, e);
+            }
+          });
+          console.log(`✅ Faceted System: ${activeVisualizers.length} layers created`);
+        }
+
+        currentSystem = systemName;
+      }, 50); // 50ms delay to let DOM update
+    }
+
+    // DIAGNOSTIC: Test if JavaScript is running at all
+    console.log('🔥 JAVASCRIPT LOADED AND EXECUTING!');
+    console.log('📊 QuantumHolographicVisualizer available:', typeof QuantumHolographicVisualizer);
+    console.log('📊 HolographicSystem available:', typeof HolographicSystem);
+    console.log('📊 IntegratedHolographicVisualizer available:', typeof IntegratedHolographicVisualizer);
+
+    // Initialize quantum system immediately (Android WebView doesn't fire 'load' reliably)
+    setTimeout(() => {
+      console.log('🚀 Initializing VIB34D...');
+      createSystem('quantum');
+      console.log('✅ VIB34D initialized with quantum system');
+    }, 100);
+
+    // Flutter → JavaScript bridge
+    window.vib34d = {
+      // Switch between THREE 5-layer systems (destroys old, creates new)
+      switchSystem: (systemName) => {
+        if (systemName === currentSystem) return;
+
+        console.log(`🔄 Switching from ${currentSystem} to ${systemName}`);
+        createSystem(systemName);
+        console.log(`✅ Switched to ${systemName} (5 fresh layers)`);
+      },
+
+      // Update visual parameters - applies to all 5 layers of active system
+      updateParameters: (params) => {
+        if (activeVisualizers.length === 0) return;
+
+        // Apply parameters to all active visualizers/layers
+        activeVisualizers.forEach(visualizer => {
+          // For HolographicSystem, update its internal visualizers
+          if (visualizer.visualizers) {
+            visualizer.visualizers.forEach(v => {
+              Object.keys(params).forEach(key => {
+                if (v.params && key in v.params) {
+                  v.params[key] = params[key];
+                }
+              });
+            });
+          } else {
+            // For Quantum/Faceted, update visualizer directly
+            Object.keys(params).forEach(key => {
+              if (visualizer.params && key in visualizer.params) {
+                visualizer.params[key] = params[key];
+              }
+            });
+          }
+        });
+      },
+
+      // Update audio data (for audio-reactive mode)
+      updateAudio: (audioData) => {
+        window.audioReactive = audioData;
+        // All 5 layers automatically read from window.audioReactive in their render loops
+      },
+
+      // Get current system state
+      getState: () => {
+        return {
+          currentSystem: currentSystem,
+          audioReactive: window.audioReactive,
+          activeLayerCount: activeVisualizers.length,
+          layerConfig: LAYER_CONFIG
+        };
+      }
+    };
+  </script>
+</body>
+</html>

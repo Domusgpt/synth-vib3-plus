@@ -1,0 +1,30 @@
+# Flutter build outputs
+build/
+*.class
+*.lock
+*.log
+
+# Android Studio
+.idea/
+*.iml
+*.ipr
+*.iws
+.gradle/
+local.properties
+
+# VS Code
+.vscode/
+
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+pubspec.lock
+
+# Files
+*.pyc
+*.swp
+*.DS_Store
