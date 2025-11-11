@@ -39,7 +39,8 @@ dependencies:
   just_audio: ^0.9.35                 # Audio playback
   fftea: ^1.0.0                       # FFT analysis
   audio_session: ^0.1.16              # Audio session management
-  flutter_pcm_sound: ^3.3.3           # Real-time PCM audio output
+  flutter_pcm_sound: ^3.3.3           # Real-time PCM audio output (legacy)
+  flutter_soloud: ^3.3.0              # Low-latency audio engine (SoLoud C++)
 
   # Visual Rendering (WebView for VIB34D)
   vector_math: ^2.1.4                 # Quaternion math, matrices, vectors

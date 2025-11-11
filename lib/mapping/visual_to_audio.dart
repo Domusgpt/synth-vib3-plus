@@ -18,6 +18,7 @@ import '../providers/audio_provider.dart';
 import '../providers/visual_provider.dart';
 import '../models/mapping_preset.dart';
 import 'audio_to_visual.dart'; // For ParameterMapping and MappingCurve
+import 'enhanced_parameter_modulation.dart';
 
 class VisualToAudioModulator {
   final AudioProvider audioProvider;
@@ -25,6 +26,9 @@ class VisualToAudioModulator {
 
   // Mapping configuration
   Map<String, ParameterMapping> _mappings = {};
+
+  // Enhanced modulation system
+  final EnhancedParameterModulation _enhancedMod = EnhancedParameterModulation();
 
   VisualToAudioModulator({
     required this.audioProvider,
@@ -77,11 +81,57 @@ class VisualToAudioModulator {
         maxRange: 500.0,  // 500ms
         curve: MappingCurve.linear,
       ),
+      // NEW: Enhanced parameter mappings
+      'chaos_to_noise': ParameterMapping(
+        sourceParam: 'chaosLevel',
+        targetParam: 'noiseInjection',
+        minRange: 0.0,
+        maxRange: 1.0,
+        curve: MappingCurve.exponential,
+      ),
+      'speed_to_lfoRate': ParameterMapping(
+        sourceParam: 'rotationSpeed',
+        targetParam: 'lfoRate',
+        minRange: 0.0,
+        maxRange: 1.0,
+        curve: MappingCurve.logarithmic,
+      ),
+      'hueShift_to_spectralTilt': ParameterMapping(
+        sourceParam: 'hueShift',
+        targetParam: 'spectralTilt',
+        minRange: 0.0,
+        maxRange: 1.0,
+        curve: MappingCurve.linear,
+      ),
+      'glowIntensity_to_reverb': ParameterMapping(
+        sourceParam: 'glowIntensity',
+        targetParam: 'reverbMixAdvanced',
+        minRange: 0.05,  // 5% minimum
+        maxRange: 0.60,  // 60% maximum
+        curve: MappingCurve.exponential,
+      ),
+      'tessellation_to_polyphony': ParameterMapping(
+        sourceParam: 'tessellationDensity',
+        targetParam: 'voiceCount',
+        minRange: 0.0,
+        maxRange: 1.0,
+        curve: MappingCurve.linear,
+      ),
+      'complexity_to_harmonics': ParameterMapping(
+        sourceParam: 'geometryComplexity',
+        targetParam: 'harmonicRichness',
+        minRange: 0.0,
+        maxRange: 1.0,
+        curve: MappingCurve.linear,
+      ),
     };
   }
 
   /// Main update function called at 60 FPS
   void updateFromVisuals() {
+    // Update enhanced modulation system
+    _enhancedMod.update();
+
     // Read current visual state
     final visualState = _getVisualState();
 
@@ -94,6 +144,9 @@ class VisualToAudioModulator {
       _updateAudioParameter(mapping.targetParam, mappedValue);
     });
 
+    // Apply enhanced modulation parameters
+    _applyEnhancedModulation(visualState);
+
     // Special case: vertex count to voice count (discrete mapping)
     final vertexCount = visualProvider.getActiveVertexCount();
     final voiceCount = _mapVertexCountToVoices(vertexCount);
@@ -104,6 +157,39 @@ class VisualToAudioModulator {
 
     // **NEW**: Sync visual system to sound family
     _syncVisualSystemToAudio();
+  }
+
+  /// Apply enhanced modulation parameters
+  void _applyEnhancedModulation(Map<String, double> visualState) {
+    // Chaos parameter → noise injection + filter randomization
+    final double chaos = visualState['chaosLevel'] ?? 0.0;
+    _enhancedMod.setChaosParameter(chaos);
+
+    // Speed parameter → LFO rate
+    final double speed = visualState['rotationSpeed'] ?? 0.5;
+    _enhancedMod.setSpeedParameter(speed);
+
+    // Hue shift → spectral tilt
+    final double hue = visualState['hueShift'] ?? 0.5;
+    _enhancedMod.setHueShift(hue);
+
+    // Glow intensity → reverb mix + attack time
+    final double glow = visualState['glowIntensity'] ?? 0.3;
+    _enhancedMod.setGlowIntensity(glow);
+    // Also apply to audio provider
+    audioProvider.setGlowIntensity(glow);
+
+    // Tessellation density → polyphony
+    final double tessellation = visualState['tessellationDensity'] ?? 0.3;
+    _enhancedMod.setTessellationDensity(tessellation);
+
+    // Projection mode → stereo width
+    final String projectionMode = visualProvider.getProjectionMode();
+    _enhancedMod.setProjectionMode(projectionMode);
+
+    // Complexity → harmonic richness
+    final double complexity = visualState['geometryComplexity'] ?? 0.5;
+    _enhancedMod.setComplexity(complexity);
   }
 
   /// Sync geometry changes to audio provider
@@ -144,6 +230,7 @@ class VisualToAudioModulator {
   /// Extract current visual state as normalized values (0-1)
   Map<String, double> _getVisualState() {
     return {
+      // Basic rotation mappings
       'rotationXW': _normalizeRotation(visualProvider.getRotationAngle('XW')),
       'rotationYW': _normalizeRotation(visualProvider.getRotationAngle('YW')),
       'rotationZW': _normalizeRotation(visualProvider.getRotationAngle('ZW')),
@@ -154,6 +241,13 @@ class VisualToAudioModulator {
       'layerDepth': _normalizeLayerDepth(
         visualProvider.getLayerSeparation(),
       ),
+      // Enhanced parameter mappings
+      'chaosLevel': visualProvider.getChaosLevel(),
+      'rotationSpeed': visualProvider.getRotationSpeed(),
+      'hueShift': visualProvider.getHueShift(),
+      'glowIntensity': visualProvider.getGlowIntensity(),
+      'tessellationDensity': visualProvider.getTessellationDensity(),
+      'geometryComplexity': visualProvider.getGeometryComplexity(),
     };
   }
 
@@ -240,6 +334,7 @@ class VisualToAudioModulator {
   /// Get current modulation state for debugging/UI display
   Map<String, dynamic> getModulationState() {
     return {
+      // Basic rotations
       'rotationXW': visualProvider.getRotationAngle('XW'),
       'rotationYW': visualProvider.getRotationAngle('YW'),
       'rotationZW': visualProvider.getRotationAngle('ZW'),
@@ -251,6 +346,12 @@ class VisualToAudioModulator {
       'osc1FreqMod': audioProvider.synthesizerEngine.oscillator1.frequencyModulation,
       'osc2FreqMod': audioProvider.synthesizerEngine.oscillator2.frequencyModulation,
       'filterCutoffMod': audioProvider.synthesizerEngine.filter.cutoffModulation,
+      // Enhanced modulation state
+      'enhancedModulation': _enhancedMod.getModulationState(),
     };
   }
+
+  /// Get enhanced modulation system (for direct access)
+  EnhancedParameterModulation get enhancedModulation => _enhancedMod;
 }
+

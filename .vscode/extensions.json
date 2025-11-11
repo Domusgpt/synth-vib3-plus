@@ -1,0 +1,54 @@
+{
+  // Synth-VIB3+ Recommended VSCode Extensions
+  "recommendations": [
+    // Essential Dart & Flutter
+    "dart-code.dart-code",
+    "dart-code.flutter",
+
+    // Code Quality & Linting
+    "pflannery.vscode-versionlens",
+    "usernamehw.errorlens",
+
+    // Git & Version Control
+    "eamodio.gitlens",
+    "mhutchie.git-graph",
+
+    // Productivity
+    "aaron-bond.better-comments",
+    "gruntfuggly.todo-tree",
+    "christian-kohler.path-intellisense",
+    "wayou.vscode-todo-highlight",
+
+    // Formatting & Styling
+    "esbenp.prettier-vscode",
+    "oderwat.indent-rainbow",
+    "mechatroner.rainbow-csv",
+
+    // Documentation
+    "davidanson.vscode-markdownlint",
+    "yzhang.markdown-all-in-one",
+
+    // Flutter Specific
+    "nash.awesome-flutter-snippets",
+    "alexisvt.flutter-snippets",
+
+    // YAML Support
+    "redhat.vscode-yaml",
+
+    // Firebase (for cloud sync)
+    "toba.vsfire",
+
+    // JSON Support
+    "zainchen.json",
+
+    // Bracket Colorization
+    "coenraads.bracket-pair-colorizer-2",
+
+    // Theme (Optional but recommended for audio work)
+    "github.github-vscode-theme",
+
+    // Performance Profiling
+    "dart-code.flutter-widget-inspector"
+  ],
+  "unwantedRecommendations": []
+}
