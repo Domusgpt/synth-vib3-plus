@@ -28,6 +28,7 @@ import '../../providers/ui_state_provider.dart';
 import '../../providers/visual_provider.dart';
 import '../../providers/audio_provider.dart';
 import '../../providers/tilt_sensor_provider.dart';
+import '../../mapping/parameter_bridge.dart';
 
 class SynthMainScreen extends StatefulWidget {
   const SynthMainScreen({Key? key}) : super(key: key);
@@ -62,18 +63,95 @@ class _SynthMainScreenState extends State<SynthMainScreen> {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // Core state providers
         ChangeNotifierProvider(create: (_) => UIStateProvider()),
         ChangeNotifierProvider(create: (_) => VisualProvider()),
         ChangeNotifierProvider(create: (_) => AudioProvider()),
         ChangeNotifierProvider(create: (_) => TiltSensorProvider()),
+
+        // Parameter bridge depends on Audio and Visual providers
+        ChangeNotifierProxyProvider2<AudioProvider, VisualProvider, ParameterBridge>(
+          create: (context) => ParameterBridge(
+            audioProvider: Provider.of<AudioProvider>(context, listen: false),
+            visualProvider: Provider.of<VisualProvider>(context, listen: false),
+          ),
+          update: (context, audio, visual, previous) => previous ?? ParameterBridge(
+            audioProvider: audio,
+            visualProvider: visual,
+          ),
+        ),
       ],
       child: const _SynthMainContent(),
     );
   }
 }
 
-class _SynthMainContent extends StatelessWidget {
+class _SynthMainContent extends StatefulWidget {
   const _SynthMainContent({Key? key}) : super(key: key);
+
+  @override
+  State<_SynthMainContent> createState() => _SynthMainContentState();
+}
+
+class _SynthMainContentState extends State<_SynthMainContent> {
+  @override
+  void initState() {
+    super.initState();
+
+    // Initialize the sonic+visual coupling after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeAudioVisualCoupling();
+    });
+  }
+
+  /// Initialize and start the bidirectional audio-visual coupling
+  void _initializeAudioVisualCoupling() {
+    final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+    final visualProvider = Provider.of<VisualProvider>(context, listen: false);
+    final parameterBridge = Provider.of<ParameterBridge>(context, listen: false);
+
+    // Set initial visual system and geometry
+    visualProvider.switchSystem('quantum'); // Start with Quantum system
+    visualProvider.setGeometry(0); // Start with Tetrahedron (geometry 0)
+    debugPrint('🎨 Initial state: Quantum Base Tetrahedron (Geometry 0)');
+
+    // Sync initial state to audio (geometry 0 = Direct synthesis, Quantum = Pure timbre)
+    audioProvider.setVisualSystem('quantum');
+    audioProvider.setGeometry(0);
+    debugPrint('🎵 Audio synced: Direct synthesis with Pure/Harmonic timbre');
+
+    // Start audio generation
+    audioProvider.startAudio();
+    debugPrint('🎵 Audio generation started');
+
+    // Start visual animation
+    visualProvider.startAnimation();
+    debugPrint('🎨 Visual animation started');
+
+    // Start 60 FPS parameter bridge (THE MAGIC!)
+    parameterBridge.start();
+    debugPrint('🔄 Parameter bridge started at 60 FPS');
+    debugPrint('✨ Bidirectional audio-visual coupling ACTIVE');
+    debugPrint('💎 All 72 combinations available (3 systems × 24 geometries)');
+  }
+
+  @override
+  void dispose() {
+    // Clean shutdown
+    try {
+      final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+      final visualProvider = Provider.of<VisualProvider>(context, listen: false);
+      final parameterBridge = Provider.of<ParameterBridge>(context, listen: false);
+
+      parameterBridge.stop();
+      visualProvider.stopAnimation();
+      audioProvider.stopAudio();
+      debugPrint('🛑 Audio-visual coupling stopped');
+    } catch (e) {
+      debugPrint('⚠️ Error during dispose: $e');
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

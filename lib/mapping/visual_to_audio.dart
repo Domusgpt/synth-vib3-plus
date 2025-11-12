@@ -14,6 +14,7 @@
  */
 
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import '../providers/audio_provider.dart';
 import '../providers/visual_provider.dart';
 import '../models/mapping_preset.dart';
@@ -114,6 +115,15 @@ class VisualToAudioModulator {
     final systemOffset = _getSystemOffset(visualProvider.currentSystem);
     final fullGeometry = systemOffset + geometry;
     audioProvider.setGeometry(fullGeometry);
+
+    // Debug: Log the 72-combination matrix selection
+    final system = visualProvider.currentSystem;
+    final coreIndex = fullGeometry ~/ 8;
+    final baseGeometry = fullGeometry % 8;
+    final coreNames = ['Direct', 'FM', 'Ring Mod'];
+    final geometryNames = ['Tetrahedron', 'Hypercube', 'Sphere', 'Torus', 'Klein', 'Fractal', 'Wave', 'Crystal'];
+
+    debugPrint('🎯 Matrix: $system ${coreNames[coreIndex]} ${geometryNames[baseGeometry]} (Geometry $fullGeometry)');
   }
 
   /// Get geometry offset based on current visual system
