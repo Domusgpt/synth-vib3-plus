@@ -36,6 +36,7 @@ class VisualToAudioModulator {
 
   void _initializeDefaultMappings() {
     _mappings = {
+      // Core 4D Rotation mappings
       'rotationXW_to_osc1Freq': ParameterMapping(
         sourceParam: 'rotationXW',
         targetParam: 'oscillator1Frequency',
@@ -57,6 +58,8 @@ class VisualToAudioModulator {
         maxRange: 0.8,  // 80% modulation (±40%)
         curve: MappingCurve.sinusoidal,
       ),
+
+      // Geometry and morphing
       'morphParameter_to_wavetable': ParameterMapping(
         sourceParam: 'morphParameter',
         targetParam: 'wavetablePosition',
@@ -64,6 +67,8 @@ class VisualToAudioModulator {
         maxRange: 1.0,
         curve: MappingCurve.linear,
       ),
+
+      // Projection and spatial depth
       'projectionDistance_to_reverb': ParameterMapping(
         sourceParam: 'projectionDistance',
         targetParam: 'reverbMix',
@@ -76,6 +81,50 @@ class VisualToAudioModulator {
         targetParam: 'delayTime',
         minRange: 0.0,    // 0ms
         maxRange: 500.0,  // 500ms
+        curve: MappingCurve.linear,
+      ),
+
+      // NEW: Visual effects → Audio parameters
+      'hueShift_to_filterType': ParameterMapping(
+        sourceParam: 'hueShift',
+        targetParam: 'filterBrightness', // Spectral tilt/brightness
+        minRange: 0.0,
+        maxRange: 1.0,
+        curve: MappingCurve.linear,
+      ),
+      'glowIntensity_to_reverbSize': ParameterMapping(
+        sourceParam: 'glowIntensity',
+        targetParam: 'reverbRoomSize',
+        minRange: 0.3,
+        maxRange: 0.95,
+        curve: MappingCurve.exponential,
+      ),
+      'glowIntensity_to_attack': ParameterMapping(
+        sourceParam: 'glowIntensity',
+        targetParam: 'envelopeAttack',
+        minRange: 0.001, // 1ms
+        maxRange: 0.1,   // 100ms
+        curve: MappingCurve.exponential,
+      ),
+      'vertexBrightness_to_resonance': ParameterMapping(
+        sourceParam: 'vertexBrightness',
+        targetParam: 'filterResonance',
+        minRange: 0.1,
+        maxRange: 0.9,
+        curve: MappingCurve.linear,
+      ),
+      'geometryComplexity_to_oscMix': ParameterMapping(
+        sourceParam: 'geometryComplexity',
+        targetParam: 'oscillatorMix',
+        minRange: 0.0,
+        maxRange: 1.0,
+        curve: MappingCurve.linear,
+      ),
+      'tessellationDensity_to_voices': ParameterMapping(
+        sourceParam: 'tessellationDensity',
+        targetParam: 'voiceCount',
+        minRange: 1.0,
+        maxRange: 8.0,
         curve: MappingCurve.linear,
       ),
     };
@@ -154,17 +203,44 @@ class VisualToAudioModulator {
   /// Extract current visual state as normalized values (0-1)
   Map<String, double> _getVisualState() {
     return {
+      // 4D rotations
       'rotationXW': _normalizeRotation(visualProvider.getRotationAngle('XW')),
       'rotationYW': _normalizeRotation(visualProvider.getRotationAngle('YW')),
       'rotationZW': _normalizeRotation(visualProvider.getRotationAngle('ZW')),
+
+      // Geometry parameters
       'morphParameter': visualProvider.getMorphParameter(),
+      'geometryComplexity': visualProvider.getGeometryComplexity(),
+
+      // Spatial parameters
       'projectionDistance': _normalizeProjectionDistance(
         visualProvider.getProjectionDistance(),
       ),
       'layerDepth': _normalizeLayerDepth(
         visualProvider.getLayerSeparation(),
       ),
+
+      // Visual effect parameters
+      'hueShift': _normalizeHueShift(visualProvider.hueShift),
+      'glowIntensity': _normalizeGlowIntensity(visualProvider.glowIntensity),
+      'vertexBrightness': visualProvider.vertexBrightness, // Already 0-1
+      'tessellationDensity': _normalizeTessellation(visualProvider.tessellationDensity),
     };
+  }
+
+  /// Normalize hue shift (0-360°) to (0-1)
+  double _normalizeHueShift(double hue) {
+    return (hue % 360.0) / 360.0;
+  }
+
+  /// Normalize glow intensity (0-3) to (0-1)
+  double _normalizeGlowIntensity(double intensity) {
+    return (intensity / 3.0).clamp(0.0, 1.0);
+  }
+
+  /// Normalize tessellation density (3-10) to (0-1)
+  double _normalizeTessellation(int density) {
+    return ((density - 3) / 7.0).clamp(0.0, 1.0);
   }
 
   /// Normalize rotation angle (0-2π) to (0-1)
@@ -198,23 +274,55 @@ class VisualToAudioModulator {
     final synth = audioProvider.synthesizerEngine;
 
     switch (paramName) {
+      // Oscillator controls
       case 'oscillator1Frequency':
         synth.modulateOscillator1Frequency(value);
         break;
       case 'oscillator2Frequency':
         synth.modulateOscillator2Frequency(value);
         break;
-      case 'filterCutoff':
-        synth.modulateFilterCutoff(value);
+      case 'oscillatorMix':
+        audioProvider.setMixBalance(value);
         break;
       case 'wavetablePosition':
         synth.setWavetablePosition(value);
         break;
+
+      // Filter controls
+      case 'filterCutoff':
+        synth.modulateFilterCutoff(value);
+        break;
+      case 'filterResonance':
+        audioProvider.setFilterResonance(value);
+        break;
+      case 'filterBrightness':
+        // Spectral tilt - adjust filter cutoff based on hue
+        final brightness = value.clamp(0.0, 1.0);
+        final cutoff = 200.0 + (brightness * 18000.0); // 200Hz - 18kHz
+        audioProvider.setFilterCutoff(cutoff);
+        break;
+
+      // Envelope controls
+      case 'envelopeAttack':
+        audioProvider.setEnvelopeAttack(value);
+        break;
+
+      // Reverb controls
       case 'reverbMix':
         synth.setReverbMix(value);
         break;
+      case 'reverbRoomSize':
+        audioProvider.setReverbRoomSize(value);
+        break;
+
+      // Delay controls
       case 'delayTime':
         synth.setDelayTime(value);
+        break;
+
+      // Voice controls
+      case 'voiceCount':
+        audioProvider.setVoiceCount(value.round());
         break;
     }
   }
