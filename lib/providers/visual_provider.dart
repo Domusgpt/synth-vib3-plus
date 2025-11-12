@@ -57,6 +57,7 @@ class VisualProvider with ChangeNotifier {
   // Animation state
   bool _isAnimating = false;
   DateTime _lastUpdateTime = DateTime.now();
+  double _currentFPS = 60.0; // Track actual FPS
 
   VisualProvider() {
     debugPrint('✅ VisualProvider initialized');
@@ -344,6 +345,50 @@ class VisualProvider with ChangeNotifier {
       'layerSeparation': _layerSeparation,
       'isAnimating': _isAnimating,
     };
+  }
+
+  // Additional methods for UI component compatibility
+
+  /// Get system colors (placeholder - returns color scheme based on system)
+  dynamic get systemColors {
+    // This should return SystemColors from SynthTheme
+    // For now, return null and let UI components handle it
+    return null;
+  }
+
+  /// Get current FPS
+  double get currentFPS => _currentFPS;
+
+  /// Update FPS (called from rendering loop)
+  void updateFPS(double fps) {
+    _currentFPS = fps;
+    notifyListeners();
+  }
+
+  /// Set system (alias for switchSystem)
+  Future<void> setSystem(String systemName) async {
+    await switchSystem(systemName);
+  }
+
+  /// Set rotation XW
+  void setRotationXW(double angle) {
+    _rotationXW = angle % (2.0 * math.pi);
+    _updateJavaScriptParameter('rot4dXW', _rotationXW);
+    notifyListeners();
+  }
+
+  /// Set rotation YW
+  void setRotationYW(double angle) {
+    _rotationYW = angle % (2.0 * math.pi);
+    _updateJavaScriptParameter('rot4dYW', _rotationYW);
+    notifyListeners();
+  }
+
+  /// Set rotation ZW
+  void setRotationZW(double angle) {
+    _rotationZW = angle % (2.0 * math.pi);
+    _updateJavaScriptParameter('rot4dZW', _rotationZW);
+    notifyListeners();
   }
 
   @override
