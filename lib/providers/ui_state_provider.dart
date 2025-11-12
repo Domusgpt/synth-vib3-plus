@@ -37,6 +37,9 @@ enum XYAxisParameter {
   chaos,
   brightness,
   reverb,
+  oscillatorMix,
+  morphParameter,
+  rotationSpeed,
 }
 
 /// Parameter range configuration
@@ -105,6 +108,9 @@ class UIStateProvider with ChangeNotifier {
     XYAxisParameter.chaos: const ParameterRange(min: 0.0, max: 1.0, unit: '%'),
     XYAxisParameter.brightness: const ParameterRange(min: 0.0, max: 1.0, unit: '%'),
     XYAxisParameter.reverb: const ParameterRange(min: 0.0, max: 1.0, unit: '%'),
+    XYAxisParameter.oscillatorMix: const ParameterRange(min: 0.0, max: 1.0, unit: '%'),
+    XYAxisParameter.morphParameter: const ParameterRange(min: 0.0, max: 1.0, unit: '%'),
+    XYAxisParameter.rotationSpeed: const ParameterRange(min: 0.1, max: 5.0, unit: 'x'),
   };
 
   // Visual feedback configuration
@@ -435,6 +441,103 @@ class UIStateProvider with ChangeNotifier {
     }
 
     return _pitchRootNote + (octave * 12) + closestInterval;
+  }
+
+  // Additional methods for UI component compatibility
+
+  /// Check if panel is expanded (alias for isPanelOpen)
+  bool isPanelExpanded(String panelId) => isPanelOpen(panelId);
+
+  /// Expand a specific panel
+  void expandPanel(String panelId) {
+    if (_panelStates.containsKey(panelId)) {
+      _panelStates[panelId] = true;
+      notifyListeners();
+      debugPrint('🎛️ Panel "$panelId" expanded');
+    }
+  }
+
+  /// Collapse a specific panel
+  void collapsePanel(String panelId) {
+    if (_panelStates.containsKey(panelId)) {
+      _panelStates[panelId] = false;
+      notifyListeners();
+      debugPrint('🎛️ Panel "$panelId" collapsed');
+    }
+  }
+
+  /// Collapse all panels (alias for closeAllPanels)
+  void collapseAllPanels() => closeAllPanels();
+
+  /// Check if any panel is expanded (alias for anyPanelOpen)
+  bool isAnyPanelExpanded() => anyPanelOpen;
+
+  /// Set orb controller active state (for drag tracking)
+  bool _orbControllerActive = false;
+  bool get orbControllerActive => _orbControllerActive;
+
+  void setOrbControllerActive(bool active) {
+    _orbControllerActive = active;
+    notifyListeners();
+  }
+
+  /// Set orb controller position (alias for setOrbPosition)
+  void setOrbControllerPosition(Offset position) => setOrbPosition(position);
+
+  /// Get orb controller position (alias for orbPosition)
+  Offset get orbControllerPosition => orbPosition;
+
+  /// XY pad show grid (alias for showNoteGrid)
+  bool get xyPadShowGrid => showNoteGrid;
+
+  /// Set XY pad show grid
+  void setXYPadShowGrid(bool value) {
+    _showNoteGrid = value;
+    notifyListeners();
+  }
+
+  /// Orb controller visible (alias for orbVisible)
+  bool get orbControllerVisible => orbVisible;
+
+  /// Set orb controller visible
+  void setOrbControllerVisible(bool value) {
+    _orbVisible = value;
+    notifyListeners();
+    debugPrint('🎯 Orb controller ${_orbVisible ? "shown" : "hidden"}');
+  }
+
+  /// Get current system colors (placeholder - will be populated from VisualProvider)
+  dynamic get currentSystemColors {
+    // This will be injected from SynthTheme based on current visual system
+    // For now, return null and let UI components handle it
+    return null;
+  }
+
+  /// Set pitch range start
+  void setPitchRangeStart(int value) {
+    _pitchRangeStart = value.clamp(0, 127);
+    if (_pitchRangeStart >= _pitchRangeEnd) {
+      _pitchRangeEnd = _pitchRangeStart + 12;
+    }
+    notifyListeners();
+    debugPrint('🎵 Pitch range start: $_pitchRangeStart');
+  }
+
+  /// Set pitch range end
+  void setPitchRangeEnd(int value) {
+    _pitchRangeEnd = value.clamp(0, 127);
+    if (_pitchRangeEnd <= _pitchRangeStart) {
+      _pitchRangeStart = _pitchRangeEnd - 12;
+    }
+    notifyListeners();
+    debugPrint('🎵 Pitch range end: $_pitchRangeEnd');
+  }
+
+  /// Set tilt enabled
+  void setTiltEnabled(bool enabled) {
+    _tiltEnabled = enabled;
+    notifyListeners();
+    debugPrint('📱 Tilt control ${_tiltEnabled ? "enabled" : "disabled"}');
   }
 
   /// Get UI configuration as JSON (for saving presets)

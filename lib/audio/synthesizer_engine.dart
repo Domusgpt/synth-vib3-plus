@@ -32,6 +32,21 @@ enum FilterType {
   notch,
 }
 
+/// ADSR Envelope
+class Envelope {
+  double attack = 0.01;  // seconds
+  double decay = 0.1;    // seconds
+  double sustain = 0.7;  // level (0-1)
+  double release = 0.3;  // seconds
+
+  Envelope({
+    this.attack = 0.01,
+    this.decay = 0.1,
+    this.sustain = 0.7,
+    this.release = 0.3,
+  });
+}
+
 /// Main synthesizer engine
 class SynthesizerEngine {
   // Audio configuration
@@ -44,6 +59,9 @@ class SynthesizerEngine {
 
   // Filter
   late final Filter filter;
+
+  // Envelope
+  late final Envelope envelope;
 
   // Effects
   late final Reverb reverb;
@@ -78,6 +96,8 @@ class SynthesizerEngine {
       sampleRate: sampleRate,
       type: FilterType.lowpass,
     );
+
+    envelope = Envelope();
 
     reverb = Reverb(sampleRate: sampleRate);
     delay = Delay(sampleRate: sampleRate);
@@ -171,6 +191,7 @@ class Oscillator {
 
   double baseFrequency = 440.0;
   double frequencyModulation = 0.0; // ±2 semitones
+  double detune = 0.0; // ±100 cents (alias for frequencyModulation in smaller range)
   double phase = 0.0;
   double wavetablePosition = 0.0;
 
@@ -181,8 +202,9 @@ class Oscillator {
 
   /// Generate next sample
   double nextSample() {
-    // Apply frequency modulation (semitones to frequency ratio)
-    final freqRatio = math.pow(2.0, frequencyModulation / 12.0);
+    // Apply frequency modulation and detune (cents to frequency ratio)
+    final totalModulation = frequencyModulation + (detune / 100.0);
+    final freqRatio = math.pow(2.0, totalModulation / 12.0);
     final modulatedFreq = baseFrequency * freqRatio;
 
     // Generate sample based on waveform
@@ -230,6 +252,7 @@ class Filter {
   double baseCutoff = 1000.0; // Hz
   double cutoffModulation = 0.0; // 0-0.8 (±40%)
   double resonance = 0.7;
+  double envelopeAmount = 0.0; // 0-1 (envelope modulation depth)
 
   // State variables
   double _z1 = 0.0;
@@ -324,6 +347,7 @@ class Delay {
   final double sampleRate;
 
   double delayTime = 250.0; // milliseconds
+  double time = 250.0; // milliseconds (alias for delayTime)
   double feedback = 0.4;
   double mix = 0.3;
 
@@ -338,6 +362,9 @@ class Delay {
 
   /// Process sample through delay
   double process(double input) {
+    // Sync time with delayTime
+    time = delayTime;
+
     // Calculate read position based on delay time
     final delaySamples = (delayTime * sampleRate / 1000.0).round();
     final readPos = (_writePos - delaySamples) % _maxBufferSize;

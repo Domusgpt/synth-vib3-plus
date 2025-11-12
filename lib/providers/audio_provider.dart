@@ -45,6 +45,10 @@ class AudioProvider with ChangeNotifier {
   int _currentNote = 60; // Middle C
   bool _isPlaying = false;
   double _masterVolume = 0.7;
+  final List<int> _activeNotes = [];
+  double _pitchBend = 0.0; // Semitones
+  double _vibratoDepth = 0.0;
+  double _mixBalance = 0.5; // Oscillator mix (0=osc1, 1=osc2)
 
   // Audio generation timer
   Timer? _audioGenerationTimer;
@@ -302,6 +306,152 @@ class AudioProvider with ChangeNotifier {
       'masterVolume': _masterVolume,
       'voiceCount': synthesizerEngine.voiceCount,
     };
+  }
+
+  // Additional methods for UI component compatibility
+
+  /// Note on (polyphonic support)
+  void noteOn(int midiNote) {
+    if (!_activeNotes.contains(midiNote)) {
+      _activeNotes.add(midiNote);
+    }
+    playNote(midiNote);
+  }
+
+  /// Note off (polyphonic support)
+  void noteOff(int midiNote) {
+    _activeNotes.remove(midiNote);
+    if (_activeNotes.isEmpty) {
+      stopNote();
+    } else {
+      // Continue playing the most recent note
+      playNote(_activeNotes.last);
+    }
+  }
+
+  /// Get active notes list
+  List<int> get activeNotes => List.unmodifiable(_activeNotes);
+
+  /// Set pitch bend in semitones
+  void setPitchBend(double semitones) {
+    _pitchBend = semitones.clamp(-12.0, 12.0);
+    // Apply pitch bend to synth engine
+    // TODO: Implement in synthesizer_engine.dart
+    notifyListeners();
+  }
+
+  /// Set vibrato depth
+  void setVibratoDepth(double depth) {
+    _vibratoDepth = depth.clamp(0.0, 2.0);
+    // Apply vibrato to synth engine
+    // TODO: Implement in synthesizer_engine.dart
+    notifyListeners();
+  }
+
+  /// Set oscillator mix balance
+  void setMixBalance(double balance) {
+    _mixBalance = balance.clamp(0.0, 1.0);
+    synthesizerEngine.mixBalance = _mixBalance;
+    notifyListeners();
+  }
+
+  /// Get mix balance
+  double get mixBalance => _mixBalance;
+
+  /// Get system colors (placeholder - will be populated from VisualProvider)
+  dynamic get systemColors {
+    // This should be injected from VisualProvider
+    return null;
+  }
+
+  /// Oscillator 1 detune
+  double get oscillator1Detune => synthesizerEngine.oscillator1.detune;
+  void setOscillator1Detune(double cents) {
+    synthesizerEngine.oscillator1.detune = cents.clamp(-100.0, 100.0);
+    notifyListeners();
+  }
+
+  /// Oscillator 2 detune
+  double get oscillator2Detune => synthesizerEngine.oscillator2.detune;
+  void setOscillator2Detune(double cents) {
+    synthesizerEngine.oscillator2.detune = cents.clamp(-100.0, 100.0);
+    notifyListeners();
+  }
+
+  /// Envelope getters
+  double get envelopeAttack => synthesizerEngine.envelope.attack;
+  double get envelopeDecay => synthesizerEngine.envelope.decay;
+  double get envelopeSustain => synthesizerEngine.envelope.sustain;
+  double get envelopeRelease => synthesizerEngine.envelope.release;
+
+  /// Envelope setters
+  void setEnvelopeAttack(double attack) {
+    synthesizerEngine.envelope.attack = attack.clamp(0.001, 5.0);
+    notifyListeners();
+  }
+
+  void setEnvelopeDecay(double decay) {
+    synthesizerEngine.envelope.decay = decay.clamp(0.001, 5.0);
+    notifyListeners();
+  }
+
+  void setEnvelopeSustain(double sustain) {
+    synthesizerEngine.envelope.sustain = sustain.clamp(0.0, 1.0);
+    notifyListeners();
+  }
+
+  void setEnvelopeRelease(double release) {
+    synthesizerEngine.envelope.release = release.clamp(0.001, 10.0);
+    notifyListeners();
+  }
+
+  /// Filter getters
+  double get filterCutoff => synthesizerEngine.filter.baseCutoff;
+  double get filterResonance => synthesizerEngine.filter.resonance;
+  double get filterEnvelopeAmount => synthesizerEngine.filter.envelopeAmount;
+
+  /// Filter envelope amount setter
+  void setFilterEnvelopeAmount(double amount) {
+    synthesizerEngine.filter.envelopeAmount = amount.clamp(0.0, 1.0);
+    notifyListeners();
+  }
+
+  /// Reverb getters
+  double get reverbMix => synthesizerEngine.reverb.mix;
+  double get reverbRoomSize => synthesizerEngine.reverb.roomSize;
+  double get reverbDamping => synthesizerEngine.reverb.damping;
+
+  /// Reverb mix setter
+  void setReverbMix(double mix) {
+    synthesizerEngine.reverb.mix = mix.clamp(0.0, 1.0);
+    notifyListeners();
+  }
+
+  /// Delay getters
+  double get delayTime => synthesizerEngine.delay.time;
+  double get delayFeedback => synthesizerEngine.delay.feedback;
+  double get delayMix => synthesizerEngine.delay.mix;
+
+  /// Delay time setter
+  void setDelayTime(double time) {
+    synthesizerEngine.delay.time = time.clamp(0.001, 2.0);
+    notifyListeners();
+  }
+
+  /// Get current synthesis branch
+  String get currentSynthesisBranch {
+    final coreIndex = synthesisBranchManager.currentGeometry ~/ 8;
+    switch (coreIndex) {
+      case 0: return 'Direct';
+      case 1: return 'FM';
+      case 2: return 'Ring Mod';
+      default: return 'Unknown';
+    }
+  }
+
+  /// Set synthesis branch (by geometry index)
+  void setSynthesisBranch(int geometryIndex) {
+    setGeometry(geometryIndex);
   }
 
   @override
