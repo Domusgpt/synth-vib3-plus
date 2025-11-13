@@ -45,7 +45,6 @@ class AudioProvider with ChangeNotifier {
   int _currentNote = 60; // Middle C
   bool _isPlaying = false;
   double _masterVolume = 0.7;
-  final List<int> _activeNotes = [];
   double _pitchBend = 0.0; // Semitones
   double _vibratoDepth = 0.0;
   double _mixBalance = 0.5; // Oscillator mix (0=osc1, 1=osc2)
@@ -310,27 +309,26 @@ class AudioProvider with ChangeNotifier {
 
   // Additional methods for UI component compatibility
 
-  /// Note on (polyphonic support)
+  /// Note on (polyphonic support) - triggers voice allocation
   void noteOn(int midiNote) {
-    if (!_activeNotes.contains(midiNote)) {
-      _activeNotes.add(midiNote);
+    synthesizerEngine.noteOn(midiNote);
+
+    // Ensure audio is running
+    if (!_isPlaying) {
+      startAudio();
     }
-    playNote(midiNote);
+
+    notifyListeners();
   }
 
-  /// Note off (polyphonic support)
+  /// Note off (polyphonic support) - triggers voice release
   void noteOff(int midiNote) {
-    _activeNotes.remove(midiNote);
-    if (_activeNotes.isEmpty) {
-      stopNote();
-    } else {
-      // Continue playing the most recent note
-      playNote(_activeNotes.last);
-    }
+    synthesizerEngine.noteOff(midiNote);
+    notifyListeners();
   }
 
-  /// Get active notes list
-  List<int> get activeNotes => List.unmodifiable(_activeNotes);
+  /// Get active notes list (from voice pool)
+  List<int> get activeNotes => synthesizerEngine.activeNotes;
 
   /// Set pitch bend in semitones
   void setPitchBend(double semitones) {
@@ -384,24 +382,24 @@ class AudioProvider with ChangeNotifier {
   double get envelopeSustain => synthesizerEngine.envelope.sustain;
   double get envelopeRelease => synthesizerEngine.envelope.release;
 
-  /// Envelope setters
+  /// Envelope setters (synced with voice pool)
   void setEnvelopeAttack(double attack) {
-    synthesizerEngine.envelope.attack = attack.clamp(0.001, 5.0);
+    synthesizerEngine.setEnvelopeAttack(attack);
     notifyListeners();
   }
 
   void setEnvelopeDecay(double decay) {
-    synthesizerEngine.envelope.decay = decay.clamp(0.001, 5.0);
+    synthesizerEngine.setEnvelopeDecay(decay);
     notifyListeners();
   }
 
   void setEnvelopeSustain(double sustain) {
-    synthesizerEngine.envelope.sustain = sustain.clamp(0.0, 1.0);
+    synthesizerEngine.setEnvelopeSustain(sustain);
     notifyListeners();
   }
 
   void setEnvelopeRelease(double release) {
-    synthesizerEngine.envelope.release = release.clamp(0.001, 10.0);
+    synthesizerEngine.setEnvelopeRelease(release);
     notifyListeners();
   }
 

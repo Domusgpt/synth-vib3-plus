@@ -14,6 +14,7 @@
 
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'voice_pool.dart';
 
 /// Waveform types for oscillators
 enum Waveform {
@@ -53,7 +54,10 @@ class SynthesizerEngine {
   final double sampleRate;
   final int bufferSize;
 
-  // Oscillators
+  // Polyphonic voice management
+  late final VoicePool voicePool;
+
+  // Oscillators (legacy - kept for parameter compatibility)
   late final Oscillator oscillator1;
   late final Oscillator oscillator2;
 
@@ -82,6 +86,10 @@ class SynthesizerEngine {
     this.sampleRate = 44100.0,
     this.bufferSize = 512,
   }) {
+    // Initialize polyphonic voice pool (8 voices)
+    voicePool = VoicePool(sampleRate: sampleRate);
+
+    // Initialize legacy oscillators (for parameter compatibility)
     oscillator1 = Oscillator(
       sampleRate: sampleRate,
       waveform: Waveform.sawtooth,
@@ -103,25 +111,25 @@ class SynthesizerEngine {
     delay = Delay(sampleRate: sampleRate);
   }
 
-  /// Generate audio buffer
+  /// Generate audio buffer with polyphonic voices
   Float32List generateBuffer(int frames) {
+    // Generate polyphonic audio from voice pool (stereo interleaved)
+    final voiceBuffer = voicePool.renderBuffer(
+      frames: frames,
+      detune: (_osc1FreqModulation + _osc2FreqModulation) / 2.0, // Average modulation
+      mixBalance: mixBalance,
+    );
+
+    // Process through filter and effects (mono path for now)
     final buffer = Float32List(frames);
 
     for (int i = 0; i < frames; i++) {
-      // Apply frequency modulation from visual system
-      oscillator1.frequencyModulation = _osc1FreqModulation;
-      oscillator2.frequencyModulation = _osc2FreqModulation;
-
-      // Generate oscillator outputs
-      final osc1Sample = oscillator1.nextSample();
-      final osc2Sample = oscillator2.nextSample();
-
-      // Mix oscillators
-      final mixed = (osc1Sample * (1.0 - mixBalance)) + (osc2Sample * mixBalance);
+      // Mix stereo to mono (average L+R channels)
+      final voiceSample = (voiceBuffer[i * 2] + voiceBuffer[i * 2 + 1]) / 2.0;
 
       // Apply filter with modulation
       filter.cutoffModulation = _filterCutoffModulation;
-      final filtered = filter.process(mixed);
+      final filtered = filter.process(voiceSample);
 
       // Apply effects
       final delayed = delay.process(filtered);
@@ -134,12 +142,33 @@ class SynthesizerEngine {
     return buffer;
   }
 
-  /// Set base note (MIDI note number)
+  /// Set base note (MIDI note number) - DEPRECATED, use noteOn() instead
   void setNote(int midiNote) {
     final freq = _midiToFrequency(midiNote);
     oscillator1.baseFrequency = freq;
     oscillator2.baseFrequency = freq;
   }
+
+  /// Trigger note on (polyphonic)
+  void noteOn(int midiNote) {
+    voicePool.allocateVoice(midiNote);
+  }
+
+  /// Trigger note off (polyphonic)
+  void noteOff(int midiNote) {
+    voicePool.releaseVoice(midiNote);
+  }
+
+  /// All notes off (panic)
+  void allNotesOff() {
+    voicePool.releaseAllVoices();
+  }
+
+  /// Get active voice count
+  int get activeVoiceCount => voicePool.activeVoiceCount;
+
+  /// Get list of active notes
+  List<int> get activeNotes => voicePool.activeNotes;
 
   /// Modulate oscillator 1 frequency (±2 semitones from visual system)
   void modulateOscillator1Frequency(double semitones) {
@@ -176,6 +205,30 @@ class SynthesizerEngine {
   /// Set delay time (from visual layer depth)
   void setDelayTime(double milliseconds) {
     delay.delayTime = milliseconds.clamp(0.0, 1000.0);
+  }
+
+  /// Set envelope attack time
+  void setEnvelopeAttack(double seconds) {
+    envelope.attack = seconds.clamp(0.001, 5.0);
+    voicePool.setEnvelopeParams(attack: envelope.attack);
+  }
+
+  /// Set envelope decay time
+  void setEnvelopeDecay(double seconds) {
+    envelope.decay = seconds.clamp(0.001, 5.0);
+    voicePool.setEnvelopeParams(decay: envelope.decay);
+  }
+
+  /// Set envelope sustain level
+  void setEnvelopeSustain(double level) {
+    envelope.sustain = level.clamp(0.0, 1.0);
+    voicePool.setEnvelopeParams(sustain: envelope.sustain);
+  }
+
+  /// Set envelope release time
+  void setEnvelopeRelease(double seconds) {
+    envelope.release = seconds.clamp(0.001, 10.0);
+    voicePool.setEnvelopeParams(release: envelope.release);
   }
 
   /// Convert MIDI note to frequency
