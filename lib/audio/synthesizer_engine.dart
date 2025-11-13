@@ -15,6 +15,7 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'voice_pool.dart';
+import '../synthesis/synthesis_branch_manager.dart';
 
 /// Waveform types for oscillators
 enum Waveform {
@@ -229,6 +230,16 @@ class SynthesizerEngine {
   void setEnvelopeRelease(double seconds) {
     envelope.release = seconds.clamp(0.001, 10.0);
     voicePool.setEnvelopeParams(release: envelope.release);
+  }
+
+  /// Set geometry (0-23) - routes to Direct/FM/Ring Mod synthesis
+  void setGeometry(int geometry) {
+    voicePool.setGeometry(geometry);
+  }
+
+  /// Set visual system (determines sound family)
+  void setVisualSystem(VisualSystem system) {
+    voicePool.setVisualSystem(system);
   }
 
   /// Convert MIDI note to frequency

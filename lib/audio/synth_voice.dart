@@ -1,17 +1,18 @@
 /**
- * Synth Voice - Polyphonic Voice with Envelope
+ * Synth Voice - Polyphonic Voice with Synthesis Branch Manager
  *
  * Represents a single voice in the polyphonic synthesizer.
  * Each voice has its own:
+ * - SynthesisBranchManager (Direct/FM/Ring Mod synthesis)
  * - MIDI note and frequency
- * - ADSR envelope state
- * - Oscillator phase
+ * - ADSR envelope state (layered on top of branch manager envelope)
  * - Age tracking for voice stealing
  *
  * A Paul Phillips Manifestation
  */
 
 import 'dart:math' as math;
+import '../synthesis/synthesis_branch_manager.dart';
 
 /// Envelope states for ADSR
 enum EnvelopeState {
@@ -27,12 +28,15 @@ class SynthVoice {
   final int voiceId;
   final double sampleRate;
 
+  // Synthesis engine (each voice has its own!)
+  late final SynthesisBranchManager synth;
+
   // Note state
   int midiNote = 60;
   double frequency = 440.0;
   bool isActive = false;
 
-  // Envelope state
+  // Envelope state (layered on top of branch manager envelope)
   EnvelopeState state = EnvelopeState.idle;
   double envelopeValue = 0.0;
   double envelopeTime = 0.0;
@@ -43,21 +47,26 @@ class SynthVoice {
   double sustainLevel = 0.7;
   double releaseTime = 0.3;
 
-  // Oscillator state
-  double phase = 0.0;
-
   // Age tracking for voice stealing
   double age = 0.0;
 
   SynthVoice({
     required this.voiceId,
     required this.sampleRate,
-  });
+  }) {
+    // Each voice gets its own synthesis branch manager
+    synth = SynthesisBranchManager(sampleRate: sampleRate);
+  }
 
   /// Trigger note-on
   void noteOn(int note) {
     midiNote = note;
     frequency = _midiToFrequency(note);
+
+    // Trigger branch manager envelope
+    synth.noteOn();
+
+    // Trigger voice envelope (layered)
     state = EnvelopeState.attack;
     envelopeTime = 0.0;
     envelopeValue = 0.0;
@@ -67,13 +76,17 @@ class SynthVoice {
 
   /// Trigger note-off
   void noteOff() {
+    // Trigger branch manager release
+    synth.noteOff();
+
+    // Trigger voice envelope release
     if (state != EnvelopeState.idle) {
       state = EnvelopeState.release;
       envelopeTime = 0.0;
     }
   }
 
-  /// Generate one sample
+  /// Generate one sample using synthesis branch manager
   double generateSample({
     required double deltaTime,
     required double detune, // ±semitones
@@ -84,22 +97,20 @@ class SynthVoice {
 
     age += deltaTime;
 
-    // Update envelope
+    // Update voice envelope
     _updateEnvelope(deltaTime);
 
-    // Generate oscillator (simple saw for now)
+    // Apply detuning to frequency
     final detuneRatio = math.pow(2.0, detune / 12.0);
     final actualFreq = frequency * detuneRatio;
-    final sample = _generateSawtooth(phase);
 
-    // Advance phase
-    phase += (2.0 * math.pi * actualFreq) / sampleRate;
-    if (phase >= 2.0 * math.pi) {
-      phase -= 2.0 * math.pi;
-    }
+    // Generate sample using branch manager (Direct/FM/Ring Mod)
+    // Branch manager has its own envelope, we layer ours on top
+    final buffer = synth.generateBuffer(1, actualFreq);
+    final branchSample = buffer[0];
 
-    // Apply envelope
-    return sample * envelopeValue;
+    // Apply voice envelope (layered on top for additional articulation)
+    return branchSample * envelopeValue;
   }
 
   /// Update ADSR envelope state machine
@@ -166,11 +177,6 @@ class SynthVoice {
         }
         break;
     }
-  }
-
-  /// Generate sawtooth waveform
-  double _generateSawtooth(double ph) {
-    return 2.0 * (ph / (2.0 * math.pi)) - 1.0;
   }
 
   /// Convert MIDI note to frequency

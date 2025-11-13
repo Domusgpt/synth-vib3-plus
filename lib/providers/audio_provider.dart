@@ -28,7 +28,6 @@ class AudioProvider with ChangeNotifier {
   // Core audio systems
   late final SynthesizerEngine synthesizerEngine;
   late final AudioAnalyzer audioAnalyzer;
-  late final SynthesisBranchManager synthesisBranchManager;
 
   // Audio I/O
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -48,6 +47,7 @@ class AudioProvider with ChangeNotifier {
   double _pitchBend = 0.0; // Semitones
   double _vibratoDepth = 0.0;
   double _mixBalance = 0.5; // Oscillator mix (0=osc1, 1=osc2)
+  int _currentGeometry = 0; // Track geometry for UI display
 
   // Audio generation timer
   Timer? _audioGenerationTimer;
@@ -71,11 +71,7 @@ class AudioProvider with ChangeNotifier {
       sampleRate: sampleRate,
     );
 
-    synthesisBranchManager = SynthesisBranchManager(
-      sampleRate: sampleRate,
-    );
-
-    debugPrint('✅ AudioProvider initialized with SynthesisBranchManager');
+    debugPrint('✅ AudioProvider initialized with unified synthesis system');
   }
 
   // Getters
@@ -128,11 +124,8 @@ class AudioProvider with ChangeNotifier {
   /// Generate next audio buffer
   void _generateAudioBuffer() {
     try {
-      // Calculate frequency from MIDI note
-      final frequency = _midiNoteToFrequency(_currentNote);
-
-      // Generate buffer from synthesis branch manager (uses current geometry/system)
-      _currentBuffer = synthesisBranchManager.generateBuffer(bufferSize, frequency);
+      // Generate buffer from synthesizer engine (polyphonic with synthesis branches)
+      _currentBuffer = synthesizerEngine.generateBuffer(bufferSize);
 
       // Analyze the buffer
       if (_currentBuffer != null && _currentBuffer!.isNotEmpty) {
@@ -158,11 +151,10 @@ class AudioProvider with ChangeNotifier {
     return 440.0 * dart.math.pow(2.0, (midiNote - 69) / 12.0);
   }
 
-  /// Play a note (MIDI note number)
+  /// Play a note (MIDI note number) - DEPRECATED, use noteOn() instead
   void playNote(int midiNote) {
     _currentNote = midiNote;
     synthesizerEngine.setNote(midiNote);
-    synthesisBranchManager.noteOn(); // Trigger envelope in branch manager
 
     if (!_isPlaying) {
       startAudio();
@@ -171,16 +163,16 @@ class AudioProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Stop current note
+  /// Stop current note - DEPRECATED, use noteOff() instead
   void stopNote() {
-    synthesisBranchManager.noteOff(); // Start release phase
     stopAudio();
   }
 
   /// Set geometry (0-23) for synthesis
   void setGeometry(int geometry) {
-    synthesisBranchManager.setGeometry(geometry);
-    debugPrint('🎵 Geometry set to: $geometry (${synthesisBranchManager.configString})');
+    _currentGeometry = geometry;
+    synthesizerEngine.setGeometry(geometry);
+    debugPrint('🎵 Geometry set to: $geometry (routing to ${_getSynthesisBranch(geometry)})');
     notifyListeners();
   }
 
@@ -200,14 +192,25 @@ class AudioProvider with ChangeNotifier {
       default:
         system = VisualSystem.quantum;
     }
-    synthesisBranchManager.setVisualSystem(system);
+    synthesizerEngine.setVisualSystem(system);
     debugPrint('🎨 Visual system set to: ${system.name}');
     notifyListeners();
   }
 
+  /// Get synthesis branch name from geometry
+  String _getSynthesisBranch(int geometry) {
+    final coreIndex = geometry ~/ 8;
+    switch (coreIndex) {
+      case 0: return 'Direct Synthesis';
+      case 1: return 'FM Synthesis';
+      case 2: return 'Ring Modulation';
+      default: return 'Unknown';
+    }
+  }
+
   /// Get current synthesis configuration
   String getSynthesisConfig() {
-    return synthesisBranchManager.configString;
+    return 'Unified Polyphonic Synthesis System';
   }
 
   /// Set master volume
@@ -438,7 +441,7 @@ class AudioProvider with ChangeNotifier {
 
   /// Get current synthesis branch
   String get currentSynthesisBranch {
-    final coreIndex = synthesisBranchManager.currentGeometry ~/ 8;
+    final coreIndex = _currentGeometry ~/ 8;
     switch (coreIndex) {
       case 0: return 'Direct';
       case 1: return 'FM';

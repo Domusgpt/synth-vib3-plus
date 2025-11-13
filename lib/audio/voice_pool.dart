@@ -12,6 +12,7 @@
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'synth_voice.dart';
+import '../synthesis/synthesis_branch_manager.dart';
 
 class VoicePool {
   // Voice configuration
@@ -165,6 +166,24 @@ class VoicePool {
       if (decay != null) voice.decayTime = decay;
       if (sustain != null) voice.sustainLevel = sustain;
       if (release != null) voice.releaseTime = release;
+    }
+  }
+
+  /// Set geometry (0-23) for all voices
+  /// Routes to Direct/FM/Ring Mod synthesis branches
+  void setGeometry(int geometry) {
+    debugPrint('🎹 VoicePool: Setting geometry $geometry on all ${voices.length} voices');
+    for (final voice in voices) {
+      voice.synth.setGeometry(geometry);
+    }
+  }
+
+  /// Set visual system (Quantum/Faceted/Holographic) for all voices
+  /// Determines sound family characteristics
+  void setVisualSystem(VisualSystem system) {
+    debugPrint('🎨 VoicePool: Setting visual system ${system.name} on all voices');
+    for (final voice in voices) {
+      voice.synth.setVisualSystem(system);
     }
   }
 
