@@ -455,6 +455,38 @@ class AudioProvider with ChangeNotifier {
     setGeometry(geometryIndex);
   }
 
+  /// Update LFO frequencies from visual rotation speeds
+  void updateLFOsFromRotationSpeeds({
+    required double rotationSpeedXW,
+    required double rotationSpeedYW,
+    required double rotationSpeedZW,
+  }) {
+    synthesizerEngine.updateLFOsFromRotationSpeeds(
+      rotationSpeedXW: rotationSpeedXW,
+      rotationSpeedYW: rotationSpeedYW,
+      rotationSpeedZW: rotationSpeedZW,
+    );
+  }
+
+  /// Set LFO modulation depths
+  void setLFODepths({
+    double? vibratoDepth,
+    double? filterDepth,
+    double? tremoloDepth,
+  }) {
+    synthesizerEngine.setLFODepths(
+      vibratoDepth: vibratoDepth,
+      filterDepth: filterDepth,
+      tremoloDepth: tremoloDepth,
+    );
+    notifyListeners();
+  }
+
+  /// Get LFO state for debugging/UI
+  Map<String, dynamic> getLFOState() {
+    return synthesizerEngine.getLFOState();
+  }
+
   @override
   void dispose() {
     stopAudio();

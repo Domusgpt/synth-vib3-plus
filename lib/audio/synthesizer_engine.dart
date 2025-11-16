@@ -14,7 +14,9 @@
 
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'voice_pool.dart';
+import 'lfo.dart';
 import '../synthesis/synthesis_branch_manager.dart';
 
 /// Waveform types for oscillators
@@ -58,6 +60,9 @@ class SynthesizerEngine {
   // Polyphonic voice management
   late final VoicePool voicePool;
 
+  // LFO system for cyclic modulation
+  late final LFOPool lfoPool;
+
   // Oscillators (legacy - kept for parameter compatibility)
   late final Oscillator oscillator1;
   late final Oscillator oscillator2;
@@ -90,6 +95,9 @@ class SynthesizerEngine {
     // Initialize polyphonic voice pool (8 voices)
     voicePool = VoicePool(sampleRate: sampleRate);
 
+    // Initialize LFO pool (3 LFOs for modulation)
+    lfoPool = LFOPool(sampleRate: sampleRate);
+
     // Initialize legacy oscillators (for parameter compatibility)
     oscillator1 = Oscillator(
       sampleRate: sampleRate,
@@ -110,9 +118,11 @@ class SynthesizerEngine {
 
     reverb = Reverb(sampleRate: sampleRate);
     delay = Delay(sampleRate: sampleRate);
+
+    debugPrint('✅ SynthesizerEngine initialized with VoicePool + LFOPool');
   }
 
-  /// Generate audio buffer with polyphonic voices
+  /// Generate audio buffer with polyphonic voices + LFO modulation
   Float32List generateBuffer(int frames) {
     // Generate polyphonic audio from voice pool (stereo interleaved)
     final voiceBuffer = voicePool.renderBuffer(
@@ -121,23 +131,34 @@ class SynthesizerEngine {
       mixBalance: mixBalance,
     );
 
-    // Process through filter and effects (mono path for now)
+    // Process through filter, effects, and LFO modulation (mono path for now)
     final buffer = Float32List(frames);
+    final deltaTime = 1.0 / sampleRate;
 
     for (int i = 0; i < frames; i++) {
       // Mix stereo to mono (average L+R channels)
       final voiceSample = (voiceBuffer[i * 2] + voiceBuffer[i * 2 + 1]) / 2.0;
 
-      // Apply filter with modulation
-      filter.cutoffModulation = _filterCutoffModulation;
+      // Generate LFO samples
+      final filterLFOSample = lfoPool.filterLFO.nextSample(deltaTime);
+      final ampLFOSample = lfoPool.ampLFO.nextSample(deltaTime);
+
+      // Apply filter with modulation + LFO
+      // Combine static modulation with LFO modulation
+      final totalFilterMod = _filterCutoffModulation + (filterLFOSample * 0.3); // ±30% LFO modulation
+      filter.cutoffModulation = totalFilterMod.clamp(0.0, 0.9);
       final filtered = filter.process(voiceSample);
 
       // Apply effects
       final delayed = delay.process(filtered);
       final reverberated = reverb.process(delayed);
 
+      // Apply amplitude LFO (tremolo)
+      final tremoloMod = 1.0 + (ampLFOSample * 0.15); // ±15% amplitude modulation
+      final modulated = reverberated * tremoloMod;
+
       // Master output
-      buffer[i] = (reverberated * masterVolume).clamp(-1.0, 1.0);
+      buffer[i] = (modulated * masterVolume).clamp(-1.0, 1.0);
     }
 
     return buffer;
@@ -240,6 +261,37 @@ class SynthesizerEngine {
   /// Set visual system (determines sound family)
   void setVisualSystem(VisualSystem system) {
     voicePool.setVisualSystem(system);
+  }
+
+  /// Update LFO frequencies from visual rotation speeds
+  void updateLFOsFromRotationSpeeds({
+    required double rotationSpeedXW,
+    required double rotationSpeedYW,
+    required double rotationSpeedZW,
+  }) {
+    lfoPool.updateFromRotationSpeeds(
+      rotationSpeedXW: rotationSpeedXW,
+      rotationSpeedYW: rotationSpeedYW,
+      rotationSpeedZW: rotationSpeedZW,
+    );
+  }
+
+  /// Set LFO modulation depths
+  void setLFODepths({
+    double? vibratoDepth,
+    double? filterDepth,
+    double? tremoloDepth,
+  }) {
+    lfoPool.setDepths(
+      vibratoDepth: vibratoDepth,
+      filterDepth: filterDepth,
+      tremoloDepth: tremoloDepth,
+    );
+  }
+
+  /// Get LFO state for debugging/UI
+  Map<String, dynamic> getLFOState() {
+    return lfoPool.getState();
   }
 
   /// Convert MIDI note to frequency

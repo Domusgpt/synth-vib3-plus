@@ -154,6 +154,9 @@ class VisualToAudioModulator {
 
     // **NEW**: Sync visual system to sound family
     _syncVisualSystemToAudio();
+
+    // **NEW**: Sync rotation speeds to LFO rates
+    _syncRotationSpeedsToLFOs();
   }
 
   /// Sync geometry changes to audio provider
@@ -198,6 +201,27 @@ class VisualToAudioModulator {
   void _syncVisualSystemToAudio() {
     final system = visualProvider.currentSystem;
     audioProvider.setVisualSystem(system);
+  }
+
+  /// Sync visual rotation speeds to LFO rates
+  void _syncRotationSpeedsToLFOs() {
+    // Get rotation speeds from visual provider
+    final rotationSpeedXW = visualProvider.getRotationSpeed('XW');
+    final rotationSpeedYW = visualProvider.getRotationSpeed('YW');
+    final rotationSpeedZW = visualProvider.getRotationSpeed('ZW');
+
+    // Update audio provider's LFO frequencies
+    // Visual rotation speeds (0.1 - 2.0) → LFO frequencies (0.1 - 10 Hz)
+    audioProvider.updateLFOsFromRotationSpeeds(
+      rotationSpeedXW: rotationSpeedXW,
+      rotationSpeedYW: rotationSpeedYW,
+      rotationSpeedZW: rotationSpeedZW,
+    );
+
+    // Debug log (optional, can be removed for production)
+    debugPrint('🌀 LFO Speeds: XW=${rotationSpeedXW.toStringAsFixed(2)}, '
+        'YW=${rotationSpeedYW.toStringAsFixed(2)}, '
+        'ZW=${rotationSpeedZW.toStringAsFixed(2)}');
   }
 
   /// Extract current visual state as normalized values (0-1)
