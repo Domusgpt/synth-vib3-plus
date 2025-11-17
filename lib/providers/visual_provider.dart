@@ -15,13 +15,25 @@
  * A Paul Phillips Manifestation
  */
 
+import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+enum VisualizerLifecyclePhase {
+  booting,
+  waitingForViewer,
+  syncingState,
+  switching,
+  ready,
+  faulted,
+}
+
 class VisualProvider with ChangeNotifier {
   // Current VIB34D system
   String _currentSystem = 'quantum'; // 'quantum', 'holographic', 'faceted'
+  String? _viewerActiveSystem;
 
   // 4D Rotation angles (radians, 0-2π)
   double _rotationXW = 0.0;
@@ -53,6 +65,22 @@ class VisualProvider with ChangeNotifier {
 
   // WebView controller (for JavaScript bridge)
   WebViewController? _webViewController;
+  bool _visualizerReady = false;
+  VisualizerLifecyclePhase _lifecyclePhase = VisualizerLifecyclePhase.booting;
+  String? _lifecycleNote;
+  String? _viewerLabel;
+  String? _lastVisualizerError;
+  Completer<void>? _pendingSwitchCompleter;
+  Timer? _switchTimeoutTimer;
+  final Duration _switchAcknowledgementTimeout = const Duration(seconds: 6);
+
+  // Batched parameter transmission
+  final Map<String, dynamic> _pendingParameterUpdates = {};
+  Timer? _parameterFlushTimer;
+  final Duration _parameterFlushInterval = const Duration(milliseconds: 16);
+
+  // Audio reactive cache (forwarded to WebView when ready)
+  Map<String, double>? _lastAudioReactive;
 
   // Animation state
   bool _isAnimating = false;
@@ -61,6 +89,29 @@ class VisualProvider with ChangeNotifier {
 
   VisualProvider() {
     debugPrint('✅ VisualProvider initialized');
+  }
+
+  void _setLifecyclePhase(VisualizerLifecyclePhase phase, {String? note}) {
+    _lifecyclePhase = phase;
+    _lifecycleNote = note;
+  }
+
+  VisualizerLifecyclePhase _phaseFromString(String? rawPhase) {
+    switch (rawPhase) {
+      case 'booting':
+        return VisualizerLifecyclePhase.booting;
+      case 'initializing':
+      case 'switching':
+        return VisualizerLifecyclePhase.switching;
+      case 'tearing-down':
+        return VisualizerLifecyclePhase.switching;
+      case 'ready':
+        return VisualizerLifecyclePhase.ready;
+      case 'faulted':
+        return VisualizerLifecyclePhase.faulted;
+      default:
+        return _lifecyclePhase;
+    }
   }
 
   // Getters
@@ -80,25 +131,117 @@ class VisualProvider with ChangeNotifier {
   double get projectionDistance => _projectionDistance;
   double get layerSeparation => _layerSeparation;
   bool get isAnimating => _isAnimating;
+  VisualizerLifecyclePhase get lifecyclePhase => _lifecyclePhase;
+  String? get lifecycleNote => _lifecycleNote;
+  String? get viewerLabel => _viewerLabel;
+  String? get lastVisualizerError => _lastVisualizerError;
 
   /// Initialize WebView controller for VIB34D systems
   void setWebViewController(WebViewController controller) {
     _webViewController = controller;
+    _visualizerReady = false;
+    _pendingParameterUpdates.clear();
+    _parameterFlushTimer?.cancel();
+    _parameterFlushTimer = null;
+    _setLifecyclePhase(
+      VisualizerLifecyclePhase.waitingForViewer,
+      note: 'Awaiting viewer bootstrap',
+    );
     debugPrint('✅ WebView controller attached to VisualProvider');
+    notifyListeners();
+  }
+
+  /// Viewer handshake completion handler from WebView widget
+  Future<void> handleViewerReady({String? reportedSystem}) async {
+    if (_visualizerReady) return;
+    _visualizerReady = true;
+    _viewerActiveSystem = reportedSystem;
+    _setLifecyclePhase(
+      VisualizerLifecyclePhase.syncingState,
+      note: 'Synchronizing VIB34D parameters',
+    );
+    debugPrint('🛰️  Visualizer reported ready – syncing state');
+    await _flushFullStateToVisualizer();
+    await switchSystem(_currentSystem);
+    if (_lastAudioReactive != null) {
+      await _sendAudioReactive(_lastAudioReactive!);
+    }
+    notifyListeners();
+  }
+
+  Future<void> handleViewerEvent(
+    String event,
+    Map<String, dynamic> payload,
+  ) async {
+    switch (event) {
+      case 'viewer-ready':
+        _viewerLabel = payload['label'] as String? ?? _viewerLabel;
+        await handleViewerReady(reportedSystem: payload['system'] as String?);
+        return;
+      case 'viewer-lifecycle':
+        final lifecycle = payload['lifecycle'] as String?;
+        final label = payload['label'] as String?;
+        if (label != null) {
+          _viewerLabel = label;
+        }
+        _setLifecyclePhase(
+          _phaseFromString(lifecycle),
+          note: payload['message'] as String? ?? _lifecycleNote,
+        );
+        break;
+      case 'system-initializing':
+        _setLifecyclePhase(
+          VisualizerLifecyclePhase.switching,
+          note: 'Initializing ${payload['system'] ?? 'visualizer'}',
+        );
+        break;
+      case 'system-ready':
+        _viewerLabel = payload['label'] as String? ?? _viewerLabel;
+        _resolvePendingSwitch(payload['system'] as String?);
+        _setLifecyclePhase(
+          VisualizerLifecyclePhase.ready,
+          note: 'Running ${payload['system'] ?? _currentSystem}',
+        );
+        break;
+      case 'system-destroyed':
+        _viewerActiveSystem = null;
+        _setLifecyclePhase(
+          VisualizerLifecyclePhase.switching,
+          note: 'Visualizer stack cleared',
+        );
+        break;
+      case 'system-error':
+      case 'viewer-error':
+        _lastVisualizerError = payload['message'] as String? ?? 'Visualizer error';
+        _setLifecyclePhase(
+          VisualizerLifecyclePhase.faulted,
+          note: _lastVisualizerError,
+        );
+        _failPendingSwitch(_lastVisualizerError ?? 'Visualizer error');
+        break;
+    }
+
+    notifyListeners();
   }
 
   /// Switch between VIB34D systems
-  Future<void> switchSystem(String systemName) async {
-    if (_currentSystem == systemName) return;
-
+  Future<void> switchSystem(String systemName, {bool force = false}) async {
+    final bool alreadyViewerTarget = _viewerActiveSystem == systemName;
     _currentSystem = systemName;
 
-    // Update JavaScript system via WebView
-    // VIB3+ uses window.switchSystem(), not window.vib34d.switchSystem()
-    if (_webViewController != null) {
-      await _webViewController!.runJavaScript(
-        'if (window.switchSystem) { window.switchSystem("$systemName"); }'
-      );
+    if (_webViewController != null && _visualizerReady) {
+      if (!alreadyViewerTarget || force) {
+        _setLifecyclePhase(
+          VisualizerLifecyclePhase.switching,
+          note: 'Switching to $systemName stack',
+        );
+        final encoded = jsonEncode(systemName);
+        final script = force
+            ? 'window.vib34d?.switchSystem($encoded, {force:true});'
+            : 'window.vib34d?.switchSystem($encoded);';
+        await _runJavaScript(script);
+        await _awaitSystemReady(systemName);
+      }
     }
 
     // Update vertex count based on system
@@ -299,18 +442,121 @@ class VisualProvider with ChangeNotifier {
     return index < vertexCounts.length ? vertexCounts[index] : 100;
   }
 
-  /// Update JavaScript parameter via WebView
-  /// VIB3+ uses window.updateParameter(name, value) API
-  Future<void> _updateJavaScriptParameter(String name, dynamic value) async {
+  /// Queue a parameter update to be sent to WebView in a single batch
+  void _updateJavaScriptParameter(String name, dynamic value) {
+    _pendingParameterUpdates[name] = value;
+    _scheduleParameterFlush();
+  }
+
+  void _scheduleParameterFlush() {
+    if (!_visualizerReady || _webViewController == null) return;
+    _parameterFlushTimer ??= Timer(_parameterFlushInterval, () {
+      _flushParameterBatch();
+    });
+  }
+
+  Future<void> _flushParameterBatch() async {
+    if (_pendingParameterUpdates.isEmpty || _webViewController == null) {
+      _parameterFlushTimer?.cancel();
+      _parameterFlushTimer = null;
+      return;
+    }
+
+    final payload = jsonEncode(_pendingParameterUpdates);
+    _pendingParameterUpdates.clear();
+    _parameterFlushTimer?.cancel();
+    _parameterFlushTimer = null;
+
+    await _runJavaScript('window.vib34d?.updateParameters($payload);');
+  }
+
+  Future<void> _flushFullStateToVisualizer() async {
     if (_webViewController == null) return;
+    final payload = jsonEncode({
+      'rotationSpeed': _rotationSpeed,
+      'tessellationDensity': _tessellationDensity,
+      'vertexBrightness': _vertexBrightness,
+      'hueShift': _hueShift,
+      'glowIntensity': _glowIntensity,
+      'rgbSplitAmount': _rgbSplitAmount,
+      'rot4dXW': _rotationXW,
+      'rot4dYW': _rotationYW,
+      'rot4dZW': _rotationZW,
+      'morphParameter': _morphParameter,
+      'geometry': _currentGeometry,
+      'projectionDistance': _projectionDistance,
+      'layerSeparation': _layerSeparation,
+    });
+
+    await _runJavaScript('window.vib34d?.updateParameters($payload);');
+  }
+
+  Future<void> _runJavaScript(String script) async {
+    if (_webViewController == null) return;
+    try {
+      await _webViewController!.runJavaScript(script);
+    } catch (e) {
+      debugPrint('⚠️  WebView JS error: $e');
+    }
+  }
+
+  /// Forward real-time audio reactivity data to the visualizer
+  void updateAudioReactive(Map<String, double> data) {
+    _lastAudioReactive = Map<String, double>.from(data);
+    if (!_visualizerReady || _webViewController == null) return;
+    unawaited(_sendAudioReactive(_lastAudioReactive!));
+  }
+
+  Future<void> _sendAudioReactive(Map<String, double> data) async {
+    final payload = jsonEncode(data);
+    await _runJavaScript('window.vib34d?.updateAudio($payload);');
+  }
+
+  Future<void> _awaitSystemReady(String targetSystem) async {
+    _pendingSwitchCompleter?.complete();
+    final completer = Completer<void>();
+    _pendingSwitchCompleter = completer;
+
+    _switchTimeoutTimer?.cancel();
+    _switchTimeoutTimer = Timer(_switchAcknowledgementTimeout, () {
+      if (!completer.isCompleted) {
+        completer.completeError(
+          TimeoutException('Visualizer did not acknowledge $targetSystem in time'),
+        );
+        _setLifecyclePhase(
+          VisualizerLifecyclePhase.faulted,
+          note: 'Visualizer timed out while switching to $targetSystem',
+        );
+        notifyListeners();
+      }
+    });
 
     try {
-      await _webViewController!.runJavaScript(
-        'if (window.updateParameter) { window.updateParameter("$name", $value); }'
-      );
-    } catch (e) {
-      debugPrint('⚠️  Error updating JS parameter $name: $e');
+      await completer.future;
+    } finally {
+      _switchTimeoutTimer?.cancel();
+      _switchTimeoutTimer = null;
+      _pendingSwitchCompleter = null;
     }
+  }
+
+  void _resolvePendingSwitch(String? reportedSystem) {
+    if (reportedSystem != null) {
+      _viewerActiveSystem = reportedSystem;
+    }
+    if (_pendingSwitchCompleter != null && !_pendingSwitchCompleter!.isCompleted) {
+      _pendingSwitchCompleter!.complete();
+    }
+    _switchTimeoutTimer?.cancel();
+    _switchTimeoutTimer = null;
+  }
+
+  void _failPendingSwitch(String message) {
+    if (_pendingSwitchCompleter != null && !_pendingSwitchCompleter!.isCompleted) {
+      _pendingSwitchCompleter!.completeError(StateError(message));
+    }
+    _switchTimeoutTimer?.cancel();
+    _switchTimeoutTimer = null;
   }
 
   /// Start animation loop
@@ -388,6 +634,22 @@ class VisualProvider with ChangeNotifier {
   void setRotationZW(double angle) {
     _rotationZW = angle % (2.0 * math.pi);
     _updateJavaScriptParameter('rot4dZW', _rotationZW);
+    notifyListeners();
+  }
+
+  /// Handle WebView unload/reset
+  void markVisualizerNotReady() {
+    _visualizerReady = false;
+    _viewerActiveSystem = null;
+    _lastVisualizerError = null;
+    _pendingParameterUpdates.clear();
+    _parameterFlushTimer?.cancel();
+    _parameterFlushTimer = null;
+    _setLifecyclePhase(
+      VisualizerLifecyclePhase.waitingForViewer,
+      note: 'Awaiting viewer reload',
+    );
+    debugPrint('🛑 Visualizer reset – awaiting readiness');
     notifyListeners();
   }
 
