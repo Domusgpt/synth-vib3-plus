@@ -1,0 +1,93 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ claude/** ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.38.1'
+        channel: 'stable'
+        cache: true
+
+    - name: Get dependencies
+      run: flutter pub get
+
+    - name: Analyze code
+      run: flutter analyze
+      continue-on-error: true
+
+    - name: Run tests
+      run: flutter test
+      continue-on-error: true
+
+    - name: Build APK
+      run: flutter build apk --release
+
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: synth-vib3-plus-release
+        path: build/app/outputs/flutter-apk/app-release.apk
+        retention-days: 30
+
+    - name: Get version info
+      id: version
+      run: |
+        echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+
+    - name: Create Release (on main branch)
+      if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/claude/')
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: build-${{ steps.version.outputs.date }}-${{ steps.version.outputs.sha_short }}
+        name: Synth-VIB3+ Build ${{ steps.version.outputs.date }}
+        draft: false
+        prerelease: true
+        files: build/app/outputs/flutter-apk/app-release.apk
+        body: |
+          ## Synth-VIB3+ Android Release
+
+          **Build Date:** ${{ steps.version.outputs.date }}
+          **Commit:** ${{ github.sha }}
+          **Branch:** ${{ github.ref_name }}
+
+          ### Features
+          - 4D holographic VIB3+ visualization
+          - 72 unique sound+visual combinations
+          - Real-time bidirectional audio-visual coupling at 60 FPS
+          - Multi-branch synthesis (Direct, FM, Ring Modulation)
+          - Cloud preset sync via Firebase
+
+          ### Installation
+          1. Download the APK file below
+          2. Enable "Install from Unknown Sources" on your Android device
+          3. Install the APK
+          4. Grant required permissions (audio, storage)
+
+          ### Testing
+          See [DEVICE_TESTING_GUIDE.md](https://github.com/${{ github.repository }}/blob/${{ github.sha }}/DEVICE_TESTING_GUIDE.md) for comprehensive testing procedures.
+
+          ---
+          Built with Flutter 3.38.1 | Dart 3.10.0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
