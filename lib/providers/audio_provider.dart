@@ -20,6 +20,7 @@ import 'dart:math' as dart;
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:flutter_pcm_sound/flutter_pcm_sound.dart';
 import '../audio/audio_analyzer.dart';
 import '../audio/synthesizer_engine.dart';
 import '../synthesis/synthesis_branch_manager.dart';
@@ -32,6 +33,10 @@ class AudioProvider with ChangeNotifier {
 
   // Audio I/O
   final AudioPlayer _audioPlayer = AudioPlayer();
+
+  // PCM Sound for real-time audio output
+  ManagedPlayer? _pcmPlayer;
+  bool _pcmInitialized = false;
 
   // Audio buffer management
   Float32List? _currentBuffer;
@@ -76,7 +81,31 @@ class AudioProvider with ChangeNotifier {
       sampleRate: sampleRate,
     );
 
+    // Initialize PCM audio output
+    _initializePCMSound();
+
     debugPrint('✅ AudioProvider initialized with SynthesisBranchManager');
+  }
+
+  /// Initialize PCM sound for real-time audio output
+  Future<void> _initializePCMSound() async {
+    try {
+      // Request audio permission and setup
+      await FlutterPcmSound.setup(
+        sampleRate: sampleRate.toInt(),
+        channelCount: 1, // Mono for now
+      );
+
+      // Create managed player for continuous output
+      _pcmPlayer = await FlutterPcmSound.createPlayer();
+      _pcmInitialized = true;
+
+      debugPrint('✅ PCM Sound initialized: ${sampleRate.toInt()} Hz, mono');
+    } catch (e) {
+      debugPrint('❌ Failed to initialize PCM Sound: $e');
+      debugPrint('📝 Audio output will be unavailable');
+      _pcmInitialized = false;
+    }
   }
 
   // Getters
@@ -107,6 +136,12 @@ class AudioProvider with ChangeNotifier {
     _lastMetricsCheck = DateTime.now();
     _buffersGenerated = 0;
 
+    // Start PCM player
+    if (_pcmInitialized && _pcmPlayer != null) {
+      await _pcmPlayer?.start();
+      debugPrint('✅ PCM player started');
+    }
+
     // Generate audio buffers at regular intervals
     _audioGenerationTimer = Timer.periodic(
       Duration(milliseconds: (bufferSize * 1000 / sampleRate).round()),
@@ -122,6 +157,12 @@ class AudioProvider with ChangeNotifier {
     _audioGenerationTimer?.cancel();
     _isPlaying = false;
     await _audioPlayer.stop();
+
+    // Stop PCM player
+    if (_pcmPlayer != null) {
+      await _pcmPlayer?.stop();
+    }
+
     notifyListeners();
     debugPrint('⏸️  Audio stopped');
   }
@@ -142,13 +183,38 @@ class AudioProvider with ChangeNotifier {
 
       _buffersGenerated++;
 
-      // TODO: Send buffer to audio output
-      // This requires platform-specific audio API integration
-      // For now, just store the buffer for analysis
+      // Send buffer to speakers via PCM Sound
+      if (_pcmInitialized && _pcmPlayer != null && _currentBuffer != null) {
+        _outputAudioBuffer(_currentBuffer!);
+      }
 
       notifyListeners();
     } catch (e) {
       debugPrint('❌ Error generating audio buffer: $e');
+    }
+  }
+
+  /// Output audio buffer to speakers
+  void _outputAudioBuffer(Float32List buffer) {
+    try {
+      // Apply master volume
+      final scaledBuffer = Float32List(buffer.length);
+      for (int i = 0; i < buffer.length; i++) {
+        scaledBuffer[i] = (buffer[i] * _masterVolume).clamp(-1.0, 1.0);
+      }
+
+      // Convert Float32 to Int16 for PCM output
+      final int16Buffer = Int16List(scaledBuffer.length);
+      for (int i = 0; i < scaledBuffer.length; i++) {
+        int16Buffer[i] = (scaledBuffer[i] * 32767).round().clamp(-32768, 32767);
+      }
+
+      // Feed to PCM player (non-blocking)
+      _pcmPlayer?.feed(
+        PcmArrayInt16.fromList(int16Buffer.toList())
+      );
+    } catch (e) {
+      debugPrint('❌ Error outputting audio: $e');
     }
   }
 
@@ -458,6 +524,13 @@ class AudioProvider with ChangeNotifier {
   void dispose() {
     stopAudio();
     _audioPlayer.dispose();
+
+    // Release PCM player
+    if (_pcmPlayer != null) {
+      _pcmPlayer?.release();
+      _pcmPlayer = null;
+    }
+
     super.dispose();
   }
 }
