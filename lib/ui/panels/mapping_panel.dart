@@ -91,12 +91,12 @@ class MappingPanelContent extends StatelessWidget {
         const SizedBox(height: SynthTheme.spacingSmall),
         HolographicSlider(
           label: 'Pitch Bend',
-          value: uiState.orbPitchBendRange.toDouble(),
+          value: uiState.orbPitchBendRange,
           min: 1.0,
           max: 12.0,
           unit: '',
           divisions: 11,
-          onChanged: (value) => uiState.setOrbPitchBendRange(value.round()),
+          onChanged: (value) => uiState.setOrbPitchBendRange(value),
           systemColors: systemColors,
           icon: Icons.swap_horiz,
         ),
@@ -147,6 +147,7 @@ class MappingPanelContent extends StatelessWidget {
       XYAxisParameter.oscillatorMix: 'OSC Mix',
       XYAxisParameter.morphParameter: 'Morph',
       XYAxisParameter.rotationSpeed: 'Rotation',
+      XYAxisParameter.fmDepth: 'FM Depth',
     };
 
     return Column(

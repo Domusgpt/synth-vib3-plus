@@ -35,7 +35,6 @@ class AudioProvider with ChangeNotifier {
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   // PCM Sound for real-time audio output
-  ManagedPlayer? _pcmPlayer;
   bool _pcmInitialized = false;
 
   // Audio buffer management
@@ -102,8 +101,6 @@ class AudioProvider with ChangeNotifier {
         channelCount: 1, // Mono for now
       );
 
-      // Create managed player for continuous output
-      _pcmPlayer = await FlutterPcmSound.createPlayer();
       _pcmInitialized = true;
 
       debugPrint('✅ PCM Sound initialized: ${sampleRate.toInt()} Hz, mono');
@@ -143,8 +140,8 @@ class AudioProvider with ChangeNotifier {
     _buffersGenerated = 0;
 
     // Start PCM player
-    if (_pcmInitialized && _pcmPlayer != null) {
-      await _pcmPlayer?.start();
+    if (_pcmInitialized) {
+      await FlutterPcmSound.start();
       debugPrint('✅ PCM player started');
     }
 
@@ -164,9 +161,10 @@ class AudioProvider with ChangeNotifier {
     _isPlaying = false;
     await _audioPlayer.stop();
 
-    // Stop PCM player
-    if (_pcmPlayer != null) {
-      await _pcmPlayer?.stop();
+    // Stop PCM player (release resources)
+    if (_pcmInitialized) {
+      await FlutterPcmSound.release();
+      _pcmInitialized = false;
     }
 
     notifyListeners();
@@ -190,7 +188,7 @@ class AudioProvider with ChangeNotifier {
       _buffersGenerated++;
 
       // Send buffer to speakers via PCM Sound
-      if (_pcmInitialized && _pcmPlayer != null && _currentBuffer != null) {
+      if (_pcmInitialized && _currentBuffer != null) {
         _outputAudioBuffer(_currentBuffer!);
       }
 
@@ -233,7 +231,7 @@ class AudioProvider with ChangeNotifier {
       }
 
       // Feed to PCM player (non-blocking)
-      _pcmPlayer?.feed(
+      FlutterPcmSound.feed(
         PcmArrayInt16.fromList(int16Buffer.toList())
       );
 
@@ -282,7 +280,7 @@ class AudioProvider with ChangeNotifier {
   double _midiNoteToFrequency(int midiNote) {
     // A4 (MIDI 69) = 440 Hz
     // Each semitone is 2^(1/12) ratio
-    return 440.0 * dart.math.pow(2.0, (midiNote - 69) / 12.0);
+    return 440.0 * dart.pow(2.0, (midiNote - 69) / 12.0);
   }
 
   /// Play a note (MIDI note number)
