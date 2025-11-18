@@ -62,6 +62,12 @@ class AudioProvider with ChangeNotifier {
   int _buffersGenerated = 0;
   DateTime _lastMetricsCheck = DateTime.now();
 
+  // Error tracking
+  int _audioOutputErrors = 0;
+  int _consecutiveOutputErrors = 0;
+  static const int _maxConsecutiveErrors = 5;
+  bool _audioOutputFailed = false;
+
   AudioProvider() {
     _initialize();
   }
@@ -196,11 +202,28 @@ class AudioProvider with ChangeNotifier {
 
   /// Output audio buffer to speakers
   void _outputAudioBuffer(Float32List buffer) {
+    if (_audioOutputFailed) {
+      // Skip output if audio output has permanently failed
+      return;
+    }
+
     try {
+      // Validate buffer
+      if (buffer.isEmpty) {
+        debugPrint('⚠️  Empty audio buffer, skipping output');
+        return;
+      }
+
       // Apply master volume
       final scaledBuffer = Float32List(buffer.length);
       for (int i = 0; i < buffer.length; i++) {
-        scaledBuffer[i] = (buffer[i] * _masterVolume).clamp(-1.0, 1.0);
+        final sample = buffer[i];
+        if (sample.isNaN || sample.isInfinite) {
+          debugPrint('⚠️  Invalid audio sample at index $i: $sample');
+          scaledBuffer[i] = 0.0; // Replace with silence
+        } else {
+          scaledBuffer[i] = (sample * _masterVolume).clamp(-1.0, 1.0);
+        }
       }
 
       // Convert Float32 to Int16 for PCM output
@@ -213,9 +236,46 @@ class AudioProvider with ChangeNotifier {
       _pcmPlayer?.feed(
         PcmArrayInt16.fromList(int16Buffer.toList())
       );
-    } catch (e) {
-      debugPrint('❌ Error outputting audio: $e');
+
+      // Reset consecutive error count on success
+      if (_consecutiveOutputErrors > 0) {
+        debugPrint('✅ Audio output recovered after $_consecutiveOutputErrors errors');
+        _consecutiveOutputErrors = 0;
+      }
+    } catch (e, stackTrace) {
+      _handleAudioOutputError(e, stackTrace);
     }
+  }
+
+  /// Handle audio output errors with tracking and recovery
+  void _handleAudioOutputError(Object error, StackTrace stackTrace) {
+    _audioOutputErrors++;
+    _consecutiveOutputErrors++;
+
+    // Log error with severity based on frequency
+    if (_consecutiveOutputErrors == 1) {
+      debugPrint('❌ Audio output error: $error');
+      debugPrint('Stack trace: $stackTrace');
+    } else if (_consecutiveOutputErrors == _maxConsecutiveErrors) {
+      debugPrint('🛑 CRITICAL: Audio output failed permanently after $_maxConsecutiveErrors errors');
+      debugPrint('📝 Last error: $error');
+      debugPrint('💡 Audio playback disabled. Check PCM sound initialization.');
+      _audioOutputFailed = true;
+      _pcmInitialized = false;
+    } else if (_consecutiveOutputErrors % 10 == 0) {
+      debugPrint('⚠️  Audio output errors: $_consecutiveOutputErrors consecutive');
+    }
+  }
+
+  /// Get audio output health status
+  Map<String, dynamic> getAudioOutputHealth() {
+    return {
+      'pcmInitialized': _pcmInitialized,
+      'totalOutputErrors': _audioOutputErrors,
+      'consecutiveErrors': _consecutiveOutputErrors,
+      'audioOutputFailed': _audioOutputFailed,
+      'isHealthy': _pcmInitialized && _consecutiveOutputErrors == 0,
+    };
   }
 
   /// Convert MIDI note to frequency (Hz)

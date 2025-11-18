@@ -59,6 +59,13 @@ class VisualProvider with ChangeNotifier {
   DateTime _lastUpdateTime = DateTime.now();
   double _currentFPS = 60.0; // Track actual FPS
 
+  // Error tracking for WebView communication
+  int _jsUpdateErrors = 0;
+  int _consecutiveJSErrors = 0;
+  static const int _maxConsecutiveJSErrors = 5;
+  bool _webViewCommunicationFailed = false;
+  DateTime? _lastJSErrorTime;
+
   VisualProvider() {
     debugPrint('✅ VisualProvider initialized');
   }
@@ -302,15 +309,67 @@ class VisualProvider with ChangeNotifier {
   /// Update JavaScript parameter via WebView
   /// VIB3+ uses window.updateParameter(name, value) API
   Future<void> _updateJavaScriptParameter(String name, dynamic value) async {
-    if (_webViewController == null) return;
+    if (_webViewController == null) {
+      if (!_webViewCommunicationFailed) {
+        debugPrint('⚠️  WebView controller not initialized yet');
+      }
+      return;
+    }
+
+    if (_webViewCommunicationFailed) {
+      // Skip updates if communication has permanently failed
+      return;
+    }
 
     try {
+      // Sanitize parameter name and value to prevent injection
+      final sanitizedName = name.replaceAll('"', '\\"');
+      final sanitizedValue = value is String ? '"${value.replaceAll('"', '\\"')}"' : value.toString();
+
       await _webViewController!.runJavaScript(
-        'if (window.updateParameter) { window.updateParameter("$name", $value); }'
+        'if (window.updateParameter) { window.updateParameter("$sanitizedName", $sanitizedValue); }'
       );
-    } catch (e) {
-      debugPrint('⚠️  Error updating JS parameter $name: $e');
+
+      // Reset consecutive error count on success
+      if (_consecutiveJSErrors > 0) {
+        debugPrint('✅ WebView communication recovered after $_consecutiveJSErrors errors');
+        _consecutiveJSErrors = 0;
+      }
+    } catch (e, stackTrace) {
+      _handleJSUpdateError(name, e, stackTrace);
     }
+  }
+
+  /// Handle JavaScript update errors with tracking
+  void _handleJSUpdateError(String paramName, Object error, StackTrace stackTrace) {
+    _jsUpdateErrors++;
+    _consecutiveJSErrors++;
+    _lastJSErrorTime = DateTime.now();
+
+    // Log error with severity based on frequency
+    if (_consecutiveJSErrors == 1) {
+      debugPrint('❌ WebView JS error updating $paramName: $error');
+      debugPrint('Stack trace: $stackTrace');
+    } else if (_consecutiveJSErrors == _maxConsecutiveJSErrors) {
+      debugPrint('🛑 CRITICAL: WebView communication failed permanently after $_maxConsecutiveJSErrors errors');
+      debugPrint('📝 Last error: $error');
+      debugPrint('💡 Visual parameter updates disabled. Check WebView initialization.');
+      _webViewCommunicationFailed = true;
+    } else if (_consecutiveJSErrors % 10 == 0) {
+      debugPrint('⚠️  WebView JS errors: $_consecutiveJSErrors consecutive');
+    }
+  }
+
+  /// Get WebView communication health status
+  Map<String, dynamic> getWebViewHealth() {
+    return {
+      'webViewInitialized': _webViewController != null,
+      'totalJSErrors': _jsUpdateErrors,
+      'consecutiveErrors': _consecutiveJSErrors,
+      'communicationFailed': _webViewCommunicationFailed,
+      'lastErrorTime': _lastJSErrorTime?.toIso8601String(),
+      'isHealthy': _webViewController != null && _consecutiveJSErrors == 0,
+    };
   }
 
   /// Start animation loop

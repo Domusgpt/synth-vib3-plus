@@ -42,6 +42,18 @@ class ParameterBridge with ChangeNotifier {
   DateTime _lastFPSCheck = DateTime.now();
   double _currentFPS = 0.0;
 
+  // Error tracking
+  int _consecutiveErrors = 0;
+  int _totalErrors = 0;
+  DateTime? _lastErrorTime;
+  String? _lastErrorMessage;
+  static const int _maxConsecutiveErrors = 10;
+
+  // Performance warnings
+  bool _fpsWarningShown = false;
+  static const double _targetFPS = 60.0;
+  static const double _warningFPSThreshold = 30.0;
+
   ParameterBridge({
     required this.audioProvider,
     required this.visualProvider,
@@ -92,15 +104,23 @@ class ParameterBridge with ChangeNotifier {
     try {
       // Audio → Visual modulation (if enabled in preset)
       if (_currentPreset.audioReactiveEnabled) {
-        final audioBuffer = audioProvider.getCurrentBuffer();
-        if (audioBuffer != null && audioBuffer.isNotEmpty) {
-          audioToVisual.updateFromAudio(audioBuffer);
+        try {
+          final audioBuffer = audioProvider.getCurrentBuffer();
+          if (audioBuffer != null && audioBuffer.isNotEmpty) {
+            audioToVisual.updateFromAudio(audioBuffer);
+          }
+        } catch (e, stackTrace) {
+          _handleError('Audio→Visual modulation', e, stackTrace);
         }
       }
 
       // Visual → Audio modulation (if enabled in preset)
       if (_currentPreset.visualReactiveEnabled) {
-        visualToAudio.updateFromVisuals();
+        try {
+          visualToAudio.updateFromVisuals();
+        } catch (e, stackTrace) {
+          _handleError('Visual→Audio modulation', e, stackTrace);
+        }
       }
 
       // Update FPS counter
@@ -111,10 +131,66 @@ class ParameterBridge with ChangeNotifier {
         _currentFPS = _frameCount / (elapsed / 1000.0);
         _frameCount = 0;
         _lastFPSCheck = now;
+
+        // Check for performance issues
+        _checkPerformance();
       }
-    } catch (e) {
-      debugPrint('ParameterBridge update error: $e');
+
+      // Reset consecutive error count on successful update
+      if (_consecutiveErrors > 0) {
+        debugPrint('✅ ParameterBridge recovered after $_consecutiveErrors errors');
+        _consecutiveErrors = 0;
+      }
+    } catch (e, stackTrace) {
+      _handleError('ParameterBridge update', e, stackTrace);
     }
+  }
+
+  /// Handle errors with tracking and automatic recovery
+  void _handleError(String context, Object error, StackTrace stackTrace) {
+    _consecutiveErrors++;
+    _totalErrors++;
+    _lastErrorTime = DateTime.now();
+    _lastErrorMessage = '$context: $error';
+
+    // Log error with context
+    debugPrint('❌ $context error ($_consecutiveErrors consecutive): $error');
+
+    // Log stack trace for first error or critical errors
+    if (_consecutiveErrors == 1 || _consecutiveErrors >= _maxConsecutiveErrors) {
+      debugPrint('Stack trace: $stackTrace');
+    }
+
+    // Automatic shutdown if too many consecutive errors
+    if (_consecutiveErrors >= _maxConsecutiveErrors) {
+      debugPrint('🛑 CRITICAL: Too many consecutive errors ($_consecutiveErrors). Stopping parameter bridge.');
+      debugPrint('📝 Last error: $_lastErrorMessage');
+      stop();
+    }
+  }
+
+  /// Check performance and warn if FPS is low
+  void _checkPerformance() {
+    if (_currentFPS < _warningFPSThreshold && !_fpsWarningShown) {
+      debugPrint('⚠️  WARNING: Parameter bridge FPS low: ${_currentFPS.toStringAsFixed(1)} (target: $_targetFPS)');
+      debugPrint('📝 This may cause audio-visual coupling lag. Consider reducing visual complexity.');
+      _fpsWarningShown = true;
+    } else if (_currentFPS >= _targetFPS * 0.9 && _fpsWarningShown) {
+      // Reset warning if performance recovers
+      debugPrint('✅ Parameter bridge FPS recovered: ${_currentFPS.toStringAsFixed(1)}');
+      _fpsWarningShown = false;
+    }
+  }
+
+  /// Get error statistics
+  Map<String, dynamic> getErrorStats() {
+    return {
+      'totalErrors': _totalErrors,
+      'consecutiveErrors': _consecutiveErrors,
+      'lastErrorTime': _lastErrorTime?.toIso8601String(),
+      'lastErrorMessage': _lastErrorMessage,
+      'isHealthy': _consecutiveErrors == 0,
+    };
   }
 
   /// Load a mapping preset

@@ -30,7 +30,7 @@ enum VisualSystem {
 }
 
 /// Polytope core types (determines synthesis branch)
-enum PolytopeCor {
+enum PolytopeCore {
   base,              // Direct synthesis (geometries 0-7)
   hypersphere,       // FM synthesis (geometries 8-15)
   hypertetrahedron,  // Ring modulation (geometries 16-23)
@@ -223,7 +223,7 @@ class SynthesisBranchManager {
   VisualSystem _visualSystem = VisualSystem.quantum;
 
   // Derived state
-  PolytopeCor _currentCore = PolytopeCor.base;
+  PolytopeCore _currentCore = PolytopeCore.base;
   BaseGeometry _currentBaseGeometry = BaseGeometry.tetrahedron;
   SoundFamily _currentSoundFamily = SoundFamily.quantum;
   VoiceCharacter _currentVoiceCharacter = VoiceCharacter.tetrahedron;
@@ -255,7 +255,7 @@ class SynthesisBranchManager {
     final baseIndex = geometry % 8;   // Modulo
 
     // Update core (determines synthesis branch)
-    _currentCore = PolytopeCor.values[coreIndex];
+    _currentCore = PolytopeCore.values[coreIndex];
 
     // Update base geometry (determines voice character)
     _currentBaseGeometry = BaseGeometry.values[baseIndex];
@@ -323,11 +323,11 @@ class SynthesisBranchManager {
   Float32List generateBuffer(int frames, double frequency) {
     // Route to appropriate synthesis branch based on core
     switch (_currentCore) {
-      case PolytopeCor.base:
+      case PolytopeCore.base:
         return _generateDirect(frames, frequency);
-      case PolytopeCor.hypersphere:
+      case PolytopeCore.hypersphere:
         return _generateFM(frames, frequency);
-      case PolytopeCor.hypertetrahedron:
+      case PolytopeCore.hypertetrahedron:
         return _generateRingMod(frames, frequency);
     }
   }
@@ -545,11 +545,11 @@ Harmonics: ${_currentVoiceCharacter.harmonicCount}
 
   String _getSynthesisBranchName() {
     switch (_currentCore) {
-      case PolytopeCor.base:
+      case PolytopeCore.base:
         return 'Direct Synthesis';
-      case PolytopeCor.hypersphere:
+      case PolytopeCore.hypersphere:
         return 'FM Synthesis';
-      case PolytopeCor.hypertetrahedron:
+      case PolytopeCore.hypertetrahedron:
         return 'Ring Modulation';
     }
   }
@@ -557,7 +557,7 @@ Harmonics: ${_currentVoiceCharacter.harmonicCount}
   // Getters for external access
   int get currentGeometry => _currentGeometry;
   VisualSystem get visualSystem => _visualSystem;
-  PolytopeCor get currentCore => _currentCore;
+  PolytopeCore get currentCore => _currentCore;
   BaseGeometry get currentBaseGeometry => _currentBaseGeometry;
   SoundFamily get soundFamily => _currentSoundFamily;
   VoiceCharacter get voiceCharacter => _currentVoiceCharacter;
