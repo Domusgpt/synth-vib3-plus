@@ -91,6 +91,14 @@ class AudioToVisualModulator {
       'stereoWidth': 0.5, // Placeholder - requires stereo buffer
     };
 
+    // Forward the raw energy snapshot to the WebView for shader reactivity
+    visualProvider.updateAudioReactive({
+      'bass': features['bassEnergy'] ?? 0.0,
+      'mid': features['midEnergy'] ?? 0.0,
+      'high': features['highEnergy'] ?? 0.0,
+      'energy': features['rms'] ?? 0.0,
+    });
+
     // Apply each mapping
     _mappings.forEach((key, mapping) {
       final sourceValue = features[mapping.sourceParam] ?? 0.0;
