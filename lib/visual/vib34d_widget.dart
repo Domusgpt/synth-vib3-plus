@@ -64,7 +64,6 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
             setState(() {
               _errorMessage = error.description;
               _isLoading = false;
-              _visualizerReady = false;
             });
             widget.visualProvider.markVisualizerNotReady();
             debugPrint('❌ WebView error: ${error.description}');
@@ -142,6 +141,8 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
         final note = widget.visualProvider.lifecycleNote;
         final label = widget.visualProvider.viewerLabel;
         final error = _errorMessage ?? widget.visualProvider.lastVisualizerError;
+        final telemetry = widget.visualProvider.viewerTelemetry;
+        final viewerHidden = widget.visualProvider.viewerHidden;
         final shouldBlock =
             _isLoading || phase != VisualizerLifecyclePhase.ready || error != null;
 
@@ -160,6 +161,7 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
               label,
               error,
             ),
+            _buildTelemetryStrip(telemetry, viewerHidden),
           ],
         );
       },
@@ -287,6 +289,133 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
         ),
       ),
     );
+  }
+
+  Widget _buildTelemetryStrip(
+    Map<String, dynamic>? telemetry,
+    bool viewerHidden,
+  ) {
+    if (telemetry == null) {
+      return const SizedBox.shrink();
+    }
+
+    final system = (telemetry['system'] as String? ?? 'unknown').toUpperCase();
+    final layers = telemetry['layers'] as int? ?? 0;
+    final queueDepth = telemetry['commandQueue'] as int? ?? 0;
+    final energy = (telemetry['audioEnergy'] as num?)?.toDouble() ?? 0.0;
+    final timestamp = telemetry['timestamp'] as int?;
+    DateTime? heartbeat;
+    if (timestamp != null) {
+      heartbeat = DateTime.fromMillisecondsSinceEpoch(timestamp);
+    } else {
+      heartbeat = widget.visualProvider.lastTelemetryBeat;
+    }
+    final Duration? age = heartbeat != null ? DateTime.now().difference(heartbeat) : null;
+    final bool stale = age != null && age > const Duration(seconds: 4);
+    final double normalizedEnergy = energy < 0
+        ? 0.0
+        : (energy > 1.0
+            ? 1.0
+            : energy);
+    final int energyPercent = (normalizedEnergy * 100).round();
+    final String heartbeatLabel = _formatHeartbeatAge(age);
+    final Color statusColor = viewerHidden
+        ? Colors.amberAccent
+        : stale
+            ? Colors.orangeAccent
+            : Colors.tealAccent;
+    final String status = viewerHidden
+        ? 'Hidden'
+        : stale
+            ? 'Stale'
+            : 'Live';
+
+    return Positioned(
+      left: 16,
+      bottom: 16,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 250),
+        opacity: stale ? 0.85 : 1,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.55),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: statusColor.withOpacity(0.6)),
+            boxShadow: [
+              BoxShadow(
+                color: statusColor.withOpacity(0.18),
+                blurRadius: 14,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Wrap(
+            spacing: 20,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _telemetryBadge('System', system, accent: statusColor),
+              _telemetryBadge('Layers', '$layers'),
+              _telemetryBadge(
+                'Queue',
+                '$queueDepth',
+                accent: queueDepth > 0 ? Colors.orangeAccent : Colors.white70,
+              ),
+              _telemetryBadge(
+                'Energy',
+                '$energyPercent%',
+                accent: normalizedEnergy > 0.1 ? Colors.cyanAccent : Colors.white54,
+              ),
+              _telemetryBadge('Heartbeat', heartbeatLabel),
+              _telemetryBadge('Status', status.toUpperCase(), accent: statusColor),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _telemetryBadge(
+    String label,
+    String value, {
+    Color? accent,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            color: Colors.white54,
+            fontSize: 9,
+            letterSpacing: 1.4,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            color: accent ?? Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatHeartbeatAge(Duration? age) {
+    if (age == null) {
+      return '—';
+    }
+    if (age.inMilliseconds < 1000) {
+      return '<1s';
+    }
+    if (age.inSeconds < 60) {
+      return '${age.inSeconds}s';
+    }
+    return '${age.inMinutes}m';
   }
 
   Color _phaseColor(VisualizerLifecyclePhase phase) {

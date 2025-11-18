@@ -8,6 +8,12 @@ This document captures the contract between Flutter and the embedded VIB34D view
 2. **Syncing** – VisualProvider batches rotation/geometry/audio payloads and resends the active system selection. JavaScript acknowledges each `switchSystem` call through `system-ready` or `system-error`.
 3. **Ready / Switching / Faulted** – Both sides maintain a single active five-layer stack. VisualProvider tracks the lifecycle in `VisualizerLifecyclePhase` so widgets can present accurate UX and fallback when faults occur.
 
+### Runtime Telemetry & Safeguards
+
+- **Context guards:** Every canvas now registers `webglcontextlost/webglcontextrestored` hooks. A lost context emits `viewer-warning` plus a `system-initializing` pulse so Flutter can communicate the recovery, while the runtime force-destroys and rehydrates only the impacted stack.
+- **Telemetry heartbeat:** The viewer publishes `viewer-telemetry` once per second with lifecycle, system name, layer count, queue depth, and current audio energy. `VisualProvider` caches the heartbeat so overlays can highlight stale or hidden sessions.
+- **Manual overrides:** `window.vib34d.forceReload()` is exposed for diagnostics and the Flutter HUD can trigger it via new reload affordances when telemetry stalls.
+
 Every message surfaces via the `FlutterBridge` channel and is mirrored into provider state. This makes it trivial to log/trace lifecycle transitions while debugging audio/visual coupling.
 
 ## Phased Testing Expectations
@@ -36,3 +42,5 @@ Every message surfaces via the `FlutterBridge` channel and is mirrored into prov
 | --- | --- | --- |
 | 4. Parameter bridge contract | Unit test or integration harness that calls `window.vib34d.updateParameters` and inspects each system’s uniforms (via JS eval) | Confirms `applyBridgeParameters` correctly translates Flutter names into shader-specific uniforms. |
 | 5. Audio parity audit | Pump synthetic FFT data through `VisualProvider.updateAudioReactive` while each system is active | Ensures the new JS `updateAudioReactive` hooks react identically across Quantum/Holographic/Faceted layers. |
+| 6. Context guard regression | Trigger `webglcontextlost` via DevTools (`gl.getExtension('WEBGL_lose_context').loseContext()`) while a system is running | Confirms `viewer-warning` plus forced rebuilds leave only one canvas stack alive and the Flutter HUD reports the recovery. |
+| 7. Telemetry HUD verification | Run Flutter (desktop/web) and observe the new telemetry strip while switching systems | Guarantees performers see live system/layer/queue/energy stats and that stale/hidden states surface within 4 seconds. |

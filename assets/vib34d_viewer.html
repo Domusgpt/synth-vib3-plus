@@ -95,6 +95,9 @@
         parameterSnapshot: { ...DEFAULT_PARAMETER_STATE },
         audioReactive: { bass: 0, mid: 0, high: 0, energy: 0 },
         resizeRaf: null,
+        canvasGuards: [],
+        switchInFlight: false,
+        telemetryTimer: null,
       };
 
       const container = document.getElementById('canvas-container');
@@ -149,6 +152,14 @@
         }
       };
 
+      const detachCanvasGuards = () => {
+        state.canvasGuards.forEach(({ canvas, lostHandler, restoredHandler }) => {
+          canvas.removeEventListener('webglcontextlost', lostHandler);
+          canvas.removeEventListener('webglcontextrestored', restoredHandler);
+        });
+        state.canvasGuards = [];
+      };
+
       const destroyCurrentSystem = async () => {
         if (!state.activeVisualizers.length && !container.firstChild) return;
         setLifecycle('tearing-down', {
@@ -168,6 +179,7 @@
 
         state.activeVisualizers = [];
         container.innerHTML = '';
+        detachCanvasGuards();
         notifyFlutter('system-destroyed', { system: state.currentSystem });
         state.currentSystem = null;
       };
@@ -181,8 +193,30 @@
         canvas.height = height * dpr;
       };
 
+      const attachCanvasGuards = (canvas, systemName) => {
+        const lostHandler = (event) => {
+          event.preventDefault();
+          notifyFlutter('viewer-warning', {
+            system: systemName,
+            message: `WebGL context lost on ${canvas.id}`,
+          });
+          queueCommand(() => swapSystem(systemName, true));
+        };
+        const restoredHandler = () => {
+          notifyFlutter('viewer-lifecycle', {
+            lifecycle: 'recovering',
+            system: systemName,
+            message: `Restoring ${canvas.id}`,
+          });
+        };
+        canvas.addEventListener('webglcontextlost', lostHandler, false);
+        canvas.addEventListener('webglcontextrestored', restoredHandler, false);
+        state.canvasGuards.push({ canvas, lostHandler, restoredHandler });
+      };
+
       const createLayerCanvases = (systemName) => {
         container.innerHTML = '';
+        detachCanvasGuards();
         return LAYER_CONFIG.map((config) => {
           const canvas = document.createElement('canvas');
           canvas.id = config.domId;
@@ -192,6 +226,7 @@
           canvas.setAttribute('aria-label', `${systemName}-${config.role}-layer`);
           container.appendChild(canvas);
           sizeCanvas(canvas);
+          attachCanvasGuards(canvas, systemName);
           return { canvas, config };
         });
       };
@@ -257,6 +292,11 @@
         }
 
         const layers = createLayerCanvases(systemName);
+        notifyFlutter('system-initializing', {
+          system: systemName,
+          layers: layers.length,
+          message: `Initializing ${descriptor.label}`,
+        });
         setLifecycle('initializing', {
           system: systemName,
           layers: layers.length,
@@ -312,8 +352,17 @@
 
       const swapSystem = async (systemName, force = false) => {
         if (!force && state.currentSystem === systemName) return;
-        await destroyCurrentSystem();
-        await instantiateSystem(systemName);
+        if (state.switchInFlight && !force) {
+          state.commandQueue.push(() => swapSystem(systemName, force));
+          return;
+        }
+        state.switchInFlight = true;
+        try {
+          await destroyCurrentSystem();
+          await instantiateSystem(systemName);
+        } finally {
+          state.switchInFlight = false;
+        }
       };
 
       const handleResize = () => {
@@ -321,6 +370,29 @@
         state.resizeRaf = requestAnimationFrame(() => {
           container.querySelectorAll('canvas').forEach(sizeCanvas);
         });
+      };
+
+      const emitTelemetry = () => {
+        notifyFlutter('viewer-telemetry', {
+          lifecycle: state.lifecycle,
+          system: state.currentSystem,
+          layers: state.activeVisualizers.length,
+          commandQueue: state.commandQueue.length,
+          audioEnergy: Number(state.audioReactive?.energy ?? 0),
+          timestamp: Date.now(),
+        });
+      };
+
+      const startTelemetry = () => {
+        stopTelemetry();
+        state.telemetryTimer = window.setInterval(emitTelemetry, 1000);
+      };
+
+      const stopTelemetry = () => {
+        if (state.telemetryTimer) {
+          clearInterval(state.telemetryTimer);
+          state.telemetryTimer = null;
+        }
       };
 
       const bootstrap = async () => {
@@ -331,6 +403,7 @@
           state.bootstrapped = true;
           flushCommandQueue();
           fallback.style.display = 'none';
+          startTelemetry();
           setLifecycle('ready', {
             system: state.currentSystem,
             label: SYSTEM_LIBRARY[state.currentSystem ?? 'quantum']?.label,
@@ -347,7 +420,10 @@
       window.addEventListener('visibilitychange', () => {
         notifyFlutter('viewer-visibility', { hidden: document.hidden });
       });
-      window.addEventListener('beforeunload', destroyCurrentSystem);
+      window.addEventListener('beforeunload', () => {
+        stopTelemetry();
+        destroyCurrentSystem();
+      });
 
       const publicAPI = {
         switchSystem: (systemName, options) =>
@@ -366,6 +442,14 @@
           audioReactive: state.audioReactive,
         }),
         destroy: () => queueCommand(() => destroyCurrentSystem()),
+        forceReload: () => queueCommand(() => swapSystem(state.currentSystem ?? 'quantum', true)),
+        getTelemetry: () => ({
+          lifecycle: state.lifecycle,
+          system: state.currentSystem,
+          layers: state.activeVisualizers.length,
+          commandQueue: state.commandQueue.length,
+          audioEnergy: state.audioReactive?.energy ?? 0,
+        }),
       };
 
       window.vib34d = publicAPI;

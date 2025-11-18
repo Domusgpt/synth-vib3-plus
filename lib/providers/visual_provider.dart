@@ -70,6 +70,9 @@ class VisualProvider with ChangeNotifier {
   String? _lifecycleNote;
   String? _viewerLabel;
   String? _lastVisualizerError;
+  Map<String, dynamic>? _viewerTelemetry;
+  DateTime? _lastTelemetryBeat;
+  bool _viewerHidden = false;
   Completer<void>? _pendingSwitchCompleter;
   Timer? _switchTimeoutTimer;
   final Duration _switchAcknowledgementTimeout = const Duration(seconds: 6);
@@ -105,6 +108,8 @@ class VisualProvider with ChangeNotifier {
         return VisualizerLifecyclePhase.switching;
       case 'tearing-down':
         return VisualizerLifecyclePhase.switching;
+      case 'recovering':
+        return VisualizerLifecyclePhase.switching;
       case 'ready':
         return VisualizerLifecyclePhase.ready;
       case 'faulted':
@@ -135,6 +140,9 @@ class VisualProvider with ChangeNotifier {
   String? get lifecycleNote => _lifecycleNote;
   String? get viewerLabel => _viewerLabel;
   String? get lastVisualizerError => _lastVisualizerError;
+  Map<String, dynamic>? get viewerTelemetry => _viewerTelemetry;
+  DateTime? get lastTelemetryBeat => _lastTelemetryBeat;
+  bool get viewerHidden => _viewerHidden;
 
   /// Initialize WebView controller for VIB34D systems
   void setWebViewController(WebViewController controller) {
@@ -189,6 +197,17 @@ class VisualProvider with ChangeNotifier {
           note: payload['message'] as String? ?? _lifecycleNote,
         );
         break;
+      case 'viewer-telemetry':
+        _viewerTelemetry = Map<String, dynamic>.from(payload)
+          ..remove('event');
+        _lastTelemetryBeat = DateTime.now();
+        break;
+      case 'viewer-warning':
+        final warning = payload['message'] as String?;
+        if (warning != null) {
+          _lifecycleNote = warning;
+        }
+        break;
       case 'system-initializing':
         _setLifecyclePhase(
           VisualizerLifecyclePhase.switching,
@@ -218,6 +237,9 @@ class VisualProvider with ChangeNotifier {
           note: _lastVisualizerError,
         );
         _failPendingSwitch(_lastVisualizerError ?? 'Visualizer error');
+        break;
+      case 'viewer-visibility':
+        _viewerHidden = payload['hidden'] == true;
         break;
     }
 
@@ -642,6 +664,9 @@ class VisualProvider with ChangeNotifier {
     _visualizerReady = false;
     _viewerActiveSystem = null;
     _lastVisualizerError = null;
+    _viewerTelemetry = null;
+    _lastTelemetryBeat = null;
+    _viewerHidden = false;
     _pendingParameterUpdates.clear();
     _parameterFlushTimer?.cancel();
     _parameterFlushTimer = null;
