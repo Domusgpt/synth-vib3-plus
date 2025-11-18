@@ -25,6 +25,7 @@ class HolographicSystem {
         this.analyser = null;
         this.frequencyData = null;
         this.audioData = { bass: 0, mid: 0, high: 0 };
+        this.externalAudioReactive = { bass: 0, mid: 0, high: 0, energy: 0 };
         
         // Variant names for display - SEQUENTIAL ORDER
         this.variantNames = [
@@ -48,10 +49,26 @@ class HolographicSystem {
         
         // Initialize export system
         this.exportSystem = new ExportSystem(this);
-        
+
         // Load any saved custom variations from session
         this.loadSavedVariations();
-        
+
+        this.bridgeParameters = {
+            rotationSpeed: 1.0,
+            tessellationDensity: 5,
+            vertexBrightness: 0.8,
+            hueShift: 180,
+            glowIntensity: 1.0,
+            rgbSplitAmount: 0.0,
+            morphParameter: 0.0,
+            rot4dXW: 0.0,
+            rot4dYW: 0.0,
+            rot4dZW: 0.0,
+        };
+
+        this._renderLoopHandle = null;
+        this._bridgeAudioMode = false;
+
         this.initialize();
     }
     
@@ -100,11 +117,78 @@ class HolographicSystem {
     
     initialize() {
         console.log('🎨 Initializing Holographic System...');
-        
+
         this.createVisualizers();
         this.setupInteractions();
         this.updateVariantDisplay();
         this.startRenderLoop();
+    }
+
+    applyBridgeParameters(params) {
+        if (!params) return;
+        this.bridgeParameters = { ...this.bridgeParameters, ...params };
+        this._applyBridgeParametersToVisualizers();
+    }
+
+    _applyBridgeParametersToVisualizers() {
+        if (!this.visualizers?.length) return;
+        const density = this._mapRange(this.bridgeParameters.tessellationDensity ?? 5, 3, 10, 0.35, 2.4);
+        const intensity = Math.min(1.6, (this.bridgeParameters.vertexBrightness ?? 0.8) + (this.bridgeParameters.glowIntensity ?? 1.0) * 0.18);
+        const chaos = Math.min(1.2, (this.bridgeParameters.rgbSplitAmount ?? 0) * 0.08);
+        const payload = {
+            gridDensity: density,
+            density: density,
+            morphFactor: this.bridgeParameters.morphParameter ?? 0.0,
+            morph: this.bridgeParameters.morphParameter ?? 0.0,
+            hue: this.bridgeParameters.hueShift ?? 180,
+            speed: (this.bridgeParameters.rotationSpeed ?? 1.0) * 0.45,
+            intensity,
+            chaos,
+            rot4dXW: this.bridgeParameters.rot4dXW ?? 0,
+            rot4dYW: this.bridgeParameters.rot4dYW ?? 0,
+            rot4dZW: this.bridgeParameters.rot4dZW ?? 0,
+        };
+
+        this.visualizers.forEach((visualizer, index) => {
+            const perLayerPayload = { ...payload };
+            perLayerPayload.intensity = Math.min(1.8, payload.intensity * (1 + index * 0.04));
+            if (typeof visualizer.updateParameters === 'function') {
+                visualizer.updateParameters(perLayerPayload);
+            } else if (visualizer.variantParams) {
+                Object.assign(visualizer.variantParams, perLayerPayload);
+            }
+        });
+    }
+
+    _mapRange(value, inMin, inMax, outMin, outMax) {
+        const clamped = Math.max(inMin, Math.min(inMax, value));
+        const ratio = (clamped - inMin) / (inMax - inMin);
+        return outMin + ratio * (outMax - outMin);
+    }
+
+    updateAudioReactive(levels) {
+        if (!levels) return;
+        this._bridgeAudioMode = true;
+        this.audioEnabled = true;
+        this.externalAudioReactive = {
+            bass: levels.bass ?? 0,
+            mid: levels.mid ?? 0,
+            high: levels.high ?? 0,
+            energy: levels.energy ?? ((levels.bass ?? 0) + (levels.mid ?? 0) + (levels.high ?? 0)) / 3,
+        };
+        this.audioData = {
+            ...this.externalAudioReactive,
+            rhythm: this.detectRhythm(this.externalAudioReactive.bass ?? 0),
+            melody: this.detectMelody(this.externalAudioReactive.mid ?? 0, this.externalAudioReactive.high ?? 0),
+        };
+
+        this.visualizers.forEach((visualizer) => {
+            if (typeof visualizer.updateAudio === 'function') {
+                visualizer.updateAudio(this.audioData);
+            } else if (typeof visualizer.updateParameters === 'function') {
+                visualizer.updateParameters({ chaos: this.audioData.energy * 0.5 });
+            }
+        });
     }
     
     createVisualizers() {
@@ -310,6 +394,17 @@ class HolographicSystem {
     }
 
     updateAudio() {
+        if (this._bridgeAudioMode) {
+            if (this.visualizers?.length) {
+                this.visualizers.forEach(visualizer => {
+                    if (typeof visualizer.updateAudio === 'function') {
+                        visualizer.updateAudio(this.audioData);
+                    }
+                });
+            }
+            return;
+        }
+
         if (!this.audioEnabled || !this.analyser) return;
         
         this.analyser.getByteFrequencyData(this.frequencyData);
@@ -626,17 +721,24 @@ class HolographicSystem {
         const render = () => {
             // Update audio reactivity
             this.updateAudio();
-            
+
             // Render all visualizers
             this.visualizers.forEach(visualizer => {
                 visualizer.render();
             });
-            
-            requestAnimationFrame(render);
+
+            this._renderLoopHandle = requestAnimationFrame(render);
         };
-        
-        render();
+
+        this._renderLoopHandle = requestAnimationFrame(render);
         console.log('🎬 Holographic render loop started');
+    }
+
+    stopRenderLoop() {
+        if (this._renderLoopHandle) {
+            cancelAnimationFrame(this._renderLoopHandle);
+            this._renderLoopHandle = null;
+        }
     }
     
     loadCustomVariation(customParams) {
@@ -715,5 +817,26 @@ class HolographicSystem {
             'KLEIN BOTTLE', 'FRACTAL', 'WAVE', 'CRYSTAL'
         ];
         return geometryNames[geometryId] || 'UNKNOWN';
+    }
+
+    destroy() {
+        this.stopRenderLoop();
+        if (this.autoCycleInterval) {
+            clearInterval(this.autoCycleInterval);
+            this.autoCycleInterval = null;
+        }
+        if (this.visualizers?.length) {
+            this.visualizers.forEach((visualizer) => {
+                if (typeof visualizer.destroy === 'function') {
+                    try {
+                        visualizer.destroy();
+                    } catch (error) {
+                        console.warn('Visualizer destroy error', error);
+                    }
+                }
+            });
+        }
+        this.visualizers = [];
+        console.log('🧹 Holographic system destroyed');
     }
 }
