@@ -69,6 +69,8 @@ class QuantumHolographicVisualizer {
             rot4dYW: 0.0,
             rot4dZW: 0.0
         };
+
+        this._bridgeAudioReactive = null;
         
         this.init();
     }
@@ -839,8 +841,54 @@ void main() {
      */
     updateParameters(params) {
         this.params = { ...this.params, ...params };
-        
+
         // Don't call render() here - engine will call it to prevent infinite loop
+    }
+
+    applyBridgeParameters(params) {
+        if (!params) return;
+        const mapped = {};
+
+        if (params.rotationSpeed !== undefined) {
+            mapped.speed = Math.max(0.05, parseFloat(params.rotationSpeed));
+        }
+
+        if (params.tessellationDensity !== undefined) {
+            const density = parseFloat(params.tessellationDensity);
+            mapped.gridDensity = Math.max(5, Math.min(120, density * 10));
+        }
+
+        if (params.vertexBrightness !== undefined) {
+            mapped.intensity = Math.max(0.1, Math.min(1.5, parseFloat(params.vertexBrightness) + (params.glowIntensity || 0) * 0.2));
+        }
+
+        if (params.hueShift !== undefined) {
+            mapped.hue = parseFloat(params.hueShift);
+        }
+
+        if (params.glowIntensity !== undefined) {
+            const glow = parseFloat(params.glowIntensity);
+            mapped.saturation = Math.max(0.2, Math.min(1.2, 0.6 + glow * 0.15));
+            mapped.dimension = 3.0 + glow * 0.4;
+        }
+
+        if (params.rgbSplitAmount !== undefined) {
+            mapped.chaos = Math.min(2.0, (parseFloat(params.rgbSplitAmount) || 0) * 0.08);
+        }
+
+        if (params.morphParameter !== undefined) {
+            mapped.morphFactor = Math.max(0, Math.min(1.0, parseFloat(params.morphParameter)));
+        }
+
+        ['rot4dXW', 'rot4dYW', 'rot4dZW'].forEach((axis) => {
+            if (params[axis] !== undefined) {
+                mapped[axis] = parseFloat(params[axis]);
+            }
+        });
+
+        if (Object.keys(mapped).length) {
+            this.updateParameters(mapped);
+        }
     }
     
     /**
@@ -850,6 +898,16 @@ void main() {
         this.mouseX = x;
         this.mouseY = y;
         this.mouseIntensity = intensity;
+    }
+
+    updateAudioReactive(levels) {
+        if (!levels) return;
+        this._bridgeAudioReactive = {
+            bass: levels.bass ?? 0,
+            mid: levels.mid ?? 0,
+            high: levels.high ?? 0,
+            energy: levels.energy ?? ((levels.bass ?? 0) + (levels.mid ?? 0) + (levels.high ?? 0)) / 3,
+        };
     }
     
     /**
@@ -899,16 +957,18 @@ void main() {
         let hue = this.params.hue;
         let chaos = this.params.chaos;
         
-        if (window.audioEnabled && window.audioReactive) {
+        const audioState = this._bridgeAudioReactive || window.audioReactive;
+        const audioEnabled = window.audioEnabled !== false;
+        if (audioEnabled && audioState) {
             // Quantum audio mapping: Enhanced complex lattice response
-            gridDensity += window.audioReactive.bass * 40;      // Bass creates dense lattice structures
-            morphFactor += window.audioReactive.mid * 1.2;      // Mid frequencies morph the geometry
-            hue += window.audioReactive.high * 120;             // High frequencies shift colors dramatically
-            chaos += window.audioReactive.energy * 0.6;         // Overall energy adds chaos/complexity
-            
+            gridDensity += (audioState.bass ?? 0) * 40;      // Bass creates dense lattice structures
+            morphFactor += (audioState.mid ?? 0) * 1.2;      // Mid frequencies morph the geometry
+            hue += (audioState.high ?? 0) * 120;             // High frequencies shift colors dramatically
+            chaos += (audioState.energy ?? 0) * 0.6;         // Overall energy adds chaos/complexity
+
             // Debug logging every 10 seconds to verify audio reactivity is working
             if (Date.now() % 10000 < 16) {
-                console.log(`🌌 Quantum audio reactivity: Density+${(window.audioReactive.bass * 40).toFixed(1)} Morph+${(window.audioReactive.mid * 1.2).toFixed(2)} Hue+${(window.audioReactive.high * 120).toFixed(1)} Chaos+${(window.audioReactive.energy * 0.6).toFixed(2)}`);
+                console.log(`🌌 Quantum audio reactivity: Density+${(((audioState.bass ?? 0) * 40)).toFixed(1)} Morph+${(((audioState.mid ?? 0) * 1.2)).toFixed(2)} Hue+${(((audioState.high ?? 0) * 120)).toFixed(1)} Chaos+${(((audioState.energy ?? 0) * 0.6)).toFixed(2)}`);
             }
         }
         

@@ -55,6 +55,8 @@ class IntegratedHolographicVisualizer {
             rot4dYW: 0.0,
             rot4dZW: 0.0
         };
+
+        this._bridgeAudioReactive = null;
         
         // Initialization now happens in ensureCanvasSizedThenInitWebGL after sizing
         // this.init(); // MOVED
@@ -524,6 +526,50 @@ void main() {
     updateParameters(params) {
         this.params = { ...this.params, ...params };
     }
+
+    applyBridgeParameters(params) {
+        if (!params) return;
+        const mapped = {};
+
+        if (params.rotationSpeed !== undefined) {
+            mapped.speed = Math.max(0.05, parseFloat(params.rotationSpeed));
+        }
+
+        if (params.tessellationDensity !== undefined) {
+            mapped.gridDensity = Math.max(5, Math.min(120, parseFloat(params.tessellationDensity) * 12));
+        }
+
+        if (params.vertexBrightness !== undefined) {
+            const base = parseFloat(params.vertexBrightness);
+            mapped.intensity = Math.max(0.1, Math.min(1.5, base + (params.glowIntensity || 0) * 0.3));
+        }
+
+        if (params.hueShift !== undefined) {
+            mapped.hue = parseFloat(params.hueShift);
+        }
+
+        if (params.glowIntensity !== undefined) {
+            mapped.dimension = 3.0 + parseFloat(params.glowIntensity) * 0.35;
+        }
+
+        if (params.rgbSplitAmount !== undefined) {
+            mapped.chaos = Math.min(1.5, (parseFloat(params.rgbSplitAmount) || 0) * 0.1);
+        }
+
+        if (params.morphParameter !== undefined) {
+            mapped.morphFactor = Math.max(0, Math.min(1, parseFloat(params.morphParameter)));
+        }
+
+        ['rot4dXW', 'rot4dYW', 'rot4dZW'].forEach((axis) => {
+            if (params[axis] !== undefined) {
+                mapped[axis] = parseFloat(params[axis]);
+            }
+        });
+
+        if (Object.keys(mapped).length) {
+            this.updateParameters(mapped);
+        }
+    }
     
     /**
      * Update mouse interaction state
@@ -541,6 +587,16 @@ void main() {
         this.mouseX = x;
         this.mouseY = y;
         this.mouseIntensity = intensity;
+    }
+
+    updateAudioReactive(levels) {
+        if (!levels) return;
+        this._bridgeAudioReactive = {
+            bass: levels.bass ?? 0,
+            mid: levels.mid ?? 0,
+            high: levels.high ?? 0,
+            energy: levels.energy ?? ((levels.bass ?? 0) + (levels.mid ?? 0) + (levels.high ?? 0)) / 3,
+        };
     }
     
     /**
@@ -596,11 +652,13 @@ void main() {
         let hue = this.params.hue;
         let intensity = this.params.intensity;
         
-        if (window.audioEnabled && window.audioReactive) {
+        const audioState = this._bridgeAudioReactive || window.audioReactive;
+        const audioEnabled = window.audioEnabled !== false;
+        if (audioEnabled && audioState) {
             // Faceted audio mapping: Bass affects grid density, Mid affects hue, High affects intensity
-            gridDensity += window.audioReactive.bass * 30;  // Bass makes patterns denser
-            hue += window.audioReactive.mid * 60;           // Mid frequencies shift colors
-            intensity += window.audioReactive.high * 0.4;   // High frequencies brighten
+            gridDensity += (audioState.bass ?? 0) * 30;  // Bass makes patterns denser
+            hue += (audioState.mid ?? 0) * 60;           // Mid frequencies shift colors
+            intensity += (audioState.high ?? 0) * 0.4;   // High frequencies brighten
         }
         
         this.gl.uniform1f(this.uniforms.gridDensity, Math.min(100, gridDensity));
