@@ -99,17 +99,17 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
         ),
       );
 
-    // Load VIB3+ from GitHub Pages
-    final url = 'https://domusgpt.github.io/vib3-plus-engine/';
-    debugPrint('🌐 Loading VIB3+ from: $url');
+    // Load VIB3+ from local assets
+    const assetPath = 'assets/vib3plus/index.html';
+    debugPrint('📦 Loading VIB3+ from local assets: $assetPath');
 
     try {
-      await _webViewController.loadRequest(Uri.parse(url));
-      debugPrint('📡 Load request sent successfully');
+      await _webViewController.loadFlutterAsset(assetPath);
+      debugPrint('📡 Asset load request sent successfully');
     } catch (e) {
-      debugPrint('❌ Failed to load request: $e');
+      debugPrint('❌ Failed to load asset: $e');
       setState(() {
-        _errorMessage = 'Failed to load: $e';
+        _errorMessage = 'Failed to load local visualization: $e';
         _isLoading = false;
       });
     }
