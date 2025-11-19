@@ -91,7 +91,7 @@ flutter:
     - assets/shaders/fragment/
     - assets/wavetables/
     - assets/presets/
-    - assets/vib3plus/  # VIB3+ test harness (complete working visualization)
+    - assets/vib34d_inline_visualizer.html  # Working 4D hypercube visualizer
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

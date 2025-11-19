@@ -99,9 +99,9 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
         ),
       );
 
-    // Load VIB3+ from local assets
-    const assetPath = 'assets/vib3plus/index.html';
-    debugPrint('📦 Loading VIB3+ from local assets: $assetPath');
+    // Load VIB34D inline visualizer from local assets
+    const assetPath = 'assets/vib34d_inline_visualizer.html';
+    debugPrint('📦 Loading VIB34D inline visualizer from local assets: $assetPath');
 
     try {
       await _webViewController.loadFlutterAsset(assetPath);
