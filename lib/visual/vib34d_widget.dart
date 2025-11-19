@@ -40,9 +40,21 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
   void initState() {
     super.initState();
     _initializeWebView();
+
+    // Timeout for loading screen (show error after 15 seconds)
+    Future.delayed(const Duration(seconds: 15), () {
+      if (mounted && _isLoading) {
+        setState(() {
+          _errorMessage = 'WebView loading timeout. Check internet connection.';
+          _isLoading = false;
+        });
+      }
+    });
   }
 
   void _initializeWebView() async {
+    debugPrint('🔧 Initializing VIB34D WebView...');
+
     _webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.black)
@@ -54,12 +66,18 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
           if (message.message.startsWith('ERROR:')) {
             setState(() {
               _errorMessage = message.message.substring(6);
+              _isLoading = false;
             });
+          } else if (message.message.startsWith('READY:')) {
+            debugPrint('✅ ${message.message}');
           }
         },
       )
       ..setNavigationDelegate(
         NavigationDelegate(
+          onPageStarted: (String url) {
+            debugPrint('🌐 Starting to load: $url');
+          },
           onPageFinished: (String url) async {
             debugPrint('📄 Page loaded: $url');
             await _injectHelperFunctions();
@@ -69,22 +87,36 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
             debugPrint('✅ VIB34D WebView ready');
           },
           onWebResourceError: (WebResourceError error) {
+            final errorMsg = 'WebView Error (${error.errorCode}): ${error.description}';
             setState(() {
-              _errorMessage = error.description;
+              _errorMessage = errorMsg;
               _isLoading = false;
             });
-            debugPrint('❌ WebView error: ${error.description}');
+            debugPrint('❌ $errorMsg');
+            debugPrint('❌ Error type: ${error.errorType}');
+            debugPrint('❌ Failed URL: ${error.url}');
           },
         ),
       );
 
     // Load VIB3+ from GitHub Pages
-    await _webViewController.loadRequest(
-      Uri.parse('https://domusgpt.github.io/vib3-plus-engine/')
-    );
+    final url = 'https://domusgpt.github.io/vib3-plus-engine/';
+    debugPrint('🌐 Loading VIB3+ from: $url');
+
+    try {
+      await _webViewController.loadRequest(Uri.parse(url));
+      debugPrint('📡 Load request sent successfully');
+    } catch (e) {
+      debugPrint('❌ Failed to load request: $e');
+      setState(() {
+        _errorMessage = 'Failed to load: $e';
+        _isLoading = false;
+      });
+    }
 
     // Attach controller to visual provider
     widget.visualProvider.setWebViewController(_webViewController);
+    debugPrint('🔗 WebView controller attached to VisualProvider');
   }
 
   /// Inject helper functions to batch parameter updates and handle errors
