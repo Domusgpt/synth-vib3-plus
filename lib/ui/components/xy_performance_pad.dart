@@ -20,6 +20,7 @@ import 'dart:math' as math;
 import '../theme/synth_theme.dart';
 import '../../providers/ui_state_provider.dart';
 import '../../providers/audio_provider.dart';
+import '../../providers/visual_provider.dart';
 
 class XYPerformancePad extends StatefulWidget {
   final SystemColors systemColors;
@@ -54,7 +55,7 @@ class _XYPerformancePadState extends State<XYPerformancePad>
     super.dispose();
   }
 
-  void _handleTouchStart(PointerDownEvent event, UIStateProvider uiState, AudioProvider audioProvider) {
+  void _handleTouchStart(PointerDownEvent event, UIStateProvider uiState, AudioProvider audioProvider, VisualProvider visualProvider) {
     if (_activeTouches.length >= 8) return; // Max 8 touches
 
     final touchId = event.pointer;
@@ -73,7 +74,7 @@ class _XYPerformancePadState extends State<XYPerformancePad>
 
     // Trigger note
     audioProvider.noteOn(midiNote);
-    _applyYAxisParameter(yValue, uiState, audioProvider);
+    _applyYAxisParameter(yValue, uiState, audioProvider, visualProvider);
 
     // Store touch point
     setState(() {
@@ -92,7 +93,7 @@ class _XYPerformancePadState extends State<XYPerformancePad>
     debugPrint('🎹 Touch $touchId: Note $midiNote, Y-Param: ${yValue.toStringAsFixed(2)}');
   }
 
-  void _handleTouchMove(PointerMoveEvent event, UIStateProvider uiState, AudioProvider audioProvider) {
+  void _handleTouchMove(PointerMoveEvent event, UIStateProvider uiState, AudioProvider audioProvider, VisualProvider visualProvider) {
     final touchId = event.pointer;
     if (!_activeTouches.containsKey(touchId)) return;
 
@@ -115,7 +116,7 @@ class _XYPerformancePadState extends State<XYPerformancePad>
 
     // Update Y-axis parameter (continuous)
     final yValue = _calculateYAxisValue(normalizedY, uiState);
-    _applyYAxisParameter(yValue, uiState, audioProvider);
+    _applyYAxisParameter(yValue, uiState, audioProvider, visualProvider);
 
     // Update touch point
     setState(() {
@@ -129,7 +130,7 @@ class _XYPerformancePadState extends State<XYPerformancePad>
     });
   }
 
-  void _handleTouchEnd(PointerUpEvent event, UIStateProvider uiState, AudioProvider audioProvider) {
+  void _handleTouchEnd(PointerUpEvent event, UIStateProvider uiState, AudioProvider audioProvider, VisualProvider visualProvider) {
     final touchId = event.pointer;
     if (!_activeTouches.containsKey(touchId)) return;
 
@@ -174,7 +175,7 @@ class _XYPerformancePadState extends State<XYPerformancePad>
     return normalizedY;
   }
 
-  void _applyYAxisParameter(double value, UIStateProvider uiState, AudioProvider audioProvider) {
+  void _applyYAxisParameter(double value, UIStateProvider uiState, AudioProvider audioProvider, VisualProvider visualProvider) {
     final yAxis = uiState.xyAxisY;
 
     switch (yAxis) {
@@ -193,15 +194,43 @@ class _XYPerformancePadState extends State<XYPerformancePad>
         break;
 
       case XYAxisParameter.morphParameter:
-        audioProvider.visualProvider.setMorphParameter(value);
+        visualProvider.setMorphParameter(value);
         break;
 
       case XYAxisParameter.rotationSpeed:
-        audioProvider.visualProvider.setRotationSpeed(value * 2.0);
+        visualProvider.setRotationSpeed(value * 2.0);
         break;
 
       case XYAxisParameter.pitch:
         // Pitch is already handled by X-axis
+        break;
+
+      case XYAxisParameter.fmDepth:
+        // FM depth modulation (for Hypersphere synthesis branch)
+        // TODO: Add setFMDepth method to synthesis branch manager if needed
+        break;
+
+      case XYAxisParameter.ringModMix:
+        // Ring modulation mix (for Hypertetrahedron synthesis branch)
+        // TODO: Add setRingModMix method to synthesis branch manager if needed
+        break;
+
+      case XYAxisParameter.morph:
+        visualProvider.setMorphParameter(value);
+        break;
+
+      case XYAxisParameter.chaos:
+        // Chaos → RGB split adds visual distortion/chaos
+        visualProvider.setRGBSplitAmount(value * 10.0); // Scale 0-1 to 0-10
+        break;
+
+      case XYAxisParameter.brightness:
+        // Brightness → vertex brightness
+        visualProvider.setVertexBrightness(value);
+        break;
+
+      case XYAxisParameter.reverb:
+        audioProvider.setReverbMix(value);
         break;
     }
   }
@@ -210,11 +239,12 @@ class _XYPerformancePadState extends State<XYPerformancePad>
   Widget build(BuildContext context) {
     final uiState = Provider.of<UIStateProvider>(context);
     final audioProvider = Provider.of<AudioProvider>(context);
+    final visualProvider = Provider.of<VisualProvider>(context);
 
     return Listener(
-      onPointerDown: (event) => _handleTouchStart(event, uiState, audioProvider),
-      onPointerMove: (event) => _handleTouchMove(event, uiState, audioProvider),
-      onPointerUp: (event) => _handleTouchEnd(event, uiState, audioProvider),
+      onPointerDown: (event) => _handleTouchStart(event, uiState, audioProvider, visualProvider),
+      onPointerMove: (event) => _handleTouchMove(event, uiState, audioProvider, visualProvider),
+      onPointerUp: (event) => _handleTouchEnd(event, uiState, audioProvider, visualProvider),
       child: Stack(
         children: [
           // Background visualization (VIB3+ WebGL view)
@@ -307,9 +337,20 @@ class _XYPerformancePadState extends State<XYPerformancePad>
       case XYAxisParameter.oscillatorMix:
         return 'OSC Mix';
       case XYAxisParameter.morphParameter:
+      case XYAxisParameter.morph:
         return 'Morph';
       case XYAxisParameter.rotationSpeed:
         return 'Rotation';
+      case XYAxisParameter.fmDepth:
+        return 'FM Depth';
+      case XYAxisParameter.ringModMix:
+        return 'Ring Mod';
+      case XYAxisParameter.chaos:
+        return 'Chaos';
+      case XYAxisParameter.brightness:
+        return 'Brightness';
+      case XYAxisParameter.reverb:
+        return 'Reverb';
     }
   }
 

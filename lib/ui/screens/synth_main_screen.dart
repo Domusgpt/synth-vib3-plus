@@ -28,6 +28,7 @@ import '../../providers/ui_state_provider.dart';
 import '../../providers/visual_provider.dart';
 import '../../providers/audio_provider.dart';
 import '../../providers/tilt_sensor_provider.dart';
+import '../../visual/vib34d_widget.dart';
 
 class SynthMainScreen extends StatefulWidget {
   const SynthMainScreen({Key? key}) : super(key: key);
@@ -40,35 +41,20 @@ class _SynthMainScreenState extends State<SynthMainScreen> {
   @override
   void initState() {
     super.initState();
-    // Lock to fullscreen immersive mode
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    // Lock to landscape (can be made configurable later)
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-      DeviceOrientation.portraitUp,
-    ]);
+    // Providers are now initialized at app level in main.dart
+    // This screen just consumes them via context
   }
 
   @override
   void dispose() {
-    // Restore system UI
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    // Cleanup handled at app level
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => UIStateProvider()),
-        ChangeNotifierProvider(create: (_) => VisualProvider()),
-        ChangeNotifierProvider(create: (_) => AudioProvider()),
-        ChangeNotifierProvider(create: (_) => TiltSensorProvider()),
-      ],
-      child: const _SynthMainContent(),
-    );
+    // No MultiProvider needed - providers come from app level
+    return const _SynthMainContent();
   }
 }
 
@@ -132,18 +118,13 @@ class _SynthMainContent extends StatelessWidget {
   }
 
   Widget _buildVisualizationLayer(BuildContext context) {
+    final visualProvider = Provider.of<VisualProvider>(context, listen: false);
+    final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+
     return Positioned.fill(
-      child: Container(
-        color: SynthTheme.backgroundColor,
-        child: Center(
-          child: Text(
-            'VIB3+ Visualization\n(WebGL View)',
-            textAlign: TextAlign.center,
-            style: SynthTheme.textStyleBody.copyWith(
-              color: SynthTheme.textDim,
-            ),
-          ),
-        ),
+      child: VIB34DWidget(
+        visualProvider: visualProvider,
+        audioProvider: audioProvider,
       ),
     );
   }

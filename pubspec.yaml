@@ -91,11 +91,7 @@ flutter:
     - assets/shaders/fragment/
     - assets/wavetables/
     - assets/presets/
-    - assets/js/  # VIB34D JavaScript visualization systems
-    - assets/src/  # VIB3+ engine source files
-    - assets/styles/  # VIB3+ CSS styles
-    - assets/vib34d_viewer.html  # VIB34D WebView HTML file
-    - assets/vib3plus_viewer.html  # VIB3+ Working System
+    - assets/vib34d_inline_visualizer.html  # Working 4D hypercube visualizer
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

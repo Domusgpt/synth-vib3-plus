@@ -341,7 +341,7 @@ class ConnectionLinePainter extends CustomPainter {
 
 /// Range indicator painter (shows pitch bend range as circle)
 class RangeIndicatorPainter extends CustomPainter {
-  final int pitchBendRange;
+  final double pitchBendRange;
   final Color color;
 
   RangeIndicatorPainter({

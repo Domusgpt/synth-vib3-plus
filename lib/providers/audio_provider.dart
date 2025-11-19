@@ -20,6 +20,7 @@ import 'dart:math' as dart;
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:flutter_pcm_sound/flutter_pcm_sound.dart';
 import '../audio/audio_analyzer.dart';
 import '../audio/synthesizer_engine.dart';
 import '../synthesis/synthesis_branch_manager.dart';
@@ -32,6 +33,9 @@ class AudioProvider with ChangeNotifier {
 
   // Audio I/O
   final AudioPlayer _audioPlayer = AudioPlayer();
+
+  // PCM Sound for real-time audio output
+  bool _pcmInitialized = false;
 
   // Audio buffer management
   Float32List? _currentBuffer;
@@ -57,6 +61,12 @@ class AudioProvider with ChangeNotifier {
   int _buffersGenerated = 0;
   DateTime _lastMetricsCheck = DateTime.now();
 
+  // Error tracking
+  int _audioOutputErrors = 0;
+  int _consecutiveOutputErrors = 0;
+  static const int _maxConsecutiveErrors = 5;
+  bool _audioOutputFailed = false;
+
   AudioProvider() {
     _initialize();
   }
@@ -76,7 +86,29 @@ class AudioProvider with ChangeNotifier {
       sampleRate: sampleRate,
     );
 
+    // Initialize PCM audio output
+    _initializePCMSound();
+
     debugPrint('✅ AudioProvider initialized with SynthesisBranchManager');
+  }
+
+  /// Initialize PCM sound for real-time audio output
+  Future<void> _initializePCMSound() async {
+    try {
+      // Request audio permission and setup
+      await FlutterPcmSound.setup(
+        sampleRate: sampleRate.toInt(),
+        channelCount: 1, // Mono for now
+      );
+
+      _pcmInitialized = true;
+
+      debugPrint('✅ PCM Sound initialized: ${sampleRate.toInt()} Hz, mono');
+    } catch (e) {
+      debugPrint('❌ Failed to initialize PCM Sound: $e');
+      debugPrint('📝 Audio output will be unavailable');
+      _pcmInitialized = false;
+    }
   }
 
   // Getters
@@ -107,6 +139,12 @@ class AudioProvider with ChangeNotifier {
     _lastMetricsCheck = DateTime.now();
     _buffersGenerated = 0;
 
+    // Start PCM player
+    if (_pcmInitialized) {
+      await FlutterPcmSound.start();
+      debugPrint('✅ PCM player started');
+    }
+
     // Generate audio buffers at regular intervals
     _audioGenerationTimer = Timer.periodic(
       Duration(milliseconds: (bufferSize * 1000 / sampleRate).round()),
@@ -122,6 +160,13 @@ class AudioProvider with ChangeNotifier {
     _audioGenerationTimer?.cancel();
     _isPlaying = false;
     await _audioPlayer.stop();
+
+    // Stop PCM player (release resources)
+    if (_pcmInitialized) {
+      await FlutterPcmSound.release();
+      _pcmInitialized = false;
+    }
+
     notifyListeners();
     debugPrint('⏸️  Audio stopped');
   }
@@ -142,9 +187,10 @@ class AudioProvider with ChangeNotifier {
 
       _buffersGenerated++;
 
-      // TODO: Send buffer to audio output
-      // This requires platform-specific audio API integration
-      // For now, just store the buffer for analysis
+      // Send buffer to speakers via PCM Sound
+      if (_pcmInitialized && _currentBuffer != null) {
+        _outputAudioBuffer(_currentBuffer!);
+      }
 
       notifyListeners();
     } catch (e) {
@@ -152,11 +198,89 @@ class AudioProvider with ChangeNotifier {
     }
   }
 
+  /// Output audio buffer to speakers
+  void _outputAudioBuffer(Float32List buffer) {
+    if (_audioOutputFailed) {
+      // Skip output if audio output has permanently failed
+      return;
+    }
+
+    try {
+      // Validate buffer
+      if (buffer.isEmpty) {
+        debugPrint('⚠️  Empty audio buffer, skipping output');
+        return;
+      }
+
+      // Apply master volume
+      final scaledBuffer = Float32List(buffer.length);
+      for (int i = 0; i < buffer.length; i++) {
+        final sample = buffer[i];
+        if (sample.isNaN || sample.isInfinite) {
+          debugPrint('⚠️  Invalid audio sample at index $i: $sample');
+          scaledBuffer[i] = 0.0; // Replace with silence
+        } else {
+          scaledBuffer[i] = (sample * _masterVolume).clamp(-1.0, 1.0);
+        }
+      }
+
+      // Convert Float32 to Int16 for PCM output
+      final int16Buffer = Int16List(scaledBuffer.length);
+      for (int i = 0; i < scaledBuffer.length; i++) {
+        int16Buffer[i] = (scaledBuffer[i] * 32767).round().clamp(-32768, 32767);
+      }
+
+      // Feed to PCM player (non-blocking)
+      FlutterPcmSound.feed(
+        PcmArrayInt16.fromList(int16Buffer.toList())
+      );
+
+      // Reset consecutive error count on success
+      if (_consecutiveOutputErrors > 0) {
+        debugPrint('✅ Audio output recovered after $_consecutiveOutputErrors errors');
+        _consecutiveOutputErrors = 0;
+      }
+    } catch (e, stackTrace) {
+      _handleAudioOutputError(e, stackTrace);
+    }
+  }
+
+  /// Handle audio output errors with tracking and recovery
+  void _handleAudioOutputError(Object error, StackTrace stackTrace) {
+    _audioOutputErrors++;
+    _consecutiveOutputErrors++;
+
+    // Log error with severity based on frequency
+    if (_consecutiveOutputErrors == 1) {
+      debugPrint('❌ Audio output error: $error');
+      debugPrint('Stack trace: $stackTrace');
+    } else if (_consecutiveOutputErrors == _maxConsecutiveErrors) {
+      debugPrint('🛑 CRITICAL: Audio output failed permanently after $_maxConsecutiveErrors errors');
+      debugPrint('📝 Last error: $error');
+      debugPrint('💡 Audio playback disabled. Check PCM sound initialization.');
+      _audioOutputFailed = true;
+      _pcmInitialized = false;
+    } else if (_consecutiveOutputErrors % 10 == 0) {
+      debugPrint('⚠️  Audio output errors: $_consecutiveOutputErrors consecutive');
+    }
+  }
+
+  /// Get audio output health status
+  Map<String, dynamic> getAudioOutputHealth() {
+    return {
+      'pcmInitialized': _pcmInitialized,
+      'totalOutputErrors': _audioOutputErrors,
+      'consecutiveErrors': _consecutiveOutputErrors,
+      'audioOutputFailed': _audioOutputFailed,
+      'isHealthy': _pcmInitialized && _consecutiveOutputErrors == 0,
+    };
+  }
+
   /// Convert MIDI note to frequency (Hz)
   double _midiNoteToFrequency(int midiNote) {
     // A4 (MIDI 69) = 440 Hz
     // Each semitone is 2^(1/12) ratio
-    return 440.0 * dart.math.pow(2.0, (midiNote - 69) / 12.0);
+    return 440.0 * dart.pow(2.0, (midiNote - 69) / 12.0);
   }
 
   /// Play a note (MIDI note number)
@@ -458,6 +582,9 @@ class AudioProvider with ChangeNotifier {
   void dispose() {
     stopAudio();
     _audioPlayer.dispose();
+
+    // PCM sound is released in stopAudio() via FlutterPcmSound.release()
+
     super.dispose();
   }
 }
