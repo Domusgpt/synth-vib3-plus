@@ -583,11 +583,7 @@ class AudioProvider with ChangeNotifier {
     stopAudio();
     _audioPlayer.dispose();
 
-    // Release PCM player
-    if (_pcmPlayer != null) {
-      _pcmPlayer?.release();
-      _pcmPlayer = null;
-    }
+    // PCM sound is released in stopAudio() via FlutterPcmSound.release()
 
     super.dispose();
   }

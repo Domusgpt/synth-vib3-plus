@@ -145,9 +145,14 @@ class MappingPanelContent extends StatelessWidget {
       XYAxisParameter.filterCutoff: 'Filter',
       XYAxisParameter.resonance: 'Resonance',
       XYAxisParameter.oscillatorMix: 'OSC Mix',
-      XYAxisParameter.morphParameter: 'Morph',
+      XYAxisParameter.morphParameter: 'Morph Param',
+      XYAxisParameter.morph: 'Morph',
       XYAxisParameter.rotationSpeed: 'Rotation',
       XYAxisParameter.fmDepth: 'FM Depth',
+      XYAxisParameter.ringModMix: 'Ring Mod',
+      XYAxisParameter.chaos: 'Chaos',
+      XYAxisParameter.brightness: 'Brightness',
+      XYAxisParameter.reverb: 'Reverb',
     };
 
     return Column(

@@ -207,8 +207,28 @@ class _XYPerformancePadState extends State<XYPerformancePad>
 
       case XYAxisParameter.fmDepth:
         // FM depth modulation (for Hypersphere synthesis branch)
-        // Map to synthesis branch manager
         // TODO: Add setFMDepth method to synthesis branch manager if needed
+        break;
+
+      case XYAxisParameter.ringModMix:
+        // Ring modulation mix (for Hypertetrahedron synthesis branch)
+        // TODO: Add setRingModMix method to synthesis branch manager if needed
+        break;
+
+      case XYAxisParameter.morph:
+        visualProvider.setMorphParameter(value);
+        break;
+
+      case XYAxisParameter.chaos:
+        visualProvider.setChaos(value);
+        break;
+
+      case XYAxisParameter.brightness:
+        visualProvider.setHueShift(value);
+        break;
+
+      case XYAxisParameter.reverb:
+        audioProvider.setReverbMix(value);
         break;
     }
   }
@@ -315,11 +335,20 @@ class _XYPerformancePadState extends State<XYPerformancePad>
       case XYAxisParameter.oscillatorMix:
         return 'OSC Mix';
       case XYAxisParameter.morphParameter:
+      case XYAxisParameter.morph:
         return 'Morph';
       case XYAxisParameter.rotationSpeed:
         return 'Rotation';
       case XYAxisParameter.fmDepth:
         return 'FM Depth';
+      case XYAxisParameter.ringModMix:
+        return 'Ring Mod';
+      case XYAxisParameter.chaos:
+        return 'Chaos';
+      case XYAxisParameter.brightness:
+        return 'Brightness';
+      case XYAxisParameter.reverb:
+        return 'Reverb';
     }
   }
 
