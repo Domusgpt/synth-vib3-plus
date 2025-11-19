@@ -220,11 +220,13 @@ class _XYPerformancePadState extends State<XYPerformancePad>
         break;
 
       case XYAxisParameter.chaos:
-        visualProvider.setChaos(value);
+        // Chaos → RGB split adds visual distortion/chaos
+        visualProvider.setRGBSplitAmount(value * 10.0); // Scale 0-1 to 0-10
         break;
 
       case XYAxisParameter.brightness:
-        visualProvider.setHueShift(value);
+        // Brightness → vertex brightness
+        visualProvider.setVertexBrightness(value);
         break;
 
       case XYAxisParameter.reverb:
