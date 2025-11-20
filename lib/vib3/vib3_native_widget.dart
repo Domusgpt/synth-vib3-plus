@@ -104,18 +104,34 @@ class _VIB3NativeWidgetState extends State<VIB3NativeWidget>
     });
   }
 
-  /// Update audio reactivity values
+  /// Update audio reactivity values from real FFT analysis
   void _updateAudioReactivity(Timer timer) {
     if (!mounted) return;
 
     final audioProvider = Provider.of<AudioProvider>(context, listen: false);
 
-    // Get current FFT analysis (if available)
-    // For now, use placeholder values - will be connected to actual FFT
-    final newBassEnergy = audioProvider.isPlaying ? 0.3 : 0.0;
-    final newMidEnergy = audioProvider.isPlaying ? 0.4 : 0.0;
-    final newHighEnergy = audioProvider.isPlaying ? 0.2 : 0.0;
-    final newRmsAmplitude = audioProvider.isPlaying ? 0.5 : 0.0;
+    // Get real FFT analysis from AudioAnalyzer
+    final features = audioProvider.currentFeatures;
+
+    double newBassEnergy = 0.0;
+    double newMidEnergy = 0.0;
+    double newHighEnergy = 0.0;
+    double newRmsAmplitude = 0.0;
+
+    if (audioProvider.isPlaying && features != null) {
+      // Normalize features for visual reactivity
+      final normalized = features.normalize(
+        bassMax: 2.0,
+        midMax: 1.5,
+        highMax: 1.0,
+        rmsMax: 0.5,
+      );
+
+      newBassEnergy = normalized.bassEnergy;
+      newMidEnergy = normalized.midEnergy;
+      newHighEnergy = normalized.highEnergy;
+      newRmsAmplitude = normalized.rms;
+    }
 
     // Smooth audio reactivity with exponential moving average
     const smoothing = 0.3;

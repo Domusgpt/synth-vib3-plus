@@ -1,0 +1,104 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - claude/flutter-native-visualizer-*
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Analyze code
+        run: flutter analyze --no-fatal-infos
+        continue-on-error: true
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Rename APK
+        run: |
+          mkdir -p build/release
+          cp build/app/outputs/flutter-apk/app-release.apk \
+             build/release/synth-vib3-plus-${GITHUB_SHA:0:7}.apk
+          cp build/app/outputs/flutter-apk/app-release.apk \
+             build/release/synth-vib3-plus-latest.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: synth-vib3-plus-apk
+          path: build/release/*.apk
+          retention-days: 30
+
+      - name: Create Release
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/claude/flutter-native-visualizer')
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: build-${{ github.sha }}
+          name: Synth-VIB3+ Build ${{ github.sha }}
+          draft: false
+          prerelease: true
+          files: build/release/*.apk
+          body: |
+            # Synth-VIB3+ Android Build
+
+            **Branch**: ${{ github.ref_name }}
+            **Commit**: ${{ github.sha }}
+            **Built**: ${{ github.event.head_commit.timestamp }}
+
+            ## Native VIB3+ Visualizer
+
+            This build includes the complete native Flutter VIB3+ visualization system:
+            - ✅ 24 unique 4D polytope geometries
+            - ✅ Three visualization systems (Quantum, Holographic, Faceted)
+            - ✅ Full 6D rotation in 4D space
+            - ✅ Audio-reactive rendering (60 FPS target)
+            - ✅ No WebView dependency
+
+            ## Installation
+
+            1. Download `synth-vib3-plus-latest.apk`
+            2. Enable "Install from Unknown Sources" on your Android device
+            3. Install the APK
+            4. Grant audio permissions when prompted
+
+            ## Testing Checklist
+
+            - [ ] App launches without crashes
+            - [ ] Default geometry renders
+            - [ ] System switching works (Quantum/Holographic/Faceted)
+            - [ ] All 24 geometries cycle through
+            - [ ] FPS stays above 55
+            - [ ] Touch controls responsive
+            - [ ] Audio synthesis works
+
+            ---
+
+            **Built with**: Flutter 3.24.0
+            **Target**: Android (ARM64, ARMv7, x86_64)
+
+            A Paul Phillips Manifestation
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
