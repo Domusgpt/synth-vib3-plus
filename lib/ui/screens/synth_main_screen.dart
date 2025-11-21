@@ -28,6 +28,7 @@ import '../../providers/ui_state_provider.dart';
 import '../../providers/visual_provider.dart';
 import '../../providers/audio_provider.dart';
 import '../../providers/tilt_sensor_provider.dart';
+import '../../vib3/vib3.dart';
 
 class SynthMainScreen extends StatefulWidget {
   const SynthMainScreen({Key? key}) : super(key: key);
@@ -132,19 +133,8 @@ class _SynthMainContent extends StatelessWidget {
   }
 
   Widget _buildVisualizationLayer(BuildContext context) {
-    return Positioned.fill(
-      child: Container(
-        color: SynthTheme.backgroundColor,
-        child: Center(
-          child: Text(
-            'VIB3+ Visualization\n(WebGL View)',
-            textAlign: TextAlign.center,
-            style: SynthTheme.textStyleBody.copyWith(
-              color: SynthTheme.textDim,
-            ),
-          ),
-        ),
-      ),
+    return const Positioned.fill(
+      child: VIB3NativeWidget(),
     );
   }
 
