@@ -18,6 +18,7 @@
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import '../ui/theme/synth_theme.dart';
 
 class VisualProvider with ChangeNotifier {
   // Current VIB34D system
@@ -349,11 +350,9 @@ class VisualProvider with ChangeNotifier {
 
   // Additional methods for UI component compatibility
 
-  /// Get system colors (placeholder - returns color scheme based on system)
-  dynamic get systemColors {
-    // This should return SystemColors from SynthTheme
-    // For now, return null and let UI components handle it
-    return null;
+  /// Get system colors based on current system
+  SystemColors get systemColors {
+    return SystemColors.fromName(_currentSystem);
   }
 
   /// Get current FPS
