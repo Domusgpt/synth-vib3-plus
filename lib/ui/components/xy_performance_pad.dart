@@ -207,6 +207,11 @@ class _XYPerformancePadState extends State<XYPerformancePad>
         audioProvider.setFMDepth(value);
         break;
 
+      case XYAxisParameter.ringModMix:
+        // Ring modulation mix (for ring mod synthesis branch)
+        audioProvider.setRingModMix(value);
+        break;
+
       case XYAxisParameter.pitch:
         // Pitch is already handled by X-axis
         break;
@@ -319,6 +324,8 @@ class _XYPerformancePadState extends State<XYPerformancePad>
         return 'Rotation';
       case XYAxisParameter.fmDepth:
         return 'FM Depth';
+      case XYAxisParameter.ringModMix:
+        return 'Ring Mod';
     }
   }
 
