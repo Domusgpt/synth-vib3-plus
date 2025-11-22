@@ -20,6 +20,7 @@ import 'dart:math' as math;
 import '../theme/synth_theme.dart';
 import '../../providers/ui_state_provider.dart';
 import '../../providers/audio_provider.dart';
+import '../../providers/visual_provider.dart';
 
 class XYPerformancePad extends StatefulWidget {
   final SystemColors systemColors;
@@ -176,6 +177,7 @@ class _XYPerformancePadState extends State<XYPerformancePad>
 
   void _applyYAxisParameter(double value, UIStateProvider uiState, AudioProvider audioProvider) {
     final yAxis = uiState.xyAxisY;
+    final visualProvider = Provider.of<VisualProvider>(context, listen: false);
 
     switch (yAxis) {
       case XYAxisParameter.filterCutoff:
@@ -193,11 +195,16 @@ class _XYPerformancePadState extends State<XYPerformancePad>
         break;
 
       case XYAxisParameter.morphParameter:
-        audioProvider.visualProvider.setMorphParameter(value);
+        visualProvider.setMorphParameter(value);
         break;
 
       case XYAxisParameter.rotationSpeed:
-        audioProvider.visualProvider.setRotationSpeed(value * 2.0);
+        visualProvider.setRotationSpeed(value * 2.0);
+        break;
+
+      case XYAxisParameter.fmDepth:
+        // FM depth control (for FM synthesis branch)
+        audioProvider.setFMDepth(value);
         break;
 
       case XYAxisParameter.pitch:
@@ -310,6 +317,8 @@ class _XYPerformancePadState extends State<XYPerformancePad>
         return 'Morph';
       case XYAxisParameter.rotationSpeed:
         return 'Rotation';
+      case XYAxisParameter.fmDepth:
+        return 'FM Depth';
     }
   }
 

@@ -156,7 +156,7 @@ class AudioProvider with ChangeNotifier {
   double _midiNoteToFrequency(int midiNote) {
     // A4 (MIDI 69) = 440 Hz
     // Each semitone is 2^(1/12) ratio
-    return 440.0 * dart.math.pow(2.0, (midiNote - 69) / 12.0);
+    return 440.0 * math.pow(2.0, (midiNote - 69) / 12.0);
   }
 
   /// Play a note (MIDI note number)
@@ -357,6 +357,13 @@ class AudioProvider with ChangeNotifier {
 
   /// Get mix balance
   double get mixBalance => _mixBalance;
+
+  /// Set FM depth (for FM synthesis)
+  void setFMDepth(double depth) {
+    // FM depth is handled by synthesis branch manager
+    // Store for future use or pass to synthesizer
+    notifyListeners();
+  }
 
   /// Get system colors (placeholder - will be populated from VisualProvider)
   dynamic get systemColors {
