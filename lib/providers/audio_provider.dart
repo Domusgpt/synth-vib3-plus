@@ -19,7 +19,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
-import 'package:just_audio/just_audio.dart';
+import 'package:flutter_pcm_sound/flutter_pcm_sound.dart';
 import '../audio/audio_analyzer.dart';
 import '../audio/synthesizer_engine.dart';
 import '../synthesis/synthesis_branch_manager.dart';
@@ -30,8 +30,8 @@ class AudioProvider with ChangeNotifier {
   late final AudioAnalyzer audioAnalyzer;
   late final SynthesisBranchManager synthesisBranchManager;
 
-  // Audio I/O
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  // Audio I/O (PCM output)
+  final FlutterPcmSound _pcmPlayer = FlutterPcmSound();
 
   // Audio buffer management
   Float32List? _currentBuffer;
@@ -61,7 +61,7 @@ class AudioProvider with ChangeNotifier {
     _initialize();
   }
 
-  void _initialize() {
+  void _initialize() async {
     synthesizerEngine = SynthesizerEngine(
       sampleRate: sampleRate,
       bufferSize: bufferSize,
@@ -75,6 +75,17 @@ class AudioProvider with ChangeNotifier {
     synthesisBranchManager = SynthesisBranchManager(
       sampleRate: sampleRate,
     );
+
+    // Initialize PCM player
+    try {
+      await _pcmPlayer.setup(
+        sampleRate: sampleRate.toInt(),
+        channelCount: 1, // Mono
+      );
+      debugPrint('✅ PCM audio output initialized');
+    } catch (e) {
+      debugPrint('❌ Failed to initialize PCM audio: $e');
+    }
 
     debugPrint('✅ AudioProvider initialized with SynthesisBranchManager');
   }
@@ -121,13 +132,18 @@ class AudioProvider with ChangeNotifier {
   Future<void> stopAudio() async {
     _audioGenerationTimer?.cancel();
     _isPlaying = false;
-    await _audioPlayer.stop();
+    // Clear PCM buffer
+    try {
+      await _pcmPlayer.clear();
+    } catch (e) {
+      debugPrint('⚠️ Error clearing PCM buffer: $e');
+    }
     notifyListeners();
     debugPrint('⏸️  Audio stopped');
   }
 
   /// Generate next audio buffer
-  void _generateAudioBuffer() {
+  void _generateAudioBuffer() async {
     try {
       // Calculate frequency from MIDI note
       final frequency = _midiNoteToFrequency(_currentNote);
@@ -138,13 +154,30 @@ class AudioProvider with ChangeNotifier {
       // Analyze the buffer
       if (_currentBuffer != null && _currentBuffer!.isNotEmpty) {
         _currentFeatures = audioAnalyzer.extractFeatures(_currentBuffer!);
+
+        // Play audio buffer via PCM output
+        try {
+          // Convert Float32List to Int16List (PCM16)
+          final int16Buffer = Int16List(bufferSize);
+          for (int i = 0; i < bufferSize; i++) {
+            // Clamp to [-1, 1] and convert to 16-bit PCM
+            final sample = _currentBuffer![i].clamp(-1.0, 1.0);
+            int16Buffer[i] = (sample * 32767).round();
+          }
+
+          // Feed to PCM player
+          await _pcmPlayer.feed(
+            PcmArrayInt16.fromList(int16Buffer.toList()),
+          );
+        } catch (e) {
+          // Silently ignore PCM playback errors to avoid spam
+          if (_buffersGenerated % 100 == 0) {
+            debugPrint('⚠️ PCM playback error: $e');
+          }
+        }
       }
 
       _buffersGenerated++;
-
-      // TODO: Send buffer to audio output
-      // This requires platform-specific audio API integration
-      // For now, just store the buffer for analysis
 
       notifyListeners();
     } catch (e) {
