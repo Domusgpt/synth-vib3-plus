@@ -16,7 +16,7 @@
  */
 
 import 'dart:async';
-import 'dart:math' as dart;
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
@@ -361,6 +361,13 @@ class AudioProvider with ChangeNotifier {
   /// Set FM depth (for FM synthesis)
   void setFMDepth(double depth) {
     // FM depth is handled by synthesis branch manager
+    // Store for future use or pass to synthesizer
+    notifyListeners();
+  }
+
+  /// Set ring modulation mix (for ring mod synthesis)
+  void setRingModMix(double mix) {
+    // Ring mod mix is handled by synthesis branch manager
     // Store for future use or pass to synthesizer
     notifyListeners();
   }
