@@ -23,6 +23,8 @@ local.properties
 .pub-cache/
 .pub/
 pubspec.lock
+tools/flutter/
+tools/flutter_linux_*.tar.xz
 
 # Files
 *.pyc
