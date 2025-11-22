@@ -30,8 +30,8 @@ class AudioProvider with ChangeNotifier {
   late final AudioAnalyzer audioAnalyzer;
   late final SynthesisBranchManager synthesisBranchManager;
 
-  // Audio I/O (PCM output)
-  final FlutterPcmSound _pcmPlayer = FlutterPcmSound();
+  // PCM audio output state
+  bool _pcmInitialized = false;
 
   // Audio buffer management
   Float32List? _currentBuffer;
@@ -76,14 +76,16 @@ class AudioProvider with ChangeNotifier {
       sampleRate: sampleRate,
     );
 
-    // Initialize PCM player
+    // Initialize PCM player (static API)
     try {
-      await _pcmPlayer.setup(
+      await FlutterPcmSound.setup(
         sampleRate: sampleRate.toInt(),
         channelCount: 1, // Mono
       );
+      _pcmInitialized = true;
       debugPrint('✅ PCM audio output initialized');
     } catch (e) {
+      _pcmInitialized = false;
       debugPrint('❌ Failed to initialize PCM audio: $e');
     }
 
@@ -132,12 +134,6 @@ class AudioProvider with ChangeNotifier {
   Future<void> stopAudio() async {
     _audioGenerationTimer?.cancel();
     _isPlaying = false;
-    // Clear PCM buffer
-    try {
-      await _pcmPlayer.clear();
-    } catch (e) {
-      debugPrint('⚠️ Error clearing PCM buffer: $e');
-    }
     notifyListeners();
     debugPrint('⏸️  Audio stopped');
   }
@@ -155,24 +151,26 @@ class AudioProvider with ChangeNotifier {
       if (_currentBuffer != null && _currentBuffer!.isNotEmpty) {
         _currentFeatures = audioAnalyzer.extractFeatures(_currentBuffer!);
 
-        // Play audio buffer via PCM output
-        try {
-          // Convert Float32List to Int16List (PCM16)
-          final int16Buffer = Int16List(bufferSize);
-          for (int i = 0; i < bufferSize; i++) {
-            // Clamp to [-1, 1] and convert to 16-bit PCM
-            final sample = _currentBuffer![i].clamp(-1.0, 1.0);
-            int16Buffer[i] = (sample * 32767).round();
-          }
+        // Play audio buffer via PCM output (if initialized)
+        if (_pcmInitialized) {
+          try {
+            // Convert Float32List to Int16List (PCM16)
+            final int16Buffer = Int16List(bufferSize);
+            for (int i = 0; i < bufferSize; i++) {
+              // Clamp to [-1, 1] and convert to 16-bit PCM
+              final sample = _currentBuffer![i].clamp(-1.0, 1.0);
+              int16Buffer[i] = (sample * 32767).round();
+            }
 
-          // Feed to PCM player
-          await _pcmPlayer.feed(
-            PcmArrayInt16.fromList(int16Buffer.toList()),
-          );
-        } catch (e) {
-          // Silently ignore PCM playback errors to avoid spam
-          if (_buffersGenerated % 100 == 0) {
-            debugPrint('⚠️ PCM playback error: $e');
+            // Feed to PCM player (static method)
+            await FlutterPcmSound.feed(
+              PcmArrayInt16.fromList(int16Buffer.toList()),
+            );
+          } catch (e) {
+            // Silently ignore PCM playback errors to avoid spam
+            if (_buffersGenerated % 100 == 0) {
+              debugPrint('⚠️ PCM playback error: $e');
+            }
           }
         }
       }
@@ -504,7 +502,6 @@ class AudioProvider with ChangeNotifier {
   @override
   void dispose() {
     stopAudio();
-    _audioPlayer.dispose();
     super.dispose();
   }
 }
