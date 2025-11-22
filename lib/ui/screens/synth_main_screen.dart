@@ -28,7 +28,8 @@ import '../../providers/ui_state_provider.dart';
 import '../../providers/visual_provider.dart';
 import '../../providers/audio_provider.dart';
 import '../../providers/tilt_sensor_provider.dart';
-import '../../vib3/vib3.dart';
+import '../../visual/vib34d_widget.dart';
+import '../../mapping/parameter_bridge.dart';
 
 class SynthMainScreen extends StatefulWidget {
   const SynthMainScreen({Key? key}) : super(key: key);
@@ -67,14 +68,45 @@ class _SynthMainScreenState extends State<SynthMainScreen> {
         ChangeNotifierProvider(create: (_) => VisualProvider()),
         ChangeNotifierProvider(create: (_) => AudioProvider()),
         ChangeNotifierProvider(create: (_) => TiltSensorProvider()),
+        // ParameterBridge connects audio ↔ visual with proxy providers
+        ProxyProvider2<AudioProvider, VisualProvider, ParameterBridge>(
+          update: (_, audio, visual, previous) {
+            final bridge = previous ?? ParameterBridge(
+              audioProvider: audio,
+              visualProvider: visual,
+            );
+            // Start the bridge if not already running
+            if (!bridge.isRunning) {
+              bridge.start();
+            }
+            return bridge;
+          },
+          dispose: (_, bridge) => bridge.dispose(),
+        ),
       ],
       child: const _SynthMainContent(),
     );
   }
 }
 
-class _SynthMainContent extends StatelessWidget {
+class _SynthMainContent extends StatefulWidget {
   const _SynthMainContent({Key? key}) : super(key: key);
+
+  @override
+  State<_SynthMainContent> createState() => _SynthMainContentState();
+}
+
+class _SynthMainContentState extends State<_SynthMainContent> {
+  @override
+  void initState() {
+    super.initState();
+    // Start audio engine with default note after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+      audioProvider.playNote(60); // Middle C
+      debugPrint('🎵 Auto-started audio with Middle C');
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -133,8 +165,14 @@ class _SynthMainContent extends StatelessWidget {
   }
 
   Widget _buildVisualizationLayer(BuildContext context) {
-    return const Positioned.fill(
-      child: VIB3NativeWidget(),
+    final visualProvider = Provider.of<VisualProvider>(context, listen: false);
+    final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+
+    return Positioned.fill(
+      child: VIB34DWidget(
+        visualProvider: visualProvider,
+        audioProvider: audioProvider,
+      ),
     );
   }
 
