@@ -180,6 +180,10 @@ class _XYPerformancePadState extends State<XYPerformancePad>
     final visualProvider = Provider.of<VisualProvider>(context, listen: false);
 
     switch (yAxis) {
+      case XYAxisParameter.pitch:
+        // Pitch is handled by X-axis
+        break;
+
       case XYAxisParameter.filterCutoff:
         // Map 0-1 to 20Hz-20kHz logarithmically
         final cutoff = 20.0 * math.pow(1000, value);
@@ -188,18 +192,6 @@ class _XYPerformancePadState extends State<XYPerformancePad>
 
       case XYAxisParameter.resonance:
         audioProvider.setFilterResonance(value);
-        break;
-
-      case XYAxisParameter.oscillatorMix:
-        audioProvider.setMixBalance(value);
-        break;
-
-      case XYAxisParameter.morphParameter:
-        visualProvider.setMorphParameter(value);
-        break;
-
-      case XYAxisParameter.rotationSpeed:
-        visualProvider.setRotationSpeed(value * 2.0);
         break;
 
       case XYAxisParameter.fmDepth:
@@ -212,8 +204,30 @@ class _XYPerformancePadState extends State<XYPerformancePad>
         audioProvider.setRingModMix(value);
         break;
 
-      case XYAxisParameter.pitch:
-        // Pitch is already handled by X-axis
+      case XYAxisParameter.morph:
+      case XYAxisParameter.morphParameter:
+        visualProvider.setMorphParameter(value);
+        break;
+
+      case XYAxisParameter.chaos:
+        // Chaos/randomization parameter
+        visualProvider.setMorphParameter(value); // Placeholder
+        break;
+
+      case XYAxisParameter.brightness:
+        visualProvider.setVertexBrightness(value);
+        break;
+
+      case XYAxisParameter.reverb:
+        visualProvider.setGlowIntensity(value * 3.0);
+        break;
+
+      case XYAxisParameter.oscillatorMix:
+        audioProvider.setMixBalance(value);
+        break;
+
+      case XYAxisParameter.rotationSpeed:
+        visualProvider.setRotationSpeed(value * 2.0);
         break;
     }
   }
@@ -316,16 +330,24 @@ class _XYPerformancePadState extends State<XYPerformancePad>
         return 'Filter';
       case XYAxisParameter.resonance:
         return 'Resonance';
-      case XYAxisParameter.oscillatorMix:
-        return 'OSC Mix';
-      case XYAxisParameter.morphParameter:
-        return 'Morph';
-      case XYAxisParameter.rotationSpeed:
-        return 'Rotation';
       case XYAxisParameter.fmDepth:
         return 'FM Depth';
       case XYAxisParameter.ringModMix:
         return 'Ring Mod';
+      case XYAxisParameter.morph:
+        return 'Morph';
+      case XYAxisParameter.chaos:
+        return 'Chaos';
+      case XYAxisParameter.brightness:
+        return 'Brightness';
+      case XYAxisParameter.reverb:
+        return 'Reverb';
+      case XYAxisParameter.oscillatorMix:
+        return 'OSC Mix';
+      case XYAxisParameter.morphParameter:
+        return 'Morph Param';
+      case XYAxisParameter.rotationSpeed:
+        return 'Rotation';
     }
   }
 
