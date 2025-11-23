@@ -146,9 +146,18 @@ class AudioProvider with ChangeNotifier {
     debugPrint('⏸️  Audio stopped');
   }
 
+  // Reference to parameter bridge (set externally)
+  dynamic parameterBridge;
+
   /// Generate next audio buffer
   void _generateAudioBuffer() async {
     try {
+      // ELEGANT: Update visual→audio parameters HERE (not on separate timer)
+      // This syncs parameter updates with audio buffer generation
+      if (parameterBridge != null && parameterBridge.visualToAudio != null) {
+        parameterBridge.visualToAudio.updateFromVisuals();
+      }
+
       // Calculate frequency from MIDI note
       final frequency = _midiNoteToFrequency(_currentNote);
 

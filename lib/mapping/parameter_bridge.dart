@@ -88,7 +88,8 @@ class ParameterBridge with ChangeNotifier {
   }
 
   /// Main update loop called at 60 FPS
-  void _update() {
+  /// Update Audio→Visual only (Visual→Audio happens in audio buffer generation)
+  void _updateAudioToVisual() {
     try {
       // Audio → Visual modulation (if enabled in preset)
       if (_currentPreset.audioReactiveEnabled) {
@@ -98,10 +99,7 @@ class ParameterBridge with ChangeNotifier {
         }
       }
 
-      // Visual → Audio modulation (if enabled in preset)
-      if (_currentPreset.visualReactiveEnabled) {
-        visualToAudio.updateFromVisuals();
-      }
+      // NOTE: Visual→Audio is now synced with buffer generation (more elegant)
 
       // Update FPS counter
       _frameCount++;
