@@ -50,6 +50,14 @@ class AudioProvider with ChangeNotifier {
   double _vibratoDepth = 0.0;
   double _mixBalance = 0.5; // Oscillator mix (0=osc1, 1=osc2)
 
+  // Parameter smoothing (exponential moving average)
+  double _smoothedFilterCutoff = 1000.0;
+  double _smoothedResonance = 0.5;
+  double _smoothedOsc1Detune = 0.0;
+  double _smoothedOsc2Detune = 0.0;
+  double _smoothedReverbMix = 0.3;
+  final double _smoothingFactor = 0.95; // Higher = smoother but slower (0.9-0.99)
+
   // Audio generation timer
   Timer? _audioGenerationTimer;
 
@@ -144,8 +152,32 @@ class AudioProvider with ChangeNotifier {
       // Calculate frequency from MIDI note
       final frequency = _midiNoteToFrequency(_currentNote);
 
+      // Apply parameter smoothing before generating buffer
+      _smoothedFilterCutoff = _smoothedFilterCutoff * _smoothingFactor +
+                               synthesizerEngine.filter.baseCutoff * (1 - _smoothingFactor);
+      _smoothedResonance = _smoothedResonance * _smoothingFactor +
+                            synthesizerEngine.filter.resonance * (1 - _smoothingFactor);
+      _smoothedOsc1Detune = _smoothedOsc1Detune * _smoothingFactor +
+                             synthesizerEngine.oscillator1.detune * (1 - _smoothingFactor);
+      _smoothedOsc2Detune = _smoothedOsc2Detune * _smoothingFactor +
+                             synthesizerEngine.oscillator2.detune * (1 - _smoothingFactor);
+
+      // Apply smoothed values to engine (temporarily for buffer generation)
+      final originalCutoff = synthesizerEngine.filter.baseCutoff;
+      final originalOsc1Detune = synthesizerEngine.oscillator1.detune;
+      final originalOsc2Detune = synthesizerEngine.oscillator2.detune;
+
+      synthesizerEngine.filter.baseCutoff = _smoothedFilterCutoff;
+      synthesizerEngine.oscillator1.detune = _smoothedOsc1Detune;
+      synthesizerEngine.oscillator2.detune = _smoothedOsc2Detune;
+
       // Generate buffer from synthesis branch manager (uses current geometry/system)
       _currentBuffer = synthesisBranchManager.generateBuffer(bufferSize, frequency);
+
+      // Restore original values
+      synthesizerEngine.filter.baseCutoff = originalCutoff;
+      synthesizerEngine.oscillator1.detune = originalOsc1Detune;
+      synthesizerEngine.oscillator2.detune = originalOsc2Detune;
 
       // Analyze the buffer
       if (_currentBuffer != null && _currentBuffer!.isNotEmpty) {
