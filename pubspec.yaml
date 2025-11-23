@@ -97,6 +97,7 @@ flutter:
     - assets/vib34d_viewer.html  # VIB34D WebView HTML file
     - assets/vib3plus_viewer.html  # VIB3+ Working System
     - assets/vib3_flutter.html  # Minimal Flutter-compatible VIB3+
+    - assets/vib3plus_flutter_full.html  # FULL VIB3+ with fixed paths
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
