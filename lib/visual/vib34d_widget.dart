@@ -78,8 +78,8 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
         ),
       );
 
-    // Load VIB3+ from local assets (not GitHub Pages - has errors)
-    await _webViewController.loadFlutterAsset('assets/vib3plus_viewer.html');
+    // Load minimal VIB3+ Flutter integration (full version has path issues)
+    await _webViewController.loadFlutterAsset('assets/vib3_flutter.html');
 
     // Attach controller to visual provider
     widget.visualProvider.setWebViewController(_webViewController);
