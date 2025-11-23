@@ -100,12 +100,8 @@ class _SynthMainContentState extends State<_SynthMainContent> {
   @override
   void initState() {
     super.initState();
-    // Start audio engine with default note after first frame
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final audioProvider = Provider.of<AudioProvider>(context, listen: false);
-      audioProvider.playNote(60); // Middle C
-      debugPrint('🎵 Auto-started audio with Middle C');
-    });
+    // DON'T auto-start audio - let user trigger via XY pad touch
+    // Audio will start when they touch the performance pad
   }
 
   @override
