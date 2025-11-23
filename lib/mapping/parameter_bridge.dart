@@ -71,10 +71,10 @@ class ParameterBridge with ChangeNotifier {
     _lastFPSCheck = DateTime.now();
     _frameCount = 0;
 
-    // 60 FPS update rate
+    // 60 FPS update rate for Audio→Visual
     _updateTimer = Timer.periodic(
       const Duration(milliseconds: 16), // ~60 Hz
-      (_) => _update(),
+      (_) => _updateAudioToVisual(),
     );
 
     notifyListeners();
