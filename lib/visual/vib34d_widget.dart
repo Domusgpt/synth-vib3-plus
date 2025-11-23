@@ -78,10 +78,8 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
         ),
       );
 
-    // Load VIB3+ from GitHub Pages
-    await _webViewController.loadRequest(
-      Uri.parse('https://domusgpt.github.io/vib3-plus-engine/')
-    );
+    // Load VIB3+ from local assets (not GitHub Pages - has errors)
+    await _webViewController.loadFlutterAsset('assets/vib3plus_viewer.html');
 
     // Attach controller to visual provider
     widget.visualProvider.setWebViewController(_webViewController);
