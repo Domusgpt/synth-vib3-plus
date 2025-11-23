@@ -248,6 +248,22 @@ class AudioProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// Set visual system (Quantum/Faceted/Holographic) → updates sound family
+  void setSystem(String systemName) {
+    final systemMap = {
+      'quantum': VisualSystem.quantum,
+      'faceted': VisualSystem.faceted,
+      'holographic': VisualSystem.holographic,
+    };
+
+    final system = systemMap[systemName.toLowerCase()];
+    if (system != null) {
+      synthesisBranchManager.setVisualSystem(system);
+      debugPrint('🎨 System set to: $systemName → ${system.name} sound family');
+      notifyListeners();
+    }
+  }
+
   /// Set visual system (updates sound family)
   void setVisualSystem(String systemName) {
     VisualSystem system;
