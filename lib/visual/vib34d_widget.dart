@@ -160,7 +160,10 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        WebViewWidget(controller: _webViewController),
+        // WebView - NON-INTERACTIVE (touches pass through to XY pad underneath)
+        IgnorePointer(
+          child: WebViewWidget(controller: _webViewController),
+        ),
 
         // Loading indicator
         if (_isLoading)
@@ -173,7 +176,7 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
                   CircularProgressIndicator(color: Colors.cyan),
                   SizedBox(height: 20),
                   Text(
-                    'Loading VIB34D Systems...',
+                    'Loading VIB3+ Gallery...',
                     style: TextStyle(
                       color: Colors.cyan,
                       fontSize: 16,
