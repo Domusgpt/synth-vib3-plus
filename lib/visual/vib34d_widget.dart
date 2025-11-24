@@ -76,10 +76,26 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
             debugPrint('❌ WebView error: ${error.description}');
           },
         ),
-      );
+      )
+      ..enableZoom(false);
 
-    // Load SIMPLE working visualizer (complex full VIB3+ has too many dependencies)
-    await _webViewController.loadFlutterAsset('assets/vib3_flutter.html');
+    // CRITICAL: Enable file access for loading local assets
+    await _webViewController.runJavaScript('''
+      // Enable all permissions needed for VIB3+
+      console.log('Enabling WebView permissions...');
+    ''');
+
+    // Load FULL VIB3+ system
+    try {
+      await _webViewController.loadFlutterAsset('assets/vib3plus_flutter_full.html');
+      debugPrint('✅ Loading VIB3+ from assets/vib3plus_flutter_full.html');
+    } catch (e) {
+      debugPrint('❌ Failed to load VIB3+: $e');
+      setState(() {
+        _errorMessage = 'Failed to load visualizer: $e';
+        _isLoading = false;
+      });
+    }
 
     // Attach controller to visual provider
     widget.visualProvider.setWebViewController(_webViewController);
