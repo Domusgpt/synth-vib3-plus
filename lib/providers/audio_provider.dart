@@ -22,7 +22,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_pcm_sound/flutter_pcm_sound.dart';
 import '../audio/audio_analyzer.dart';
 import '../audio/synthesizer_engine.dart';
-import '../synthesis/synthesis_branch_manager.dart';
+import '../synthesis/synthesis_branch_manager.dart'; // Includes VisualSystem enum
 
 class AudioProvider with ChangeNotifier {
   // Core audio systems
