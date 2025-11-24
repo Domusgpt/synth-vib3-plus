@@ -85,10 +85,10 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
       console.log('Enabling WebView permissions...');
     ''');
 
-    // Load FULL VIB3+ system
+    // Load ORIGINAL VIB3+ viewer (not the broken copy)
     try {
-      await _webViewController.loadFlutterAsset('assets/vib3plus_flutter_full.html');
-      debugPrint('✅ Loading VIB3+ from assets/vib3plus_flutter_full.html');
+      await _webViewController.loadFlutterAsset('assets/vib3plus_viewer.html');
+      debugPrint('✅ Loading VIB3+ from assets/vib3plus_viewer.html');
     } catch (e) {
       debugPrint('❌ Failed to load VIB3+: $e');
       setState(() {
