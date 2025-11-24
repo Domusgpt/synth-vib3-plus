@@ -9,17 +9,17 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" onerror="console.warn('Google Fonts failed to load - using fallback')">
     
     <!-- Organized CSS Architecture -->
-    <link rel="stylesheet" href="assets/styles/base.css">
-    <link rel="stylesheet" href="assets/styles/header-enhanced.css">
-    <link rel="stylesheet" href="assets/styles/controls.css">
-    <link rel="stylesheet" href="assets/styles/reactivity.css">
-    <link rel="stylesheet" href="assets/styles/gallery-modal.css">
-    <link rel="stylesheet" href="assets/styles/bottom-bezel.css">
-    <link rel="stylesheet" href="assets/styles/geometry-tabs.css">
-    <link rel="stylesheet" href="assets/styles/mobile.css">
-    <link rel="stylesheet" href="assets/styles/animations.css">
-    <link rel="stylesheet" href="assets/styles/z-index-fix.css">
-    <link rel="stylesheet" href="assets/styles/glitch-icons.css">
+    <link rel="stylesheet" href="styles/base.css">
+    <link rel="stylesheet" href="styles/header-enhanced.css">
+    <link rel="stylesheet" href="styles/controls.css">
+    <link rel="stylesheet" href="styles/reactivity.css">
+    <link rel="stylesheet" href="styles/gallery-modal.css">
+    <link rel="stylesheet" href="styles/bottom-bezel.css">
+    <link rel="stylesheet" href="styles/geometry-tabs.css">
+    <link rel="stylesheet" href="styles/mobile.css">
+    <link rel="stylesheet" href="styles/animations.css">
+    <link rel="stylesheet" href="styles/z-index-fix.css">
+    <link rel="stylesheet" href="styles/glitch-icons.css">
 </head>
 <body class="loading">
     <!-- Enhanced Top Navigation Bar -->
@@ -411,31 +411,31 @@
     </div>
 
     <!-- URL Parameter Handler (runs first) -->
-    <script type="module" src="assets/js/core/url-params.js"></script>
+    <script type="module" src="js/core/url-params.js"></script>
 
     <!-- Gallery Preview Fix (runs early for gallery previews) -->
-    <script type="module" src="assets/js/core/gallery-preview-fix.js"></script>
+    <script type="module" src="js/core/gallery-preview-fix.js"></script>
 
     <!-- Core JavaScript Modules (NEW CLEAN ARCHITECTURE) - Order matters for globals -->
-    <script type="module" src="assets/js/audio/audio-engine.js"></script>
-    <script type="module" src="assets/js/controls/ui-handlers.js"></script>
-    <script type="module" src="assets/js/gallery/gallery-manager.js"></script>
-    <script type="module" src="assets/js/gallery/gallery-modal.js"></script>
-    <script type="module" src="assets/js/ui/bezel-tabs.js"></script>
-    <script type="module" src="assets/js/geometry/geometry-tabs.js"></script>
-    <script type="module" src="assets/js/interactions/device-tilt.js"></script>
-    <script type="module" src="assets/js/core/ui-fixes.js"></script>
+    <script type="module" src="js/audio/audio-engine.js"></script>
+    <script type="module" src="js/controls/ui-handlers.js"></script>
+    <script type="module" src="js/gallery/gallery-manager.js"></script>
+    <script type="module" src="js/gallery/gallery-modal.js"></script>
+    <script type="module" src="js/ui/bezel-tabs.js"></script>
+    <script type="module" src="js/geometry/geometry-tabs.js"></script>
+    <script type="module" src="js/interactions/device-tilt.js"></script>
+    <script type="module" src="js/core/ui-fixes.js"></script>
 
     <!-- Enhanced UI Modules -->
-    <script type="module" src="assets/js/ui/geometric-icons.js"></script>
-    <script type="module" src="assets/js/core/comprehensive-fixes.js"></script>
-    <script type="module" src="assets/js/core/global-shortcuts.js"></script>
-    <script type="module" src="assets/js/core/performance-optimizer.js"></script>
-    <script type="module" src="assets/js/core/state-manager.js"></script>
-    <script type="module" src="assets/js/core/layout-polish.js"></script>
-    <script type="module" src="assets/js/core/system-diagnostics.js"></script>
-    <script type="module" src="assets/js/core/loading-states.js"></script>
-    <script type="module" src="assets/js/core/visual-test-suite.js"></script>
+    <script type="module" src="js/ui/geometric-icons.js"></script>
+    <script type="module" src="js/core/comprehensive-fixes.js"></script>
+    <script type="module" src="js/core/global-shortcuts.js"></script>
+    <script type="module" src="js/core/performance-optimizer.js"></script>
+    <script type="module" src="js/core/state-manager.js"></script>
+    <script type="module" src="js/core/layout-polish.js"></script>
+    <script type="module" src="js/core/system-diagnostics.js"></script>
+    <script type="module" src="js/core/loading-states.js"></script>
+    <script type="module" src="js/core/visual-test-suite.js"></script>
 
     <!-- Initialize globals and user parameter state BEFORE main app -->
     <script>
