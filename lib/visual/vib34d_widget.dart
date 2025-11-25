@@ -31,10 +31,19 @@ class VIB34DWidget extends StatefulWidget {
   State<VIB34DWidget> createState() => _VIB34DWidgetState();
 }
 
+enum _EngineSource { asset, network }
+
+enum _EngineLoadPhase { initializing, loading, ready, failed }
+
 class _VIB34DWidgetState extends State<VIB34DWidget> {
   late WebViewController _webViewController;
   bool _isLoading = true;
   String? _errorMessage;
+  String _statusMessage = 'Preparing VIB3+ engine...';
+  _EngineSource? _activeEngineSource;
+  _EngineLoadPhase _phase = _EngineLoadPhase.initializing;
+  final Uri _fallbackEngineUri =
+      Uri.parse('https://domusgpt.github.io/vib3-plus-engine/');
 
   @override
   void initState() {
@@ -50,7 +59,6 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
         'FlutterBridge',
         onMessageReceived: (JavaScriptMessage message) {
           debugPrint('📨 VIB3+ Message: ${message.message}');
-          // Handle messages from VIB3+ (errors, events, etc.)
           if (message.message.startsWith('ERROR:')) {
             setState(() {
               _errorMessage = message.message.substring(6);
@@ -60,47 +68,94 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
       )
       ..setNavigationDelegate(
         NavigationDelegate(
+          onPageStarted: (_) {
+            setState(() {
+              _phase = _EngineLoadPhase.loading;
+              _isLoading = true;
+              _errorMessage = null;
+              _statusMessage = _activeEngineSource == _EngineSource.network
+                  ? 'Loading VIB3+ engine from network build...'
+                  : 'Loading offline VIB3+ bundle...';
+            });
+          },
           onPageFinished: (String url) async {
             debugPrint('📄 Page loaded: $url');
             await _injectHelperFunctions();
             setState(() {
               _isLoading = false;
+              _phase = _EngineLoadPhase.ready;
+              _statusMessage = 'VIB3+ engine ready';
             });
             debugPrint('✅ VIB34D WebView ready');
           },
           onWebResourceError: (WebResourceError error) {
-            setState(() {
-              _errorMessage = error.description;
-              _isLoading = false;
-            });
+            _handleWebViewError(error.description);
             debugPrint('❌ WebView error: ${error.description}');
           },
         ),
       )
       ..enableZoom(false);
 
-    // CRITICAL: Enable file access for loading local assets
-    await _webViewController.runJavaScript('''
-      // Enable all permissions needed for VIB3+
-      console.log('Enabling WebView permissions...');
-    ''');
+    await _loadEngine();
 
-    // Load FULL VIB3+ engine (not gallery mode - need all API functions)
-    try {
-      await _webViewController.loadRequest(
-        Uri.parse('https://domusgpt.github.io/vib3-plus-engine/')
-      );
-      debugPrint('✅ Loading full VIB3+ engine from GitHub Pages');
-    } catch (e) {
-      debugPrint('❌ Failed to load VIB3+: $e');
-      setState(() {
-        _errorMessage = 'Failed to load visualizer: $e';
-        _isLoading = false;
-      });
+    widget.visualProvider.setWebViewController(_webViewController);
+  }
+
+  Future<void> _loadEngine({bool forceNetwork = false}) async {
+    setState(() {
+      _phase = _EngineLoadPhase.loading;
+      _isLoading = true;
+      _errorMessage = null;
+      _statusMessage = forceNetwork
+          ? 'Requesting VIB3+ engine from network...'
+          : 'Booting offline VIB3+ bundle...';
+    });
+
+    final candidateSources = <_EngineSource>[
+      if (!forceNetwork) _EngineSource.asset,
+      _EngineSource.network,
+    ];
+
+    for (final source in candidateSources) {
+      final succeeded = await _attemptEngineLoad(source);
+      if (succeeded) {
+        setState(() {
+          _activeEngineSource = source;
+          _statusMessage = source == _EngineSource.network
+              ? 'Streaming VIB3+ engine from network build...'
+              : 'Using offline VIB3+ bundle';
+        });
+        return;
+      }
     }
 
-    // Attach controller to visual provider
-    widget.visualProvider.setWebViewController(_webViewController);
+    _handleWebViewError('Failed to load VIB3+ engine from any source');
+  }
+
+  Future<bool> _attemptEngineLoad(_EngineSource source) async {
+    try {
+      if (source == _EngineSource.asset) {
+        await _webViewController
+            .loadFlutterAsset('assets/vib3plus_flutter_full.html');
+        debugPrint('✅ Loading VIB3+ engine from bundled asset');
+      } else {
+        await _webViewController.loadRequest(_fallbackEngineUri);
+        debugPrint('✅ Loaded VIB3+ engine from network fallback');
+      }
+      return true;
+    } catch (error) {
+      debugPrint('⚠️ Engine load failed from $source: $error');
+      return false;
+    }
+  }
+
+  void _handleWebViewError(String message) {
+    setState(() {
+      _errorMessage = message;
+      _statusMessage = 'VIB3+ engine unavailable';
+      _phase = _EngineLoadPhase.failed;
+      _isLoading = false;
+    });
   }
 
   /// Inject helper functions to batch parameter updates and handle errors
@@ -163,6 +218,59 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
         // WebView with VIB3+ visualization
         WebViewWidget(controller: _webViewController),
 
+        // Status ribbon showing source and phase
+        Positioned(
+          left: 12,
+          top: 12,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.cyanAccent.withOpacity(0.5)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _phase == _EngineLoadPhase.ready
+                        ? Icons.check_circle_outline
+                        : Icons.sync,
+                    color: Colors.cyanAccent,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _statusMessage,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (_activeEngineSource != null)
+                        Text(
+                          _activeEngineSource == _EngineSource.network
+                              ? 'Source: Network build'
+                              : 'Source: Offline bundle',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
         // Loading indicator
         if (_isLoading)
           Container(
@@ -174,7 +282,7 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
                   CircularProgressIndicator(color: Colors.cyan),
                   SizedBox(height: 20),
                   Text(
-                    'Loading VIB3+ Gallery...',
+                    'Loading VIB3+ Engine...',
                     style: TextStyle(
                       color: Colors.cyan,
                       fontSize: 16,
@@ -211,6 +319,16 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
                       _errorMessage!,
                       style: const TextStyle(color: Colors.white70),
                       textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      onPressed: () => _loadEngine(forceNetwork: true),
+                      icon: const Icon(Icons.refresh),
+                      label: Text(
+                        _activeEngineSource == _EngineSource.network
+                            ? 'Retry Network Build'
+                            : 'Retry with Network Build',
+                      ),
                     ),
                   ],
                 ),
