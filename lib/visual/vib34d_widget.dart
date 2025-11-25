@@ -160,10 +160,8 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // WebView - NON-INTERACTIVE (touches pass through to XY pad underneath)
-        IgnorePointer(
-          child: WebViewWidget(controller: _webViewController),
-        ),
+        // WebView with VIB3+ visualization
+        WebViewWidget(controller: _webViewController),
 
         // Loading indicator
         if (_isLoading)

@@ -92,14 +92,44 @@ class VisualProvider with ChangeNotifier {
   Future<void> switchSystem(String systemName) async {
     if (_currentSystem == systemName) return;
 
+    debugPrint('🔄 Switching from $_currentSystem to $systemName...');
     _currentSystem = systemName;
 
-    // Update JavaScript system via WebView
-    // VIB3+ uses window.switchSystem(), not window.vib34d.switchSystem()
+    // Update JavaScript system via WebView with proper canvas management
+    // VIB3+ uses window.switchSystem(), but we need to ensure canvas is properly reset
     if (_webViewController != null) {
-      await _webViewController!.runJavaScript(
-        'if (window.switchSystem) { window.switchSystem("$systemName"); }'
-      );
+      try {
+        // First, check if switchSystem exists and call it
+        final result = await _webViewController!.runJavaScriptReturningResult(
+          '''
+          (function() {
+            try {
+              if (typeof window.switchSystem === 'function') {
+                console.log('🔄 Calling switchSystem("$systemName")');
+                window.switchSystem("$systemName");
+                return 'SUCCESS: System switched to $systemName';
+              } else if (typeof window.vib3plus !== 'undefined' && typeof window.vib3plus.switchSystem === 'function') {
+                console.log('🔄 Calling vib3plus.switchSystem("$systemName")');
+                window.vib3plus.switchSystem("$systemName");
+                return 'SUCCESS: System switched to $systemName via vib3plus';
+              } else {
+                console.error('❌ switchSystem function not found!');
+                console.log('Available window properties:', Object.keys(window).filter(k => k.includes('switch') || k.includes('vib') || k.includes('system')));
+                return 'ERROR: switchSystem function not available';
+              }
+            } catch (e) {
+              console.error('❌ Error in switchSystem:', e);
+              return 'ERROR: ' + e.message;
+            }
+          })();
+          '''
+        );
+        debugPrint('📱 JavaScript result: $result');
+      } catch (e) {
+        debugPrint('❌ Error switching system in JavaScript: $e');
+      }
+    } else {
+      debugPrint('⚠️  WebView controller not initialized yet');
     }
 
     // Update vertex count based on system
