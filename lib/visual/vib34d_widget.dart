@@ -35,6 +35,8 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
   late WebViewController _webViewController;
   bool _isLoading = true;
   String? _errorMessage;
+  final Uri _fallbackEngineUri =
+      Uri.parse('https://domusgpt.github.io/vib3-plus-engine/');
 
   @override
   void initState() {
@@ -50,7 +52,6 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
         'FlutterBridge',
         onMessageReceived: (JavaScriptMessage message) {
           debugPrint('📨 VIB3+ Message: ${message.message}');
-          // Handle messages from VIB3+ (errors, events, etc.)
           if (message.message.startsWith('ERROR:')) {
             setState(() {
               _errorMessage = message.message.substring(6);
@@ -60,6 +61,12 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
       )
       ..setNavigationDelegate(
         NavigationDelegate(
+          onPageStarted: (_) {
+            setState(() {
+              _isLoading = true;
+              _errorMessage = null;
+            });
+          },
           onPageFinished: (String url) async {
             debugPrint('📄 Page loaded: $url');
             await _injectHelperFunctions();
@@ -69,22 +76,43 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
             debugPrint('✅ VIB34D WebView ready');
           },
           onWebResourceError: (WebResourceError error) {
-            setState(() {
-              _errorMessage = error.description;
-              _isLoading = false;
-            });
+            _handleWebViewError(error.description);
             debugPrint('❌ WebView error: ${error.description}');
           },
         ),
-      );
+      )
+      ..enableZoom(false);
 
-    // Load VIB3+ from GitHub Pages
-    await _webViewController.loadRequest(
-      Uri.parse('https://domusgpt.github.io/vib3-plus-engine/')
-    );
+    await _loadEngine();
 
-    // Attach controller to visual provider
     widget.visualProvider.setWebViewController(_webViewController);
+  }
+
+  Future<void> _loadEngine() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await _webViewController.loadFlutterAsset('assets/vib3plus_flutter_full.html');
+      debugPrint('✅ Loading VIB3+ engine from bundled asset');
+    } catch (assetError) {
+      debugPrint('⚠️ Asset load failed, attempting network fallback: $assetError');
+      try {
+        await _webViewController.loadRequest(_fallbackEngineUri);
+        debugPrint('✅ Loaded VIB3+ engine from network fallback');
+      } catch (networkError) {
+        _handleWebViewError('Failed to load VIB3+ engine: $networkError');
+      }
+    }
+  }
+
+  void _handleWebViewError(String message) {
+    setState(() {
+      _errorMessage = message;
+      _isLoading = false;
+    });
   }
 
   /// Inject helper functions to batch parameter updates and handle errors
@@ -144,6 +172,7 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
+        // WebView with VIB3+ visualization
         WebViewWidget(controller: _webViewController),
 
         // Loading indicator
@@ -157,7 +186,7 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
                   CircularProgressIndicator(color: Colors.cyan),
                   SizedBox(height: 20),
                   Text(
-                    'Loading VIB34D Systems...',
+                    'Loading VIB3+ Engine...',
                     style: TextStyle(
                       color: Colors.cyan,
                       fontSize: 16,
@@ -194,6 +223,12 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
                       _errorMessage!,
                       style: const TextStyle(color: Colors.white70),
                       textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      onPressed: _loadEngine,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry Engine Load'),
                     ),
                   ],
                 ),

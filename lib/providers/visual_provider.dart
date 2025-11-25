@@ -18,6 +18,7 @@
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import '../ui/theme/synth_theme.dart';
 
 class VisualProvider with ChangeNotifier {
   // Current VIB34D system
@@ -91,14 +92,44 @@ class VisualProvider with ChangeNotifier {
   Future<void> switchSystem(String systemName) async {
     if (_currentSystem == systemName) return;
 
+    debugPrint('🔄 Switching from $_currentSystem to $systemName...');
     _currentSystem = systemName;
 
-    // Update JavaScript system via WebView
-    // VIB3+ uses window.switchSystem(), not window.vib34d.switchSystem()
+    // Update JavaScript system via WebView with proper canvas management
+    // VIB3+ uses window.switchSystem(), but we need to ensure canvas is properly reset
     if (_webViewController != null) {
-      await _webViewController!.runJavaScript(
-        'if (window.switchSystem) { window.switchSystem("$systemName"); }'
-      );
+      try {
+        // First, check if switchSystem exists and call it
+        final result = await _webViewController!.runJavaScriptReturningResult(
+          '''
+          (function() {
+            try {
+              if (typeof window.switchSystem === 'function') {
+                console.log('🔄 Calling switchSystem("$systemName")');
+                window.switchSystem("$systemName");
+                return 'SUCCESS: System switched to $systemName';
+              } else if (typeof window.vib3plus !== 'undefined' && typeof window.vib3plus.switchSystem === 'function') {
+                console.log('🔄 Calling vib3plus.switchSystem("$systemName")');
+                window.vib3plus.switchSystem("$systemName");
+                return 'SUCCESS: System switched to $systemName via vib3plus';
+              } else {
+                console.error('❌ switchSystem function not found!');
+                console.log('Available window properties:', Object.keys(window).filter(k => k.includes('switch') || k.includes('vib') || k.includes('system')));
+                return 'ERROR: switchSystem function not available';
+              }
+            } catch (e) {
+              console.error('❌ Error in switchSystem:', e);
+              return 'ERROR: ' + e.message;
+            }
+          })();
+          '''
+        );
+        debugPrint('📱 JavaScript result: $result');
+      } catch (e) {
+        debugPrint('❌ Error switching system in JavaScript: $e');
+      }
+    } else {
+      debugPrint('⚠️  WebView controller not initialized yet');
     }
 
     // Update vertex count based on system
@@ -271,15 +302,35 @@ class VisualProvider with ChangeNotifier {
     return _geometryComplexity;
   }
 
-  /// Set current geometry
-  void setGeometry(int geometryIndex) {
-    _currentGeometry = geometryIndex.clamp(0, 7);
-    _updateJavaScriptParameter('geometry', _currentGeometry);
+  /// Set current geometry (0-23: 3 synthesis branches × 8 base geometries)
+  Future<void> setGeometry(int geometryIndex) async {
+    _currentGeometry = geometryIndex.clamp(0, 23); // 24 geometries total
+
+    // Use VIB3+ selectGeometry API
+    if (_webViewController != null) {
+      try {
+        await _webViewController!.runJavaScript(
+          'if (window.selectGeometry) { window.selectGeometry($geometryIndex); }'
+        );
+        debugPrint('✅ Geometry set to $geometryIndex (${_getGeometryLabel(geometryIndex)})');
+      } catch (e) {
+        debugPrint('❌ Error setting geometry: $e');
+      }
+    }
 
     // Update vertex count based on geometry
     _activeVertexCount = _getVertexCountForGeometry(_currentGeometry);
 
     notifyListeners();
+  }
+
+  /// Get human-readable geometry label for debugging
+  String _getGeometryLabel(int index) {
+    final coreIndex = index ~/ 8;
+    final baseGeometry = index % 8;
+    const baseNames = ['Tetrahedron', 'Hypercube', 'Sphere', 'Torus', 'Klein Bottle', 'Fractal', 'Wave', 'Crystal'];
+    const coreNames = ['Base', 'Hypersphere', 'Hypertetrahedron'];
+    return '${coreNames[coreIndex]} ${baseNames[baseGeometry]}';
   }
 
   /// Get vertex count for specific geometry
@@ -349,11 +400,9 @@ class VisualProvider with ChangeNotifier {
 
   // Additional methods for UI component compatibility
 
-  /// Get system colors (placeholder - returns color scheme based on system)
-  dynamic get systemColors {
-    // This should return SystemColors from SynthTheme
-    // For now, return null and let UI components handle it
-    return null;
+  /// Get system colors based on current system
+  SystemColors get systemColors {
+    return SystemColors.fromName(_currentSystem);
   }
 
   /// Get current FPS

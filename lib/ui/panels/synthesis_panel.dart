@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import '../theme/synth_theme.dart';
 import '../components/holographic_slider.dart';
 import '../../providers/audio_provider.dart';
+import '../../providers/visual_provider.dart';
 
 class SynthesisPanelContent extends StatelessWidget {
   const SynthesisPanelContent({Key? key}) : super(key: key);
@@ -19,7 +20,8 @@ class SynthesisPanelContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final audioProvider = Provider.of<AudioProvider>(context);
-    final systemColors = audioProvider.systemColors;
+    final visualProvider = Provider.of<VisualProvider>(context);
+    final systemColors = visualProvider.systemColors;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

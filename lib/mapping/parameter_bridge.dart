@@ -71,13 +71,17 @@ class ParameterBridge with ChangeNotifier {
     _lastFPSCheck = DateTime.now();
     _frameCount = 0;
 
-    // 60 FPS update rate
+    // CRITICAL: Set this bridge on audio provider so it can update Visual→Audio
+    audioProvider.parameterBridge = this;
+
+    // 60 FPS update rate for Audio→Visual
     _updateTimer = Timer.periodic(
       const Duration(milliseconds: 16), // ~60 Hz
-      (_) => _update(),
+      (_) => _updateAudioToVisual(),
     );
 
     notifyListeners();
+    debugPrint('🔗 ParameterBridge started - Visual→Audio synced with buffers');
   }
 
   /// Stop the parameter bridge
@@ -88,7 +92,8 @@ class ParameterBridge with ChangeNotifier {
   }
 
   /// Main update loop called at 60 FPS
-  void _update() {
+  /// Update Audio→Visual only (Visual→Audio happens in audio buffer generation)
+  void _updateAudioToVisual() {
     try {
       // Audio → Visual modulation (if enabled in preset)
       if (_currentPreset.audioReactiveEnabled) {
@@ -98,10 +103,7 @@ class ParameterBridge with ChangeNotifier {
         }
       }
 
-      // Visual → Audio modulation (if enabled in preset)
-      if (_currentPreset.visualReactiveEnabled) {
-        visualToAudio.updateFromVisuals();
-      }
+      // NOTE: Visual→Audio is now synced with buffer generation (more elegant)
 
       // Update FPS counter
       _frameCount++;

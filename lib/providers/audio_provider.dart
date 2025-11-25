@@ -16,13 +16,13 @@
  */
 
 import 'dart:async';
-import 'dart:math' as dart;
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
-import 'package:just_audio/just_audio.dart';
+import 'package:flutter_pcm_sound/flutter_pcm_sound.dart';
 import '../audio/audio_analyzer.dart';
 import '../audio/synthesizer_engine.dart';
-import '../synthesis/synthesis_branch_manager.dart';
+import '../synthesis/synthesis_branch_manager.dart'; // Includes VisualSystem enum
 
 class AudioProvider with ChangeNotifier {
   // Core audio systems
@@ -30,8 +30,8 @@ class AudioProvider with ChangeNotifier {
   late final AudioAnalyzer audioAnalyzer;
   late final SynthesisBranchManager synthesisBranchManager;
 
-  // Audio I/O
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  // PCM audio output state
+  bool _pcmInitialized = false;
 
   // Audio buffer management
   Float32List? _currentBuffer;
@@ -50,6 +50,14 @@ class AudioProvider with ChangeNotifier {
   double _vibratoDepth = 0.0;
   double _mixBalance = 0.5; // Oscillator mix (0=osc1, 1=osc2)
 
+  // Parameter smoothing (exponential moving average)
+  double _smoothedFilterCutoff = 1000.0;
+  double _smoothedResonance = 0.5;
+  double _smoothedOsc1Detune = 0.0;
+  double _smoothedOsc2Detune = 0.0;
+  double _smoothedReverbMix = 0.3;
+  final double _smoothingFactor = 0.95; // Higher = smoother but slower (0.9-0.99)
+
   // Audio generation timer
   Timer? _audioGenerationTimer;
 
@@ -61,7 +69,7 @@ class AudioProvider with ChangeNotifier {
     _initialize();
   }
 
-  void _initialize() {
+  void _initialize() async {
     synthesizerEngine = SynthesizerEngine(
       sampleRate: sampleRate,
       bufferSize: bufferSize,
@@ -75,6 +83,19 @@ class AudioProvider with ChangeNotifier {
     synthesisBranchManager = SynthesisBranchManager(
       sampleRate: sampleRate,
     );
+
+    // Initialize PCM player (static API)
+    try {
+      await FlutterPcmSound.setup(
+        sampleRate: sampleRate.toInt(),
+        channelCount: 1, // Mono
+      );
+      _pcmInitialized = true;
+      debugPrint('✅ PCM audio output initialized');
+    } catch (e) {
+      _pcmInitialized = false;
+      debugPrint('❌ Failed to initialize PCM audio: $e');
+    }
 
     debugPrint('✅ AudioProvider initialized with SynthesisBranchManager');
   }
@@ -121,30 +142,81 @@ class AudioProvider with ChangeNotifier {
   Future<void> stopAudio() async {
     _audioGenerationTimer?.cancel();
     _isPlaying = false;
-    await _audioPlayer.stop();
     notifyListeners();
     debugPrint('⏸️  Audio stopped');
   }
 
+  // Reference to parameter bridge (set externally)
+  dynamic parameterBridge;
+
   /// Generate next audio buffer
-  void _generateAudioBuffer() {
+  void _generateAudioBuffer() async {
     try {
+      // ELEGANT: Update visual→audio parameters HERE (not on separate timer)
+      // This syncs parameter updates with audio buffer generation
+      if (parameterBridge != null && parameterBridge.visualToAudio != null) {
+        parameterBridge.visualToAudio.updateFromVisuals();
+      }
+
       // Calculate frequency from MIDI note
       final frequency = _midiNoteToFrequency(_currentNote);
+
+      // Apply parameter smoothing before generating buffer
+      _smoothedFilterCutoff = _smoothedFilterCutoff * _smoothingFactor +
+                               synthesizerEngine.filter.baseCutoff * (1 - _smoothingFactor);
+      _smoothedResonance = _smoothedResonance * _smoothingFactor +
+                            synthesizerEngine.filter.resonance * (1 - _smoothingFactor);
+      _smoothedOsc1Detune = _smoothedOsc1Detune * _smoothingFactor +
+                             synthesizerEngine.oscillator1.detune * (1 - _smoothingFactor);
+      _smoothedOsc2Detune = _smoothedOsc2Detune * _smoothingFactor +
+                             synthesizerEngine.oscillator2.detune * (1 - _smoothingFactor);
+
+      // Apply smoothed values to engine (temporarily for buffer generation)
+      final originalCutoff = synthesizerEngine.filter.baseCutoff;
+      final originalOsc1Detune = synthesizerEngine.oscillator1.detune;
+      final originalOsc2Detune = synthesizerEngine.oscillator2.detune;
+
+      synthesizerEngine.filter.baseCutoff = _smoothedFilterCutoff;
+      synthesizerEngine.oscillator1.detune = _smoothedOsc1Detune;
+      synthesizerEngine.oscillator2.detune = _smoothedOsc2Detune;
 
       // Generate buffer from synthesis branch manager (uses current geometry/system)
       _currentBuffer = synthesisBranchManager.generateBuffer(bufferSize, frequency);
 
+      // Restore original values
+      synthesizerEngine.filter.baseCutoff = originalCutoff;
+      synthesizerEngine.oscillator1.detune = originalOsc1Detune;
+      synthesizerEngine.oscillator2.detune = originalOsc2Detune;
+
       // Analyze the buffer
       if (_currentBuffer != null && _currentBuffer!.isNotEmpty) {
         _currentFeatures = audioAnalyzer.extractFeatures(_currentBuffer!);
+
+        // Play audio buffer via PCM output (if initialized)
+        if (_pcmInitialized) {
+          try {
+            // Convert Float32List to Int16List (PCM16)
+            final int16Buffer = Int16List(bufferSize);
+            for (int i = 0; i < bufferSize; i++) {
+              // Clamp to [-1, 1] and convert to 16-bit PCM
+              final sample = _currentBuffer![i].clamp(-1.0, 1.0);
+              int16Buffer[i] = (sample * 32767).round();
+            }
+
+            // Feed to PCM player (static method)
+            await FlutterPcmSound.feed(
+              PcmArrayInt16.fromList(int16Buffer.toList()),
+            );
+          } catch (e) {
+            // Silently ignore PCM playback errors to avoid spam
+            if (_buffersGenerated % 100 == 0) {
+              debugPrint('⚠️ PCM playback error: $e');
+            }
+          }
+        }
       }
 
       _buffersGenerated++;
-
-      // TODO: Send buffer to audio output
-      // This requires platform-specific audio API integration
-      // For now, just store the buffer for analysis
 
       notifyListeners();
     } catch (e) {
@@ -156,7 +228,7 @@ class AudioProvider with ChangeNotifier {
   double _midiNoteToFrequency(int midiNote) {
     // A4 (MIDI 69) = 440 Hz
     // Each semitone is 2^(1/12) ratio
-    return 440.0 * dart.math.pow(2.0, (midiNote - 69) / 12.0);
+    return 440.0 * math.pow(2.0, (midiNote - 69) / 12.0);
   }
 
   /// Play a note (MIDI note number)
@@ -183,6 +255,22 @@ class AudioProvider with ChangeNotifier {
     synthesisBranchManager.setGeometry(geometry);
     debugPrint('🎵 Geometry set to: $geometry (${synthesisBranchManager.configString})');
     notifyListeners();
+  }
+
+  /// Set visual system (Quantum/Faceted/Holographic) → updates sound family
+  void setSystem(String systemName) {
+    final systemMap = {
+      'quantum': VisualSystem.quantum,
+      'faceted': VisualSystem.faceted,
+      'holographic': VisualSystem.holographic,
+    };
+
+    final system = systemMap[systemName.toLowerCase()];
+    if (system != null) {
+      synthesisBranchManager.setVisualSystem(system);
+      debugPrint('🎨 System set to: $systemName → ${system.name} sound family');
+      notifyListeners();
+    }
   }
 
   /// Set visual system (updates sound family)
@@ -358,6 +446,20 @@ class AudioProvider with ChangeNotifier {
   /// Get mix balance
   double get mixBalance => _mixBalance;
 
+  /// Set FM depth (for FM synthesis)
+  void setFMDepth(double depth) {
+    // FM depth is handled by synthesis branch manager
+    // Store for future use or pass to synthesizer
+    notifyListeners();
+  }
+
+  /// Set ring modulation mix (for ring mod synthesis)
+  void setRingModMix(double mix) {
+    // Ring mod mix is handled by synthesis branch manager
+    // Store for future use or pass to synthesizer
+    notifyListeners();
+  }
+
   /// Get system colors (placeholder - will be populated from VisualProvider)
   dynamic get systemColors {
     // This should be injected from VisualProvider
@@ -457,7 +559,6 @@ class AudioProvider with ChangeNotifier {
   @override
   void dispose() {
     stopAudio();
-    _audioPlayer.dispose();
     super.dispose();
   }
 }

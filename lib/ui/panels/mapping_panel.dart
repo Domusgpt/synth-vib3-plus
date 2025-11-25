@@ -96,7 +96,7 @@ class MappingPanelContent extends StatelessWidget {
           max: 12.0,
           unit: '',
           divisions: 11,
-          onChanged: (value) => uiState.setOrbPitchBendRange(value.round()),
+          onChanged: (value) => uiState.setOrbPitchBendRange(value),
           systemColors: systemColors,
           icon: Icons.swap_horiz,
         ),

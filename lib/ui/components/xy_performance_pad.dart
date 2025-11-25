@@ -20,6 +20,7 @@ import 'dart:math' as math;
 import '../theme/synth_theme.dart';
 import '../../providers/ui_state_provider.dart';
 import '../../providers/audio_provider.dart';
+import '../../providers/visual_provider.dart';
 
 class XYPerformancePad extends StatefulWidget {
   final SystemColors systemColors;
@@ -176,8 +177,13 @@ class _XYPerformancePadState extends State<XYPerformancePad>
 
   void _applyYAxisParameter(double value, UIStateProvider uiState, AudioProvider audioProvider) {
     final yAxis = uiState.xyAxisY;
+    final visualProvider = Provider.of<VisualProvider>(context, listen: false);
 
     switch (yAxis) {
+      case XYAxisParameter.pitch:
+        // Pitch is handled by X-axis
+        break;
+
       case XYAxisParameter.filterCutoff:
         // Map 0-1 to 20Hz-20kHz logarithmically
         final cutoff = 20.0 * math.pow(1000, value);
@@ -188,20 +194,40 @@ class _XYPerformancePadState extends State<XYPerformancePad>
         audioProvider.setFilterResonance(value);
         break;
 
+      case XYAxisParameter.fmDepth:
+        // FM depth control (for FM synthesis branch)
+        audioProvider.setFMDepth(value);
+        break;
+
+      case XYAxisParameter.ringModMix:
+        // Ring modulation mix (for ring mod synthesis branch)
+        audioProvider.setRingModMix(value);
+        break;
+
+      case XYAxisParameter.morph:
+      case XYAxisParameter.morphParameter:
+        visualProvider.setMorphParameter(value);
+        break;
+
+      case XYAxisParameter.chaos:
+        // Chaos/randomization parameter
+        visualProvider.setMorphParameter(value); // Placeholder
+        break;
+
+      case XYAxisParameter.brightness:
+        visualProvider.setVertexBrightness(value);
+        break;
+
+      case XYAxisParameter.reverb:
+        visualProvider.setGlowIntensity(value * 3.0);
+        break;
+
       case XYAxisParameter.oscillatorMix:
         audioProvider.setMixBalance(value);
         break;
 
-      case XYAxisParameter.morphParameter:
-        audioProvider.visualProvider.setMorphParameter(value);
-        break;
-
       case XYAxisParameter.rotationSpeed:
-        audioProvider.visualProvider.setRotationSpeed(value * 2.0);
-        break;
-
-      case XYAxisParameter.pitch:
-        // Pitch is already handled by X-axis
+        visualProvider.setRotationSpeed(value * 2.0);
         break;
     }
   }
@@ -304,10 +330,22 @@ class _XYPerformancePadState extends State<XYPerformancePad>
         return 'Filter';
       case XYAxisParameter.resonance:
         return 'Resonance';
+      case XYAxisParameter.fmDepth:
+        return 'FM Depth';
+      case XYAxisParameter.ringModMix:
+        return 'Ring Mod';
+      case XYAxisParameter.morph:
+        return 'Morph';
+      case XYAxisParameter.chaos:
+        return 'Chaos';
+      case XYAxisParameter.brightness:
+        return 'Brightness';
+      case XYAxisParameter.reverb:
+        return 'Reverb';
       case XYAxisParameter.oscillatorMix:
         return 'OSC Mix';
       case XYAxisParameter.morphParameter:
-        return 'Morph';
+        return 'Morph Param';
       case XYAxisParameter.rotationSpeed:
         return 'Rotation';
     }
