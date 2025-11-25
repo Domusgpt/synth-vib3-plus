@@ -85,12 +85,12 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
       console.log('Enabling WebView permissions...');
     ''');
 
-    // Load VIB3+ in GALLERY PREVIEW mode (clean visualization, no UI clutter)
+    // Load FULL VIB3+ engine (not gallery mode - need all API functions)
     try {
       await _webViewController.loadRequest(
-        Uri.parse('https://domusgpt.github.io/vib3-plus-engine/?mode=gallery')
+        Uri.parse('https://domusgpt.github.io/vib3-plus-engine/')
       );
-      debugPrint('✅ Loading VIB3+ in gallery preview mode (no UI clutter)');
+      debugPrint('✅ Loading full VIB3+ engine from GitHub Pages');
     } catch (e) {
       debugPrint('❌ Failed to load VIB3+: $e');
       setState(() {

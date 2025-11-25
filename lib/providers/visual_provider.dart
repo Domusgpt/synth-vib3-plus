@@ -302,15 +302,35 @@ class VisualProvider with ChangeNotifier {
     return _geometryComplexity;
   }
 
-  /// Set current geometry
-  void setGeometry(int geometryIndex) {
-    _currentGeometry = geometryIndex.clamp(0, 7);
-    _updateJavaScriptParameter('geometry', _currentGeometry);
+  /// Set current geometry (0-23: 3 synthesis branches × 8 base geometries)
+  Future<void> setGeometry(int geometryIndex) async {
+    _currentGeometry = geometryIndex.clamp(0, 23); // 24 geometries total
+
+    // Use VIB3+ selectGeometry API
+    if (_webViewController != null) {
+      try {
+        await _webViewController!.runJavaScript(
+          'if (window.selectGeometry) { window.selectGeometry($geometryIndex); }'
+        );
+        debugPrint('✅ Geometry set to $geometryIndex (${_getGeometryLabel(geometryIndex)})');
+      } catch (e) {
+        debugPrint('❌ Error setting geometry: $e');
+      }
+    }
 
     // Update vertex count based on geometry
     _activeVertexCount = _getVertexCountForGeometry(_currentGeometry);
 
     notifyListeners();
+  }
+
+  /// Get human-readable geometry label for debugging
+  String _getGeometryLabel(int index) {
+    final coreIndex = index ~/ 8;
+    final baseGeometry = index % 8;
+    const baseNames = ['Tetrahedron', 'Hypercube', 'Sphere', 'Torus', 'Klein Bottle', 'Fractal', 'Wave', 'Crystal'];
+    const coreNames = ['Base', 'Hypersphere', 'Hypertetrahedron'];
+    return '${coreNames[coreIndex]} ${baseNames[baseGeometry]}';
   }
 
   /// Get vertex count for specific geometry
