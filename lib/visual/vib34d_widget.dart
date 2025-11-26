@@ -94,17 +94,13 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
       _errorMessage = null;
     });
 
+    // Load FULL VIB3+ engine from GitHub Pages (not local asset - ES6 modules don't work)
+    // Local asset 'vib3plus_flutter_full.html' has 20+ external ES6 modules that fail to load
     try {
-      await _webViewController.loadFlutterAsset('assets/vib3plus_flutter_full.html');
-      debugPrint('✅ Loading VIB3+ engine from bundled asset');
-    } catch (assetError) {
-      debugPrint('⚠️ Asset load failed, attempting network fallback: $assetError');
-      try {
-        await _webViewController.loadRequest(_fallbackEngineUri);
-        debugPrint('✅ Loaded VIB3+ engine from network fallback');
-      } catch (networkError) {
-        _handleWebViewError('Failed to load VIB3+ engine: $networkError');
-      }
+      await _webViewController.loadRequest(_fallbackEngineUri);
+      debugPrint('✅ Loading full VIB3+ engine from GitHub Pages');
+    } catch (networkError) {
+      _handleWebViewError('Failed to load VIB3+ engine: $networkError');
     }
   }
 
