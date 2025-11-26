@@ -12,6 +12,8 @@
  * A Paul Phillips Manifestation
  */
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../providers/visual_provider.dart';
@@ -42,6 +44,9 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
   String _statusMessage = 'Preparing VIB3+ engine...';
   _EngineSource? _activeEngineSource;
   _EngineLoadPhase _phase = _EngineLoadPhase.initializing;
+  Timer? _loadWatchdog;
+  double _progress = 0;
+  static const _loadTimeout = Duration(seconds: 15);
   final Uri _fallbackEngineUri =
       Uri.parse('https://domusgpt.github.io/vib3-plus-engine/');
 
@@ -49,6 +54,12 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
   void initState() {
     super.initState();
     _initializeWebView();
+  }
+
+  @override
+  void dispose() {
+    _loadWatchdog?.cancel();
+    super.dispose();
   }
 
   void _initializeWebView() async {
@@ -60,14 +71,19 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
         onMessageReceived: (JavaScriptMessage message) {
           debugPrint('📨 VIB3+ Message: ${message.message}');
           if (message.message.startsWith('ERROR:')) {
-            setState(() {
-              _errorMessage = message.message.substring(6);
-            });
+            _handleWebViewError(message.message.substring(6));
+          } else if (message.message.startsWith('READY:')) {
+            _resolveReady();
           }
         },
       )
       ..setNavigationDelegate(
         NavigationDelegate(
+          onProgress: (int progress) {
+            setState(() {
+              _progress = progress / 100;
+            });
+          },
           onPageStarted: (_) {
             setState(() {
               _phase = _EngineLoadPhase.loading;
@@ -77,14 +93,14 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
                   ? 'Loading VIB3+ engine from network build...'
                   : 'Loading offline VIB3+ bundle...';
             });
+            _startLoadWatchdog();
           },
           onPageFinished: (String url) async {
             debugPrint('📄 Page loaded: $url');
             await _injectHelperFunctions();
             setState(() {
-              _isLoading = false;
-              _phase = _EngineLoadPhase.ready;
-              _statusMessage = 'VIB3+ engine ready';
+              _statusMessage =
+                  'Waiting for VIB3+ engine to signal readiness...';
             });
             debugPrint('✅ VIB34D WebView ready');
           },
@@ -106,6 +122,7 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
       _phase = _EngineLoadPhase.loading;
       _isLoading = true;
       _errorMessage = null;
+      _progress = 0;
       _statusMessage = forceNetwork
           ? 'Requesting VIB3+ engine from network...'
           : 'Booting offline VIB3+ bundle...';
@@ -133,6 +150,7 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
   }
 
   Future<bool> _attemptEngineLoad(_EngineSource source) async {
+    _loadWatchdog?.cancel();
     try {
       if (source == _EngineSource.asset) {
         await _webViewController
@@ -150,11 +168,33 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
   }
 
   void _handleWebViewError(String message) {
+    if (!mounted) return;
+    _loadWatchdog?.cancel();
     setState(() {
       _errorMessage = message;
       _statusMessage = 'VIB3+ engine unavailable';
       _phase = _EngineLoadPhase.failed;
       _isLoading = false;
+    });
+  }
+
+  void _startLoadWatchdog() {
+    _loadWatchdog?.cancel();
+    _loadWatchdog = Timer(_loadTimeout, () {
+      _handleWebViewError(
+        'Timed out waiting for VIB3+ engine to finish loading. Check your connection or try again.',
+      );
+    });
+  }
+
+  void _resolveReady() {
+    if (!mounted) return;
+    _loadWatchdog?.cancel();
+    setState(() {
+      _isLoading = false;
+      _phase = _EngineLoadPhase.ready;
+      _statusMessage = 'VIB3+ engine ready';
+      _progress = 1.0;
     });
   }
 
@@ -182,6 +222,11 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
         // Error handler
         window.addEventListener('error', function(e) {
           FlutterBridge.postMessage('ERROR: ' + e.message);
+        });
+
+        window.addEventListener('unhandledrejection', function(e) {
+          const reason = e.reason && e.reason.message ? e.reason.message : 'Unhandled promise rejection';
+          FlutterBridge.postMessage('ERROR: ' + reason);
         });
 
         // Notify Flutter when VIB3+ is ready
@@ -219,54 +264,86 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
         WebViewWidget(controller: _webViewController),
 
         // Status ribbon showing source and phase
-        Positioned(
-          left: 12,
-          top: 12,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.7),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.cyanAccent.withOpacity(0.5)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _phase == _EngineLoadPhase.ready
-                        ? Icons.check_circle_outline
-                        : Icons.sync,
-                    color: Colors.cyanAccent,
-                    size: 18,
+        SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.only(left: 12, top: 12, right: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.72),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.cyanAccent.withOpacity(0.6)),
                   ),
-                  const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _statusMessage,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _phase == _EngineLoadPhase.ready
+                              ? Icons.check_circle_outline
+                              : Icons.sync,
+                          color: Colors.cyanAccent,
+                          size: 18,
                         ),
+                        const SizedBox(width: 8),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _statusMessage,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (_activeEngineSource != null)
+                              Text(
+                                _activeEngineSource == _EngineSource.network
+                                    ? 'Source: Network build'
+                                    : 'Source: Offline bundle',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            if (_phase == _EngineLoadPhase.loading)
+                              Text(
+                                'Progress: ${(100 * _progress).clamp(0, 100).toStringAsFixed(0)}%',
+                                style: const TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 10,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (_phase == _EngineLoadPhase.loading)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: _progress > 0 && _progress < 1.0
+                            ? _progress
+                            : null,
+                        minHeight: 6,
+                        backgroundColor: Colors.white12,
+                        valueColor:
+                            const AlwaysStoppedAnimation<Color>(Colors.cyan),
                       ),
-                      if (_activeEngineSource != null)
-                        Text(
-                          _activeEngineSource == _EngineSource.network
-                              ? 'Source: Network build'
-                              : 'Source: Offline bundle',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 11,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                    ],
+                    ),
                   ),
-                ],
-              ),
+              ],
             ),
           ),
         ),
@@ -288,6 +365,15 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
                       fontSize: 16,
                       fontFamily: 'monospace',
                     ),
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    'Optimized for touchpad performance. Do not close the app during initialization.',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
@@ -321,14 +407,26 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 20),
-                    ElevatedButton.icon(
-                      onPressed: () => _loadEngine(forceNetwork: true),
-                      icon: const Icon(Icons.refresh),
-                      label: Text(
-                        _activeEngineSource == _EngineSource.network
-                            ? 'Retry Network Build'
-                            : 'Retry with Network Build',
-                      ),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 12,
+                      runSpacing: 8,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () => _loadEngine(forceNetwork: true),
+                          icon: const Icon(Icons.cloud_download),
+                          label: Text(
+                            _activeEngineSource == _EngineSource.network
+                                ? 'Retry Network Build'
+                                : 'Try Network Build',
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () => _loadEngine(forceNetwork: false),
+                          icon: const Icon(Icons.sd_storage),
+                          label: const Text('Retry Offline Bundle'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
