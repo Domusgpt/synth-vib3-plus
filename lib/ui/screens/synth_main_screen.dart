@@ -32,7 +32,16 @@ import '../../visual/vib34d_widget.dart';
 import '../../mapping/parameter_bridge.dart';
 
 class SynthMainScreen extends StatefulWidget {
-  const SynthMainScreen({Key? key}) : super(key: key);
+  final bool enableVisualizer;
+  final bool enableTiltSensors;
+  final bool applySystemUi;
+
+  const SynthMainScreen({
+    Key? key,
+    this.enableVisualizer = true,
+    this.enableTiltSensors = true,
+    this.applySystemUi = true,
+  }) : super(key: key);
 
   @override
   State<SynthMainScreen> createState() => _SynthMainScreenState();
@@ -42,21 +51,25 @@ class _SynthMainScreenState extends State<SynthMainScreen> {
   @override
   void initState() {
     super.initState();
-    // Lock to fullscreen immersive mode
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    // Lock to landscape (can be made configurable later)
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-      DeviceOrientation.portraitUp,
-    ]);
+    if (widget.applySystemUi) {
+      // Lock to fullscreen immersive mode
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      // Lock to landscape (can be made configurable later)
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+        DeviceOrientation.portraitUp,
+      ]);
+    }
   }
 
   @override
   void dispose() {
-    // Restore system UI
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    if (widget.applySystemUi) {
+      // Restore system UI
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    }
     super.dispose();
   }
 
@@ -67,14 +80,16 @@ class _SynthMainScreenState extends State<SynthMainScreen> {
         ChangeNotifierProvider(create: (_) => UIStateProvider()),
         ChangeNotifierProvider(create: (_) => VisualProvider()),
         ChangeNotifierProvider(create: (_) => AudioProvider()),
-        ChangeNotifierProvider(create: (_) => TiltSensorProvider()),
+        ChangeNotifierProvider(
+          create: (_) =>
+              TiltSensorProvider(enableSensors: widget.enableTiltSensors),
+        ),
         // ParameterBridge connects audio ↔ visual with proxy providers
         ProxyProvider2<AudioProvider, VisualProvider, ParameterBridge>(
           update: (_, audio, visual, previous) {
-            final bridge = previous ?? ParameterBridge(
-              audioProvider: audio,
-              visualProvider: visual,
-            );
+            final bridge =
+                previous ??
+                ParameterBridge(audioProvider: audio, visualProvider: visual);
             // Start the bridge if not already running
             if (!bridge.isRunning) {
               bridge.start();
@@ -84,13 +99,16 @@ class _SynthMainScreenState extends State<SynthMainScreen> {
           dispose: (_, bridge) => bridge.dispose(),
         ),
       ],
-      child: const _SynthMainContent(),
+      child: _SynthMainContent(enableVisualizer: widget.enableVisualizer),
     );
   }
 }
 
 class _SynthMainContent extends StatefulWidget {
-  const _SynthMainContent({Key? key}) : super(key: key);
+  final bool enableVisualizer;
+
+  const _SynthMainContent({Key? key, required this.enableVisualizer})
+    : super(key: key);
 
   @override
   State<_SynthMainContent> createState() => _SynthMainContentState();
@@ -122,7 +140,8 @@ class _SynthMainContentState extends State<_SynthMainContent> {
             child: XYPerformancePad(
               systemColors: systemColors,
               showGrid: uiState.xyPadShowGrid,
-              backgroundVisualization: null, // Visualization rendered separately
+              backgroundVisualization:
+                  null, // Visualization rendered separately
             ),
           ),
 
@@ -161,6 +180,10 @@ class _SynthMainContentState extends State<_SynthMainContent> {
   }
 
   Widget _buildVisualizationLayer(BuildContext context) {
+    if (!widget.enableVisualizer) {
+      return Positioned.fill(child: Container(color: Colors.black));
+    }
+
     final visualProvider = Provider.of<VisualProvider>(context, listen: false);
     final audioProvider = Provider.of<AudioProvider>(context, listen: false);
 
@@ -211,12 +234,16 @@ class _SynthMainContentState extends State<_SynthMainContent> {
             _buildThumbPad('Octave -', systemColors, () {
               final current = uiState.pitchRangeStart;
               uiState.setPitchRangeStart((current - 12).clamp(0, 127));
-              uiState.setPitchRangeEnd((uiState.pitchRangeEnd - 12).clamp(0, 127));
+              uiState.setPitchRangeEnd(
+                (uiState.pitchRangeEnd - 12).clamp(0, 127),
+              );
             }),
             _buildThumbPad('Octave +', systemColors, () {
               final current = uiState.pitchRangeStart;
               uiState.setPitchRangeStart((current + 12).clamp(0, 127));
-              uiState.setPitchRangeEnd((uiState.pitchRangeEnd + 12).clamp(0, 127));
+              uiState.setPitchRangeEnd(
+                (uiState.pitchRangeEnd + 12).clamp(0, 127),
+              );
             }),
           ],
         ),
@@ -246,11 +273,15 @@ class _SynthMainContentState extends State<_SynthMainContent> {
           children: [
             _buildThumbPad('Filter+', systemColors, () {
               final current = audioProvider.filterCutoff;
-              audioProvider.setFilterCutoff((current * 1.2).clamp(20.0, 20000.0));
+              audioProvider.setFilterCutoff(
+                (current * 1.2).clamp(20.0, 20000.0),
+              );
             }),
             _buildThumbPad('Filter-', systemColors, () {
               final current = audioProvider.filterCutoff;
-              audioProvider.setFilterCutoff((current / 1.2).clamp(20.0, 20000.0));
+              audioProvider.setFilterCutoff(
+                (current / 1.2).clamp(20.0, 20000.0),
+              );
             }),
           ],
         ),
@@ -258,7 +289,11 @@ class _SynthMainContentState extends State<_SynthMainContent> {
     );
   }
 
-  Widget _buildThumbPad(String label, SystemColors systemColors, VoidCallback onPressed) {
+  Widget _buildThumbPad(
+    String label,
+    SystemColors systemColors,
+    VoidCallback onPressed,
+  ) {
     return GestureDetector(
       onTap: onPressed,
       child: Container(
@@ -268,7 +303,9 @@ class _SynthMainContentState extends State<_SynthMainContent> {
           color: SynthTheme.cardBackground,
           borderRadius: BorderRadius.circular(SynthTheme.radiusMedium),
           border: Border.all(color: systemColors.primary.withOpacity(0.5)),
-          boxShadow: SynthTheme(systemColors: systemColors).getGlow(GlowIntensity.inactive),
+          boxShadow: SynthTheme(
+            systemColors: systemColors,
+          ).getGlow(GlowIntensity.inactive),
         ),
         child: Center(
           child: Text(

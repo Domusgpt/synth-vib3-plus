@@ -45,13 +45,27 @@ class TiltSensorProvider with ChangeNotifier {
   // Sensor stream subscription
   StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
 
+  // Testability hooks
+  final Stream<AccelerometerEvent>? _accelerometerStreamOverride;
+  final bool _autoCalibrate;
+  final Duration _calibrationDelay;
+
   // Calibration samples
   final List<double> _calibrationSamplesX = [];
   final List<double> _calibrationSamplesY = [];
   static const int _calibrationSampleCount = 30;
 
-  TiltSensorProvider() {
-    _initializeSensor();
+  TiltSensorProvider({
+    bool enableSensors = true,
+    Stream<AccelerometerEvent>? accelerometerStreamOverride,
+    bool autoCalibrate = true,
+    Duration calibrationDelay = const Duration(milliseconds: 500),
+  })  : _accelerometerStreamOverride = accelerometerStreamOverride,
+        _autoCalibrate = autoCalibrate,
+        _calibrationDelay = calibrationDelay {
+    if (enableSensors) {
+      _initializeSensor();
+    }
   }
 
   // Getters
@@ -61,10 +75,8 @@ class TiltSensorProvider with ChangeNotifier {
   double get deadZone => _deadZone;
 
   /// Get normalized tilt position (-1.0 to 1.0)
-  Offset get tiltPosition => Offset(
-        _applyDeadZone(_filteredX),
-        _applyDeadZone(_filteredY),
-      );
+  Offset get tiltPosition =>
+      Offset(_applyDeadZone(_filteredX), _applyDeadZone(_filteredY));
 
   /// Get raw accelerometer values (for debugging)
   Map<String, double> get rawAccelerometer => {
@@ -74,14 +86,20 @@ class TiltSensorProvider with ChangeNotifier {
       };
 
   void _initializeSensor() {
-    _accelerometerSubscription = accelerometerEventStream(
-      samplingPeriod: const Duration(milliseconds: 16), // ~60 Hz
-    ).listen(_handleAccelerometerEvent);
+    final accelerometerStream = _accelerometerStreamOverride ??
+        accelerometerEventStream(
+          samplingPeriod: const Duration(milliseconds: 16), // ~60 Hz
+        );
+
+    _accelerometerSubscription =
+        accelerometerStream.listen(_handleAccelerometerEvent);
 
     // Auto-calibrate on startup
-    Future.delayed(const Duration(milliseconds: 500), () {
-      calibrate();
-    });
+    if (_autoCalibrate) {
+      Future.delayed(_calibrationDelay, () {
+        calibrate();
+      });
+    }
   }
 
   void _handleAccelerometerEvent(AccelerometerEvent event) {
@@ -111,8 +129,10 @@ class TiltSensorProvider with ChangeNotifier {
     final sensitiveY = normalizedY * _sensitivity;
 
     // Apply low-pass filter (smooth out jitter)
-    _filteredX = _filteredX * (1.0 - _smoothingFactor) + sensitiveX * _smoothingFactor;
-    _filteredY = _filteredY * (1.0 - _smoothingFactor) + sensitiveY * _smoothingFactor;
+    _filteredX =
+        _filteredX * (1.0 - _smoothingFactor) + sensitiveX * _smoothingFactor;
+    _filteredY =
+        _filteredY * (1.0 - _smoothingFactor) + sensitiveY * _smoothingFactor;
 
     notifyListeners();
   }
@@ -128,8 +148,10 @@ class TiltSensorProvider with ChangeNotifier {
 
   void _finalizeCalibration() {
     // Calculate average of samples
-    _calibrationX = _calibrationSamplesX.reduce((a, b) => a + b) / _calibrationSamplesX.length;
-    _calibrationY = _calibrationSamplesY.reduce((a, b) => a + b) / _calibrationSamplesY.length;
+    _calibrationX = _calibrationSamplesX.reduce((a, b) => a + b) /
+        _calibrationSamplesX.length;
+    _calibrationY = _calibrationSamplesY.reduce((a, b) => a + b) /
+        _calibrationSamplesY.length;
 
     // Clear samples
     _calibrationSamplesX.clear();
@@ -137,7 +159,9 @@ class TiltSensorProvider with ChangeNotifier {
 
     _isCalibrating = false;
 
-    debugPrint('🎯 Tilt calibration complete: X=$_calibrationX, Y=$_calibrationY');
+    debugPrint(
+      '🎯 Tilt calibration complete: X=$_calibrationX, Y=$_calibrationY',
+    );
     notifyListeners();
   }
 
@@ -213,16 +237,10 @@ class TiltSensorProvider with ChangeNotifier {
     // In landscape, swap and flip axes as needed
     if (orientation == Orientation.landscape) {
       // Landscape: X becomes Y, Y becomes -X
-      return Offset(
-        _applyDeadZone(-_filteredY),
-        _applyDeadZone(_filteredX),
-      );
+      return Offset(_applyDeadZone(-_filteredY), _applyDeadZone(_filteredX));
     } else {
       // Portrait: Use as-is
-      return Offset(
-        _applyDeadZone(_filteredX),
-        _applyDeadZone(_filteredY),
-      );
+      return Offset(_applyDeadZone(_filteredX), _applyDeadZone(_filteredY));
     }
   }
 
@@ -231,8 +249,8 @@ class TiltSensorProvider with ChangeNotifier {
     // Device is level if Z acceleration is close to -9.8 m/s² (gravity)
     // and X/Y accelerations are near zero
     return (_rawZ.abs() - 9.8).abs() < 2.0 &&
-           _rawX.abs() < 2.0 &&
-           _rawY.abs() < 2.0;
+        _rawX.abs() < 2.0 &&
+        _rawY.abs() < 2.0;
   }
 
   @override

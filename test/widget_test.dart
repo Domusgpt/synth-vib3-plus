@@ -9,22 +9,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:synther_vib34d_holographic/main.dart';
+import 'package:synther_vib34d_holographic/ui/screens/synth_main_screen.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('Synth app boots with main screen', (WidgetTester tester) async {
+    // Build the production app shell without heavy visualizer dependencies for tests.
+    await tester.pumpWidget(
+      const SynthVIB3App(
+        enableVisualizer: false,
+        enableTiltSensors: false,
+        homeOverride: SynthMainScreen(
+          enableVisualizer: false,
+          enableTiltSensors: false,
+          applySystemUi: false,
+        ),
+        applySystemUi: false,
+      ),
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Expect the main screen to be present and the banner disabled.
+    expect(find.byType(SynthMainScreen), findsOneWidget);
+    expect(find.byType(MaterialApp), findsOneWidget);
+    final MaterialApp app = tester.widget(find.byType(MaterialApp));
+    expect(app.debugShowCheckedModeBanner, isFalse);
   });
 }
