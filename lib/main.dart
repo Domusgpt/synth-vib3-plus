@@ -15,7 +15,16 @@ void main() {
 }
 
 class SynthVIB3App extends StatelessWidget {
-  const SynthVIB3App({Key? key}) : super(key: key);
+  final bool enableVisualizer;
+  final Widget? homeOverride;
+  final bool enableTiltSensors;
+
+  const SynthVIB3App({
+    Key? key,
+    this.enableVisualizer = true,
+    this.homeOverride,
+    this.enableTiltSensors = true,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -31,8 +40,11 @@ class SynthVIB3App extends StatelessWidget {
           surface: Color(0xFF1A1A2E),
         ),
       ),
-      home: const SynthMainScreen(),
+      home: homeOverride ??
+          SynthMainScreen(
+            enableVisualizer: enableVisualizer,
+            enableTiltSensors: enableTiltSensors,
+          ),
     );
   }
 }
-
