@@ -7,7 +7,8 @@ needing every device capability available.
 ## Tooling setup
 - Install Flutter (stable) and ensure `flutter doctor -v` is clean for your
   platform. If Android SDK or Chrome are missing, you can still run pure Dart
-  and widget tests.
+  and widget tests. Use `./tooling/flutter_setup.sh` to fetch the pinned SDK
+  quickly (see `docs/tooling_setup.md` for overrides).
 - Run `flutter pub get` after updates to fetch dependencies.
 
 ## Fast feedback (headless)
