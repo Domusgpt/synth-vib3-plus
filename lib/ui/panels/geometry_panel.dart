@@ -1,12 +1,10 @@
-/**
- * Geometry Panel
- *
- * Controls for 4D geometry selection, polytope core, rotation parameters,
- * and projection settings.
- *
- * A Paul Phillips Manifestation
- */
-
+// Geometry Panel
+//
+// Controls for 4D geometry selection, polytope core, rotation parameters,
+// and projection settings.
+//
+// A Paul Phillips Manifestation
+//
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/synth_theme.dart';
@@ -14,7 +12,7 @@ import '../components/holographic_slider.dart';
 import '../../providers/visual_provider.dart';
 
 class GeometryPanelContent extends StatelessWidget {
-  const GeometryPanelContent({Key? key}) : super(key: key);
+  const GeometryPanelContent({super.key});
 
   @override
   Widget build(BuildContext context) {

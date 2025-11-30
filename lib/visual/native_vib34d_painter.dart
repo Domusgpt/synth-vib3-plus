@@ -1,14 +1,10 @@
-/**
- * Native Flutter VIB34D Quantum Holographic Visualizer
- *
- * Pure Dart/Flutter implementation using CustomPainter
- * No WebView, no JavaScript - just native Canvas rendering
- *
- * A Paul Phillips Manifestation
- */
-
+// Native Flutter VIB34D Quantum Holographic Visualizer
+//
+// Pure Dart/Flutter implementation using CustomPainter with no WebView or
+// JavaScript — just native Canvas rendering.
+//
+// A Paul Phillips Manifestation
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:vector_math/vector_math.dart' as vm;
 
@@ -254,7 +250,7 @@ class NativeVIB34DPainter extends CustomPainter {
 
 /// Widget that displays native VIB34D visualization
 class NativeVIB34DWidget extends StatefulWidget {
-  const NativeVIB34DWidget({Key? key}) : super(key: key);
+  const NativeVIB34DWidget({super.key});
 
   @override
   State<NativeVIB34DWidget> createState() => _NativeVIB34DWidgetState();

@@ -1,17 +1,15 @@
-/**
- * Audio → Visual Modulation System
- *
- * Maps real-time audio analysis to visual parameters:
- * - Bass Energy (20-250 Hz) → 4D Rotation Speed
- * - Mid Energy (250-2000 Hz) → Tessellation Density
- * - High Energy (2000-8000 Hz) → Vertex Brightness
- * - Spectral Centroid → Hue Shift
- * - RMS Amplitude → Glow Intensity
- * - Stereo Width → RGB Split Amount
- *
- * A Paul Phillips Manifestation
- */
-
+// Audio → Visual Modulation System
+//
+// Maps real-time audio analysis to visual parameters:
+// - Bass Energy (20-250 Hz) → 4D Rotation Speed
+// - Mid Energy (250-2000 Hz) → Tessellation Density
+// - High Energy (2000-8000 Hz) → Vertex Brightness
+// - Spectral Centroid → Hue Shift
+// - RMS Amplitude → Glow Intensity
+// - Stereo Width → RGB Split Amount
+//
+// A Paul Phillips Manifestation
+//
 import 'dart:typed_data';
 import 'dart:math' as math;
 import '../providers/audio_provider.dart';

@@ -1,20 +1,18 @@
-/**
- * Visual Provider
- *
- * Manages the VIB34D visualization system state, providing
- * parameter control and state queries for the visual system.
- *
- * Responsibilities:
- * - VIB34D system state (Quantum, Holographic, Faceted)
- * - 4D rotation angles (XW, YW, ZW planes)
- * - Visual parameters (tessellation, brightness, hue, glow, etc.)
- * - Geometry state (vertex count, morph parameter, complexity)
- * - Projection parameters (distance, layer depth)
- * - WebView bridge to JavaScript systems
- *
- * A Paul Phillips Manifestation
- */
-
+// Visual Provider
+//
+// Manages the VIB34D visualization system state, providing
+// parameter control and state queries for the visual system.
+//
+// Responsibilities:
+// - VIB34D system state (Quantum, Holographic, Faceted)
+// - 4D rotation angles (XW, YW, ZW planes)
+// - Visual parameters (tessellation, brightness, hue, glow, etc.)
+// - Geometry state (vertex count, morph parameter, complexity)
+// - Projection parameters (distance, layer depth)
+// - WebView bridge to JavaScript systems
+//
+// A Paul Phillips Manifestation
+//
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -57,7 +55,6 @@ class VisualProvider with ChangeNotifier {
 
   // Animation state
   bool _isAnimating = false;
-  DateTime _lastUpdateTime = DateTime.now();
   double _currentFPS = 60.0; // Track actual FPS
 
   VisualProvider() {
@@ -367,7 +364,6 @@ class VisualProvider with ChangeNotifier {
   /// Start animation loop
   void startAnimation() {
     _isAnimating = true;
-    _lastUpdateTime = DateTime.now();
     notifyListeners();
   }
 

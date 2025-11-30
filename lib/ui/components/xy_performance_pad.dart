@@ -1,19 +1,17 @@
-/**
- * XY Performance Pad
- *
- * Primary interaction surface overlaying the 4D visualization.
- * Features multi-touch support (up to 8 simultaneous notes),
- * scale quantization, holographic touch feedback, and dual-axis
- * parameter control.
- *
- * Visual Feedback:
- * - Touch ripples with system-color glow
- * - Sustaining notes show persistent indicators
- * - Scale-aware grid overlay (optional)
- *
- * A Paul Phillips Manifestation
- */
-
+// XY Performance Pad
+//
+// Primary interaction surface overlaying the 4D visualization.
+// Features multi-touch support (up to 8 simultaneous notes),
+// scale quantization, holographic touch feedback, and dual-axis
+// parameter control.
+//
+// Visual Feedback:
+// - Touch ripples with system-color glow
+// - Sustaining notes show persistent indicators
+// - Scale-aware grid overlay (optional)
+//
+// A Paul Phillips Manifestation
+//
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:math' as math;
@@ -28,11 +26,11 @@ class XYPerformancePad extends StatefulWidget {
   final Widget? backgroundVisualization;
 
   const XYPerformancePad({
-    Key? key,
+    super.key,
     required this.systemColors,
     this.showGrid = false,
     this.backgroundVisualization,
-  }) : super(key: key);
+  });
 
   @override
   State<XYPerformancePad> createState() => _XYPerformancePadState();

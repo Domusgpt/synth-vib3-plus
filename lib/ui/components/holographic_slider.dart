@@ -1,18 +1,16 @@
-/**
- * Holographic Slider Component
- *
- * Custom slider with holographic gradient fill, system-color glow,
- * and smooth animations. Features neoskeuomorphic styling and
- * responsive touch handling.
- *
- * Visual feedback:
- * - Track: Holographic gradient fill from min to current value
- * - Thumb: Glowing circle with system color
- * - State: Inactive (60% opacity) → Active (100%) → Engaged (glow + scale)
- *
- * A Paul Phillips Manifestation
- */
-
+// Holographic Slider Component
+//
+// Custom slider with holographic gradient fill, system-color glow,
+// and smooth animations. Features neoskeuomorphic styling and
+// responsive touch handling.
+//
+// Visual feedback:
+// - Track: Holographic gradient fill from min to current value
+// - Thumb: Glowing circle with system color
+// - State: Inactive (60% opacity) → Active (100%) → Engaged (glow + scale)
+//
+// A Paul Phillips Manifestation
+//
 import 'package:flutter/material.dart';
 import '../theme/synth_theme.dart';
 
@@ -30,7 +28,7 @@ class HolographicSlider extends StatefulWidget {
   final bool showValue;
 
   const HolographicSlider({
-    Key? key,
+    super.key,
     required this.label,
     required this.value,
     this.min = 0.0,
@@ -42,7 +40,7 @@ class HolographicSlider extends StatefulWidget {
     required this.systemColors,
     this.icon,
     this.showValue = true,
-  }) : super(key: key);
+  });
 
   @override
   State<HolographicSlider> createState() => _HolographicSliderState();
@@ -255,7 +253,7 @@ class VerticalHolographicSlider extends StatefulWidget {
   final double height;
 
   const VerticalHolographicSlider({
-    Key? key,
+    super.key,
     required this.value,
     this.min = 0.0,
     this.max = 1.0,
@@ -263,7 +261,7 @@ class VerticalHolographicSlider extends StatefulWidget {
     required this.systemColors,
     this.width = 32,
     this.height = 200,
-  }) : super(key: key);
+  });
 
   @override
   State<VerticalHolographicSlider> createState() =>

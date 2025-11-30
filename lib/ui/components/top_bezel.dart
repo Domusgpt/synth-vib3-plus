@@ -1,17 +1,15 @@
-/**
- * Top Bezel
- *
- * Slim status bar showing visual system selector, FPS counter,
- * geometry display, and settings access. Collapsible to maximize
- * screen real estate.
- *
- * Visual States:
- * - Collapsed: 44px height, essential info only
- * - Expanded: 120px height, detailed controls
- *
- * A Paul Phillips Manifestation
- */
-
+// Top Bezel
+//
+// Slim status bar showing visual system selector, FPS counter,
+// geometry display, and settings access. Collapsible to maximize
+// screen real estate.
+//
+// Visual States:
+// - Collapsed: 44px height, essential info only
+// - Expanded: 120px height, detailed controls
+//
+// A Paul Phillips Manifestation
+//
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/synth_theme.dart';
@@ -24,15 +22,16 @@ class TopBezel extends StatefulWidget {
   final SystemColors systemColors;
 
   const TopBezel({
-    Key? key,
+    super.key,
     required this.systemColors,
-  }) : super(key: key);
+  });
 
   @override
   State<TopBezel> createState() => _TopBezelState();
 }
 
-class _TopBezelState extends State<TopBezel> with SingleTickerProviderStateMixin {
+class _TopBezelState extends State<TopBezel>
+    with SingleTickerProviderStateMixin {
   bool _isExpanded = false;
   late AnimationController _animationController;
   late Animation<double> _heightAnimation;
@@ -82,7 +81,7 @@ class _TopBezelState extends State<TopBezel> with SingleTickerProviderStateMixin
       animation: _heightAnimation,
       builder: (context, child) {
         return Container(
-          height: _heightAnimation.value,
+          height: _heightAnimation.value + SynthTheme.spacingXSmall,
           decoration: BoxDecoration(
             color: SynthTheme.panelBackground.withOpacity(0.9),
             border: Border(
@@ -107,7 +106,8 @@ class _TopBezelState extends State<TopBezel> with SingleTickerProviderStateMixin
               // Expanded content (only when expanded)
               if (_isExpanded)
                 Expanded(
-                  child: _buildExpandedContent(uiState, visualProvider, audioProvider),
+                  child: _buildExpandedContent(
+                      uiState, visualProvider, audioProvider),
                 ),
             ],
           ),
@@ -125,7 +125,8 @@ class _TopBezelState extends State<TopBezel> with SingleTickerProviderStateMixin
       onTap: _toggleExpanded,
       child: Container(
         height: SynthTheme.topBezelHeight,
-        padding: const EdgeInsets.symmetric(horizontal: SynthTheme.spacingMedium),
+        padding:
+            const EdgeInsets.symmetric(horizontal: SynthTheme.spacingMedium),
         child: Row(
           children: [
             // Visual system selector
@@ -185,7 +186,8 @@ class _TopBezelState extends State<TopBezel> with SingleTickerProviderStateMixin
                     ? systemColors.primary.withOpacity(0.3)
                     : Colors.transparent,
                 border: Border.all(
-                  color: isActive ? systemColors.primary : SynthTheme.borderSubtle,
+                  color:
+                      isActive ? systemColors.primary : SynthTheme.borderSubtle,
                   width: isActive ? 2 : 1,
                 ),
                 borderRadius: BorderRadius.circular(SynthTheme.radiusSmall),
@@ -197,7 +199,9 @@ class _TopBezelState extends State<TopBezel> with SingleTickerProviderStateMixin
               child: Text(
                 system[0], // Single letter (Q, F, H)
                 style: SynthTheme.textStyleBody.copyWith(
-                  color: isActive ? systemColors.primary : SynthTheme.textSecondary,
+                  color: isActive
+                      ? systemColors.primary
+                      : SynthTheme.textSecondary,
                   fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
                 ),
               ),
@@ -349,7 +353,8 @@ class _TopBezelState extends State<TopBezel> with SingleTickerProviderStateMixin
                 ? widget.systemColors.primary.withOpacity(0.2)
                 : SynthTheme.cardBackground,
             border: Border.all(
-              color: value ? widget.systemColors.primary : SynthTheme.borderSubtle,
+              color:
+                  value ? widget.systemColors.primary : SynthTheme.borderSubtle,
               width: value ? 2 : 1,
             ),
             borderRadius: BorderRadius.circular(SynthTheme.radiusSmall),
@@ -359,14 +364,18 @@ class _TopBezelState extends State<TopBezel> with SingleTickerProviderStateMixin
             children: [
               Icon(
                 icon,
-                color: value ? widget.systemColors.primary : SynthTheme.textSecondary,
+                color: value
+                    ? widget.systemColors.primary
+                    : SynthTheme.textSecondary,
                 size: 16,
               ),
               const SizedBox(width: 4),
               Text(
                 label,
                 style: SynthTheme.textStyleCaption.copyWith(
-                  color: value ? widget.systemColors.primary : SynthTheme.textSecondary,
+                  color: value
+                      ? widget.systemColors.primary
+                      : SynthTheme.textSecondary,
                   fontWeight: value ? FontWeight.bold : FontWeight.normal,
                 ),
               ),
@@ -391,9 +400,13 @@ class _TopBezelState extends State<TopBezel> with SingleTickerProviderStateMixin
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildStatItem('Vertices', visualProvider.getActiveVertexCount().toString()),
+          _buildStatItem(
+              'Vertices', visualProvider.getActiveVertexCount().toString()),
           _buildStatItem('Voices', audioProvider.getVoiceCount().toString()),
-          _buildStatItem('Polyphony', audioProvider.activeNotes.length.toString() + '/8'),
+          _buildStatItem(
+            'Polyphony',
+            '${audioProvider.activeNotes.length}/8',
+          ),
         ],
       ),
     );

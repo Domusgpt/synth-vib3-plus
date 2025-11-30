@@ -1,16 +1,13 @@
-/**
- * UI State Provider
- *
- * Manages all UI state including panel visibility, layout configuration,
- * XY pad settings, orb controller position, and keyboard mode.
- *
- * This provider works alongside AudioProvider and VisualProvider to provide
- * comprehensive state management for the entire application.
- *
- * A Paul Phillips Manifestation
- */
-
-import 'package:flutter/foundation.dart';
+// UI State Provider
+//
+// Manages all UI state including panel visibility, layout configuration,
+// XY pad settings, orb controller position, and keyboard mode.
+//
+// This provider works alongside AudioProvider and VisualProvider to provide
+// comprehensive state management for the entire application.
+//
+// A Paul Phillips Manifestation
+//
 import 'package:flutter/material.dart';
 
 /// Device type detection
@@ -84,8 +81,8 @@ class UIStateProvider with ChangeNotifier {
 
   // Thumb pads (portrait mode)
   bool _thumbPadsVisible = true;
-  String _leftPadParameter = 'octave';    // Fixed
-  String _rightPadParameter = 'volume';   // Assignable
+  final String _leftPadParameter = 'octave';    // Fixed
+  String _rightPadParameter = 'volume';         // Assignable
 
   // XY pad configuration
   XYAxisParameter _xyAxisX = XYAxisParameter.pitch;
@@ -116,7 +113,7 @@ class UIStateProvider with ChangeNotifier {
   // Visual feedback configuration
   bool _showTouchRipples = true;
   bool _showNoteGrid = false; // Grid overlay on XY pad
-  double _touchRippleDuration = 0.8; // seconds
+  final double _touchRippleDuration = 0.8; // seconds
 
   // Top bezel visibility
   bool _topBezelVisible = true;

@@ -1,18 +1,14 @@
-/**
- * VIB34D + Synther Parameter Bridge
- *
- * Orchestrates bidirectional parameter flow between audio synthesis
- * and 4D visual rendering systems.
- *
- * Audio → Visual: Real-time FFT analysis modulates visual parameters
- * Visual → Audio: Quaternion rotations and geometry state modulate synthesis
- *
- * A Paul Phillips Manifestation
- * Paul@clearseassolutions.com
- */
-
+// VIB34D + Synther Parameter Bridge
+//
+// Orchestrates bidirectional parameter flow between audio synthesis and 4D
+// visual rendering systems.
+//
+// Audio → Visual: Real-time FFT analysis modulates visual parameters.
+// Visual → Audio: Quaternion rotations and geometry state modulate synthesis.
+//
+// A Paul Phillips Manifestation
+// Paul@clearseassolutions.com
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 
 import 'audio_to_visual.dart';

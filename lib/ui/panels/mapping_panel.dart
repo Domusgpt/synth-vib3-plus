@@ -1,12 +1,10 @@
-/**
- * Mapping Panel
- *
- * Controls for visual-to-audio parameter mappings, XY pad configuration,
- * and modulation settings.
- *
- * A Paul Phillips Manifestation
- */
-
+// Mapping Panel
+//
+// Controls for visual-to-audio parameter mappings, XY pad configuration,
+// and modulation settings.
+//
+// A Paul Phillips Manifestation
+//
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/synth_theme.dart';
@@ -14,7 +12,7 @@ import '../components/holographic_slider.dart';
 import '../../providers/ui_state_provider.dart';
 
 class MappingPanelContent extends StatelessWidget {
-  const MappingPanelContent({Key? key}) : super(key: key);
+  const MappingPanelContent({super.key});
 
   @override
   Widget build(BuildContext context) {

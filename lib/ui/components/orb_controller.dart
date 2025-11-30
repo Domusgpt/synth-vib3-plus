@@ -1,21 +1,17 @@
-/**
- * Orb Controller
- *
- * Floating, draggable trackball-style pitch modulation controller.
- * Features pitch bend (±1 to ±12 semitones) and vibrato control.
- * Integrates with device tilt for hands-free modulation.
- *
- * Visual States:
- * - Inactive: Subtle glow at origin
- * - Active (dragging): Intense glow + trail effect
- * - Tilt mode: Pulsing indicator + auto-movement
- *
- * A Paul Phillips Manifestation
- */
-
+// Orb Controller
+//
+// Floating, draggable trackball-style pitch modulation controller. Features
+// pitch bend (±1 to ±12 semitones) and vibrato control while integrating with
+// device tilt for hands-free modulation.
+//
+// Visual States:
+// - Inactive: Subtle glow at origin
+// - Active (dragging): Intense glow + trail effect
+// - Tilt mode: Pulsing indicator + auto-movement
+//
+// A Paul Phillips Manifestation
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:math' as math;
 import '../theme/synth_theme.dart';
 import '../../providers/ui_state_provider.dart';
 import '../../providers/audio_provider.dart';
@@ -26,10 +22,10 @@ class OrbController extends StatefulWidget {
   final Offset initialPosition;
 
   const OrbController({
-    Key? key,
+    super.key,
     required this.systemColors,
     this.initialPosition = const Offset(0.5, 0.5), // Normalized (0-1)
-  }) : super(key: key);
+  });
 
   @override
   State<OrbController> createState() => _OrbControllerState();

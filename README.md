@@ -8,6 +8,10 @@ This project is a starting point for a Flutter application.
 
 A few resources to get you started if this is your first Flutter project:
 
+- Use `./tooling/flutter_setup.sh` to install the pinned Flutter SDK and run
+  `flutter doctor -v`/`flutter test` locally. See `docs/tooling_setup.md` for
+  options and the standard workflow.
+
 - [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
 - [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
 

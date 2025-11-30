@@ -1,12 +1,10 @@
-/**
- * Synthesis Panel
- *
- * Controls for synthesis branch selection, oscillator parameters,
- * envelope settings, and voice configuration.
- *
- * A Paul Phillips Manifestation
- */
-
+// Synthesis Panel
+//
+// Controls for synthesis branch selection, oscillator parameters,
+// envelope settings, and voice configuration.
+//
+// A Paul Phillips Manifestation
+//
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/synth_theme.dart';
@@ -15,7 +13,7 @@ import '../../providers/audio_provider.dart';
 import '../../providers/visual_provider.dart';
 
 class SynthesisPanelContent extends StatelessWidget {
-  const SynthesisPanelContent({Key? key}) : super(key: key);
+  const SynthesisPanelContent({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -141,7 +139,7 @@ class SynthesisPanelContent extends StatelessWidget {
       children: branches.asMap().entries.map((entry) {
         final index = entry.key;
         final label = entry.value;
-        final isActive = currentBranch == index;
+        final isActive = currentBranch == label;
 
         return Expanded(
           child: Padding(

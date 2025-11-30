@@ -1,17 +1,15 @@
-/**
- * Synthesizer Engine
- *
- * Core audio synthesis system with bidirectional parameter coupling
- * to VIB34D visual parameters. Supports:
- * - Dual oscillator system with frequency modulation
- * - Multi-mode filter (lowpass, highpass, bandpass)
- * - Wavetable oscillators with morphing capability
- * - Effects processor (reverb, delay)
- * - Real-time parameter modulation from visual system
- *
- * A Paul Phillips Manifestation
- */
-
+// Synthesizer Engine
+//
+// Core audio synthesis system with bidirectional parameter coupling
+// to VIB34D visual parameters. Supports:
+// - Dual oscillator system with frequency modulation
+// - Multi-mode filter (lowpass, highpass, bandpass)
+// - Wavetable oscillators with morphing capability
+// - Effects processor (reverb, delay)
+// - Real-time parameter modulation from visual system
+//
+// A Paul Phillips Manifestation
+//
 import 'dart:math' as math;
 import 'dart:typed_data';
 

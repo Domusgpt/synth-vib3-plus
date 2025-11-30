@@ -1,26 +1,24 @@
-/**
- * Synthesis Branch Manager - Musically Tuned Edition
- *
- * Routes geometry selection to appropriate synthesis branch based on polytope core:
- * - Base Core (0-7) → Direct Synthesis
- * - Hypersphere Core (8-15) → FM Synthesis
- * - Hypertetrahedron Core (16-23) → Ring Modulation
- *
- * Applies sound family characteristics from visual system:
- * - Quantum → Pure/Harmonic (sine-dominant, musical harmonics)
- * - Faceted → Geometric/Hybrid (rich harmonics, balanced spectrum)
- * - Holographic → Spectral/Rich (complex overtones, evolving timbre)
- *
- * Applies voice character from base geometry (0-7)
- *
- * **MUSICALLY TUNED**: All parameters optimized for musical intervals,
- * harmonic relationships, and pleasing timbres.
- *
- * A Paul Phillips Manifestation
- */
-
+// Synthesis Branch Manager - Musically Tuned Edition
+//
+// Routes geometry selection to appropriate synthesis branch based on polytope core:
+// - Base Core (0-7) → Direct Synthesis
+// - Hypersphere Core (8-15) → FM Synthesis
+// - Hypertetrahedron Core (16-23) → Ring Modulation
+//
+// Applies sound family characteristics from visual system:
+// - Quantum → Pure/Harmonic (sine-dominant, musical harmonics)
+// - Faceted → Geometric/Hybrid (rich harmonics, balanced spectrum)
+// - Holographic → Spectral/Rich (complex overtones, evolving timbre)
+//
+// Applies voice character from base geometry (0-7)
+//
+// MUSICALLY TUNED**: All parameters optimized for musical intervals,
+// harmonic relationships, and pleasing timbres.
+//
+// A Paul Phillips Manifestation
+//
 import 'dart:math' as math;
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 
 /// Visual system types (from VIB3+)
 enum VisualSystem {
@@ -263,7 +261,10 @@ class SynthesisBranchManager {
     // Update voice character
     _currentVoiceCharacter = _getVoiceCharacter(_currentBaseGeometry);
 
-    print('🎵 Geometry $geometry: ${_currentCore.name} core, ${_currentBaseGeometry.name} geometry');
+    debugPrint(
+      '🎵 Geometry $geometry: ${_currentCore.name} core, '
+      '${_currentBaseGeometry.name} geometry',
+    );
   }
 
   /// Set visual system (updates sound family)
@@ -271,7 +272,7 @@ class SynthesisBranchManager {
     _visualSystem = system;
     _currentSoundFamily = _getSoundFamily(system);
 
-    print('🎨 Visual system: ${system.name} → ${_currentSoundFamily.name}');
+    debugPrint('🎨 Visual system: ${system.name} → ${_currentSoundFamily.name}');
   }
 
   /// Note on (trigger envelope)
@@ -515,15 +516,6 @@ class SynthesisBranchManager {
       sign *= -1;
     }
     return sample * 0.8;
-  }
-
-  double _sawtooth(double phase) {
-    // Band-limited sawtooth (all harmonics)
-    double sample = 0.0;
-    for (int h = 1; h <= 8; h++) {
-      sample += math.sin(phase * h) / h;
-    }
-    return sample * 0.6;
   }
 
   /// Get current configuration as string (for debugging)

@@ -1,19 +1,17 @@
-/**
- * Audio Analyzer
- *
- * Performs real-time FFT analysis and audio feature extraction
- * for driving visual parameter modulation in the VIB34D system.
- *
- * Features:
- * - FFT computation with configurable window size
- * - Frequency band energy extraction (bass, mid, high)
- * - Spectral centroid calculation
- * - RMS amplitude computation
- * - Stereo width analysis
- *
- * A Paul Phillips Manifestation
- */
-
+// Audio Analyzer
+//
+// Performs real-time FFT analysis and audio feature extraction
+// for driving visual parameter modulation in the VIB34D system.
+//
+// Features:
+// - FFT computation with configurable window size
+// - Frequency band energy extraction (bass, mid, high)
+// - Spectral centroid calculation
+// - RMS amplitude computation
+// - Stereo width analysis
+//
+// A Paul Phillips Manifestation
+//
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:fftea/fftea.dart';

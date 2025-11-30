@@ -1,20 +1,17 @@
-/**
- * VIB34D Native Bridge
- *
- * Loads and controls the EXACT THREE JavaScript visualization systems:
- * - Quantum System (QuantumVisualizer.js)
- * - Holographic System (HolographicSystem.js)
- * - Faceted System (FacetedVisualizer.js)
- *
- * The JavaScript runs NATIVELY via WebView - we don't rewrite it!
- * We just pass parameters and get state back.
- *
- * A Paul Phillips Manifestation
- */
-
+// VIB34D Native Bridge
+//
+// Loads and controls the three JavaScript visualization systems:
+// - Quantum System (QuantumVisualizer.js)
+// - Holographic System (HolographicSystem.js)
+// - Faceted System (FacetedVisualizer.js)
+//
+// The JavaScript runs natively via WebView—we don't rewrite it; we pass
+// parameters and receive state updates.
+//
+// A Paul Phillips Manifestation
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -25,7 +22,7 @@ class VIB34DNativeBridge {
   String _currentSystem = 'quantum';
 
   // Parameter state
-  Map<String, dynamic> _parameters = {
+  final Map<String, dynamic> _parameters = {
     // Quantum/Holographic parameters
     'geometry': 0,
     'gridDensity': 15.0,
@@ -59,7 +56,7 @@ class VIB34DNativeBridge {
     final html = await _buildVisualizationHTML();
     await _webViewController.loadHtmlString(html);
 
-    print('✅ VIB34D Native Bridge initialized with $_currentSystem system');
+    debugPrint('✅ VIB34D Native Bridge initialized with $_currentSystem system');
   }
 
   /// Build the HTML that loads and runs the THREE JavaScript systems
@@ -177,7 +174,7 @@ class VIB34DNativeBridge {
           break;
       }
 
-      console.log(\`🔄 Switched to \${systemName} system\`);
+      console.log(`🔄 Switched to \${systemName} system`);
     }
 
     // Update parameters from Flutter
@@ -278,13 +275,13 @@ class VIB34DNativeBridge {
   /// Switch between the THREE systems
   Future<void> switchSystem(String systemName) async {
     if (!['quantum', 'holographic', 'faceted'].contains(systemName)) {
-      print('❌ Invalid system name: $systemName');
+      debugPrint('❌ Invalid system name: $systemName');
       return;
     }
 
     _currentSystem = systemName;
     await _webViewController.runJavaScript('window.vib34d.switchSystem("$systemName")');
-    print('🔄 Switched to $systemName system');
+    debugPrint('🔄 Switched to $systemName system');
   }
 
   /// Update visual parameters

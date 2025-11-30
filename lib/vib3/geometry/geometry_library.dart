@@ -1,16 +1,12 @@
-/**
- * VIB3+ Geometry Library
- *
- * Manages 24 geometry configurations (8 base types × 3 cores)
- * Provides metadata, parameters, and geometry resolution
- *
- * Ported from vib34d-vib3plus GeometryLibrary.js
- *
- * A Paul Phillips Manifestation
- */
-
-import 'dart:math' as math;
-
+// VIB3+ Geometry Library
+//
+// Manages 24 geometry configurations (8 base types × 3 cores)
+// Provides metadata, parameters, and geometry resolution
+//
+// Ported from vib34d-vib3plus GeometryLibrary.js
+//
+// A Paul Phillips Manifestation
+//
 /// Base geometry types (8 variants)
 enum BaseGeometry {
   tetrahedron,    // 0

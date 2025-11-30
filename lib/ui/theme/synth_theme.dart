@@ -1,17 +1,15 @@
-/**
- * Synth-VIB3+ Theme System
- *
- * Unified visual language with system-dependent colors:
- * - Quantum: Cyan (#00FFFF) - Pure harmonic synthesis
- * - Faceted: Magenta (#FF00FF) - Geometric hybrid synthesis
- * - Holographic: Amber (#FFAA00) - Spectral rich synthesis
- *
- * Provides consistent glow effects, animations, and glassmorphism
- * across all UI components.
- *
- * A Paul Phillips Manifestation
- */
-
+// Synth-VIB3+ Theme System
+//
+// Unified visual language with system-dependent colors:
+// - Quantum: Cyan (#00FFFF) - Pure harmonic synthesis
+// - Faceted: Magenta (#FF00FF) - Geometric hybrid synthesis
+// - Holographic: Amber (#FFAA00) - Spectral rich synthesis
+//
+// Provides consistent glow effects, animations, and glassmorphism
+// across all UI components.
+//
+// A Paul Phillips Manifestation
+//
 import 'package:flutter/material.dart';
 
 /// System-specific color schemes

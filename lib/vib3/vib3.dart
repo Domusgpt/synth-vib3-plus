@@ -1,12 +1,10 @@
-/**
- * VIB3+ Native Flutter Module
- *
- * Complete 4D visualization system ported from vib34d-vib3plus SDK
- * Pure Dart/Flutter implementation - no WebView required
- *
- * A Paul Phillips Manifestation
- */
-
+// VIB3+ Native Flutter Module
+//
+// Complete 4D visualization system ported from vib34d-vib3plus SDK
+// Pure Dart/Flutter implementation - no WebView required
+//
+// A Paul Phillips Manifestation
+//
 // Core mathematics
 export 'math/quaternion.dart';
 export 'math/rotation_4d.dart';

@@ -1,10 +1,10 @@
-/**
- * Quick test of synthesis branch manager - Musically Tuned Edition
- *
- * Tests all 72 combinations (3 systems × 24 geometries)
- *
- * Run with: dart test_synthesis.dart
- */
+// Quick test of synthesis branch manager - Musically Tuned Edition
+//
+// Tests all 72 combinations (3 systems × 24 geometries)
+//
+// Run with: dart test_synthesis.dart
+//
+// ignore_for_file: avoid_print
 
 import 'lib/synthesis/synthesis_branch_manager.dart';
 
@@ -101,7 +101,9 @@ void main() {
   for (final samples in attackSamples) {
     final buffer = manager.generateBuffer(samples, 440.0);
     double rms = 0.0;
-    for (var s in buffer) rms += s * s;
+    for (var s in buffer) {
+      rms += s * s;
+    }
     rms = (rms / buffer.length).sqrt();
     print('   After ${samples.toString().padLeft(4)} samples: RMS = ${rms.toStringAsFixed(4)}');
   }
@@ -126,7 +128,9 @@ void main() {
     manager.noteOn();
     final buffer = manager.generateBuffer(500, entry.value);
     double rms = 0.0;
-    for (var s in buffer) rms += s * s;
+    for (var s in buffer) {
+      rms += s * s;
+    }
     rms = (rms / buffer.length).sqrt();
     print('   ${entry.key.padRight(3)} (${entry.value.toStringAsFixed(2)}Hz): RMS = ${rms.toStringAsFixed(4)}');
   }

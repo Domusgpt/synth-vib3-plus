@@ -1,20 +1,17 @@
-/**
- * Audio Provider
- *
- * Manages the synthesizer engine and audio analyzer, providing
- * state management for the audio synthesis system.
- *
- * Responsibilities:
- * - SynthesizerEngine instance and control
- * - AudioAnalyzer instance
- * - Audio buffer management
- * - Microphone input handling
- * - Audio output to speakers
- * - Current audio feature state
- *
- * A Paul Phillips Manifestation
- */
-
+// Audio Provider
+//
+// Manages the synthesizer engine and audio analyzer, providing state
+// management for the audio synthesis system.
+//
+// Responsibilities:
+// - SynthesizerEngine instance and control
+// - AudioAnalyzer instance
+// - Audio buffer management
+// - Microphone input handling
+// - Audio output to speakers
+// - Current audio feature state
+//
+// A Paul Phillips Manifestation
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -57,6 +54,7 @@ class AudioProvider with ChangeNotifier {
   double _smoothedOsc2Detune = 0.0;
   double _smoothedReverbMix = 0.3;
   final double _smoothingFactor = 0.95; // Higher = smoother but slower (0.9-0.99)
+  double _vibratoPhase = 0.0;
 
   // Audio generation timer
   Timer? _audioGenerationTimer;
@@ -158,8 +156,22 @@ class AudioProvider with ChangeNotifier {
         parameterBridge.visualToAudio.updateFromVisuals();
       }
 
-      // Calculate frequency from MIDI note
-      final frequency = _midiNoteToFrequency(_currentNote);
+      // Calculate frequency from MIDI note with pitch bend and vibrato
+      final baseFrequency = _midiNoteToFrequency(_currentNote);
+      final pitchBendRatio = math.pow(2.0, _pitchBend / 12.0);
+      final bufferDurationSeconds = bufferSize / sampleRate;
+      final vibratoRateHz = 5.0; // Musical, subtle rate
+      final vibratoOffsetSemitones =
+          _vibratoDepth == 0.0 ? 0.0 : math.sin(_vibratoPhase) * _vibratoDepth;
+
+      _vibratoPhase += 2 * math.pi * vibratoRateHz * bufferDurationSeconds;
+      if (_vibratoPhase > 2 * math.pi) {
+        _vibratoPhase %= 2 * math.pi;
+      }
+
+      final frequency = baseFrequency *
+          pitchBendRatio *
+          math.pow(2.0, vibratoOffsetSemitones / 12.0);
 
       // Apply parameter smoothing before generating buffer
       _smoothedFilterCutoff = _smoothedFilterCutoff * _smoothingFactor +
@@ -170,15 +182,19 @@ class AudioProvider with ChangeNotifier {
                              synthesizerEngine.oscillator1.detune * (1 - _smoothingFactor);
       _smoothedOsc2Detune = _smoothedOsc2Detune * _smoothingFactor +
                              synthesizerEngine.oscillator2.detune * (1 - _smoothingFactor);
+      _smoothedReverbMix = _smoothedReverbMix * _smoothingFactor +
+                           synthesizerEngine.reverb.mix * (1 - _smoothingFactor);
 
       // Apply smoothed values to engine (temporarily for buffer generation)
       final originalCutoff = synthesizerEngine.filter.baseCutoff;
       final originalOsc1Detune = synthesizerEngine.oscillator1.detune;
       final originalOsc2Detune = synthesizerEngine.oscillator2.detune;
+      final originalReverbMix = synthesizerEngine.reverb.mix;
 
       synthesizerEngine.filter.baseCutoff = _smoothedFilterCutoff;
       synthesizerEngine.oscillator1.detune = _smoothedOsc1Detune;
       synthesizerEngine.oscillator2.detune = _smoothedOsc2Detune;
+      synthesizerEngine.reverb.mix = _smoothedReverbMix;
 
       // Generate buffer from synthesis branch manager (uses current geometry/system)
       _currentBuffer = synthesisBranchManager.generateBuffer(bufferSize, frequency);
@@ -187,6 +203,7 @@ class AudioProvider with ChangeNotifier {
       synthesizerEngine.filter.baseCutoff = originalCutoff;
       synthesizerEngine.oscillator1.detune = originalOsc1Detune;
       synthesizerEngine.oscillator2.detune = originalOsc2Detune;
+      synthesizerEngine.reverb.mix = originalReverbMix;
 
       // Analyze the buffer
       if (_currentBuffer != null && _currentBuffer!.isNotEmpty) {

@@ -1,15 +1,13 @@
-/**
- * 4D Rotation Mathematics
- *
- * Implements all six 4D rotation planes:
- * - XY, XZ, YZ (ordinary 3D-like rotations)
- * - XW, YW, ZW (rotations into the 4th dimension)
- *
- * Ported from vib34d-vib3plus PolychoraSystem.js
- *
- * A Paul Phillips Manifestation
- */
-
+// 4D Rotation Mathematics
+//
+// Implements all six 4D rotation planes:
+// - XY, XZ, YZ (ordinary 3D-like rotations)
+// - XW, YW, ZW (rotations into the 4th dimension)
+//
+// Ported from vib34d-vib3plus PolychoraSystem.js
+//
+// A Paul Phillips Manifestation
+//
 import 'dart:math' as math;
 import 'package:vector_math/vector_math.dart' as vm;
 

@@ -1,12 +1,10 @@
-/**
- * Synth-VIB3+ Main Application
- *
- * Professional holographic synthesizer with 4D visualization,
- * multi-touch XY pad, orb controller, and collapsible UI.
- *
- * A Paul Phillips Manifestation
- */
-
+// Synth-VIB3+ Main Application
+//
+// Professional holographic synthesizer with 4D visualization,
+// multi-touch XY pad, orb controller, and collapsible UI.
+//
+// A Paul Phillips Manifestation
+//
 import 'package:flutter/material.dart';
 import 'ui/screens/synth_main_screen.dart';
 
@@ -15,7 +13,18 @@ void main() {
 }
 
 class SynthVIB3App extends StatelessWidget {
-  const SynthVIB3App({Key? key}) : super(key: key);
+  final bool enableVisualizer;
+  final Widget? homeOverride;
+  final bool enableTiltSensors;
+  final bool applySystemUi;
+
+  const SynthVIB3App({
+    super.key,
+    this.enableVisualizer = true,
+    this.homeOverride,
+    this.enableTiltSensors = true,
+    this.applySystemUi = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -31,8 +40,13 @@ class SynthVIB3App extends StatelessWidget {
           surface: Color(0xFF1A1A2E),
         ),
       ),
-      home: const SynthMainScreen(),
+      home:
+          homeOverride ??
+          SynthMainScreen(
+            enableVisualizer: enableVisualizer,
+            enableTiltSensors: enableTiltSensors,
+            applySystemUi: applySystemUi,
+          ),
     );
   }
 }
-

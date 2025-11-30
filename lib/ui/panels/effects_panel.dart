@@ -1,11 +1,9 @@
-/**
- * Effects Panel
- *
- * Controls for reverb, delay, filter, and other audio effects.
- *
- * A Paul Phillips Manifestation
- */
-
+// Effects Panel
+//
+// Controls for reverb, delay, filter, and other audio effects.
+//
+// A Paul Phillips Manifestation
+//
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/synth_theme.dart';
@@ -13,7 +11,7 @@ import '../components/holographic_slider.dart';
 import '../../providers/audio_provider.dart';
 
 class EffectsPanelContent extends StatelessWidget {
-  const EffectsPanelContent({Key? key}) : super(key: key);
+  const EffectsPanelContent({super.key});
 
   @override
   Widget build(BuildContext context) {

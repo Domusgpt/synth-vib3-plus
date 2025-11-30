@@ -1,12 +1,10 @@
-/**
- * 4D Polytope Generator
- *
- * Generates vertices and edges for all 8 base geometries
- * Each geometry has unique 4D structure and connectivity
- *
- * A Paul Phillips Manifestation
- */
-
+// 4D Polytope Generator
+//
+// Generates vertices and edges for all 8 base geometries
+// Each geometry has unique 4D structure and connectivity
+//
+// A Paul Phillips Manifestation
+//
 import 'dart:math' as math;
 import 'package:vector_math/vector_math.dart' as vm;
 
@@ -70,7 +68,6 @@ class PolytopeGenerator {
   /// Fundamental 4D polytope with 5 vertices
   static Polytope _generateTetrahedron(double scale) {
     // 5-cell vertices in 4D
-    final phi = (1.0 + math.sqrt(5.0)) / 2.0; // Golden ratio
     final vertices = [
       vm.Vector4(1, 1, 1, -1 / math.sqrt(5)) * scale,
       vm.Vector4(1, -1, -1, -1 / math.sqrt(5)) * scale,

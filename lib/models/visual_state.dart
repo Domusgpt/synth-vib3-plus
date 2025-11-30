@@ -1,12 +1,10 @@
-/**
- * Visual State Model
- *
- * Represents a complete VIB34D visualization configuration
- * that can be saved, loaded, and recalled.
- *
- * A Paul Phillips Manifestation
- */
-
+// Visual State Model
+//
+// Represents a complete VIB34D visualization configuration
+// that can be saved, loaded, and recalled.
+//
+// A Paul Phillips Manifestation
+//
 class VisualState {
   final String name;
   final String description;

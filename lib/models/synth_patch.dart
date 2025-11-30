@@ -1,12 +1,10 @@
-/**
- * Synth Patch Model
- *
- * Represents a complete synthesizer configuration that can be
- * saved, loaded, and recalled.
- *
- * A Paul Phillips Manifestation
- */
-
+// Synth Patch Model
+//
+// Represents a complete synthesizer configuration that can be
+// saved, loaded, and recalled.
+//
+// A Paul Phillips Manifestation
+//
 import '../audio/synthesizer_engine.dart';
 
 class SynthPatch {

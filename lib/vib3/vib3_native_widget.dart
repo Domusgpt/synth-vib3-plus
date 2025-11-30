@@ -1,17 +1,15 @@
-/**
- * VIB3+ Native Widget
- *
- * Flutter widget that displays native VIB3+ visualization
- * Replaces WebView with pure Dart/Flutter rendering
- *
- * Integrates with:
- * - VisualProvider for visual parameters
- * - AudioProvider for audio reactivity
- * - ParameterBridge for bidirectional coupling
- *
- * A Paul Phillips Manifestation
- */
-
+// VIB3+ Native Widget
+//
+// Flutter widget that displays native VIB3+ visualization
+// Replaces WebView with pure Dart/Flutter rendering
+//
+// Integrates with:
+// - VisualProvider for visual parameters
+// - AudioProvider for audio reactivity
+// - ParameterBridge for bidirectional coupling
+//
+// A Paul Phillips Manifestation
+//
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -23,7 +21,7 @@ import 'rendering/vib3_native_renderer.dart';
 
 /// Native VIB3+ visualization widget
 class VIB3NativeWidget extends StatefulWidget {
-  const VIB3NativeWidget({Key? key}) : super(key: key);
+  const VIB3NativeWidget({super.key});
 
   @override
   State<VIB3NativeWidget> createState() => _VIB3NativeWidgetState();

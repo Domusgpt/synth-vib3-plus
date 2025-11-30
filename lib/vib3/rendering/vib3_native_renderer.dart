@@ -1,21 +1,17 @@
-/**
- * VIB3+ Native Renderer
- *
- * Production-ready Flutter CustomPainter for VIB3+ visualization
- * Supports all 24 geometries across 3 systems (Quantum, Holographic, Faceted)
- *
- * Features:
- * - Full 6D rotation (XY, XZ, YZ, XW, YW, ZW)
- * - 4D→3D→2D projection pipeline
- * - Audio-reactive modulation
- * - Multi-layer holographic rendering
- * - Post-processing effects (glow, chromatic aberration)
- *
- * A Paul Phillips Manifestation
- */
-
+// VIB3+ Native Renderer
+//
+// Production-ready Flutter [CustomPainter] for VIB3+ visualization. Supports
+// all 24 geometries across 3 systems (Quantum, Holographic, Faceted).
+//
+// Features:
+// - Full 6D rotation (XY, XZ, YZ, XW, YW, ZW)
+// - 4D→3D→2D projection pipeline
+// - Audio-reactive modulation
+// - Multi-layer holographic rendering
+// - Post-processing effects (glow, chromatic aberration)
+//
+// A Paul Phillips Manifestation
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:vector_math/vector_math.dart' as vm;
 

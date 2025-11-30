@@ -1,17 +1,15 @@
-/**
- * Collapsible Bezel Component
- *
- * Base widget for bottom bezel panels that slide up from the bottom edge.
- * Features smooth animations, glassmorphic styling, and lock functionality.
- *
- * Visual States:
- * - Collapsed: 56px height showing tab button
- * - Expanded: 300px height showing full content
- * - Locked: Long-press to keep panel open
- *
- * A Paul Phillips Manifestation
- */
-
+// Collapsible Bezel Component
+//
+// Base widget for bottom bezel panels that slide up from the bottom edge.
+// Features smooth animations, glassmorphic styling, and lock functionality.
+//
+// Visual States:
+// - Collapsed: 56px height showing tab button
+// - Expanded: 300px height showing full content
+// - Locked: Long-press to keep panel open
+//
+// A Paul Phillips Manifestation
+//
 import 'package:flutter/material.dart';
 import '../theme/synth_theme.dart';
 import 'package:provider/provider.dart';
@@ -29,13 +27,13 @@ class CollapsibleBezel extends StatefulWidget {
   final SystemColors systemColors;
 
   const CollapsibleBezel({
-    Key? key,
+    super.key,
     required this.panelId,
     required this.label,
     required this.icon,
     required this.content,
     required this.systemColors,
-  }) : super(key: key);
+  });
 
   @override
   State<CollapsibleBezel> createState() => _CollapsibleBezelState();
@@ -205,9 +203,9 @@ class BottomBezelContainer extends StatelessWidget {
   final SystemColors systemColors;
 
   const BottomBezelContainer({
-    Key? key,
+    super.key,
     required this.systemColors,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

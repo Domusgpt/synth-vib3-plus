@@ -1,12 +1,10 @@
-/**
- * Quaternion Mathematics for 4D Rotations
- *
- * Ported from vib34d-vib3plus SDK
- * Provides quaternion operations for XR spatial computing
- *
- * A Paul Phillips Manifestation
- */
-
+// Quaternion Mathematics for 4D Rotations
+//
+// Ported from vib34d-vib3plus SDK
+// Provides quaternion operations for XR spatial computing
+//
+// A Paul Phillips Manifestation
+//
 import 'dart:math' as math;
 import 'package:vector_math/vector_math.dart' as vm;
 
@@ -111,9 +109,9 @@ class Quaternion {
   /// Convert to Euler angles (roll, pitch, yaw)
   EulerAngles toEuler() {
     // Roll (x-axis rotation)
-    final sinr_cosp = 2.0 * (w * x + y * z);
-    final cosr_cosp = 1.0 - 2.0 * (x * x + y * y);
-    final roll = math.atan2(sinr_cosp, cosr_cosp);
+    final sinrCosp = 2.0 * (w * x + y * z);
+    final cosrCosp = 1.0 - 2.0 * (x * x + y * y);
+    final roll = math.atan2(sinrCosp, cosrCosp);
 
     // Pitch (y-axis rotation)
     final sinp = 2.0 * (w * y - z * x);
@@ -122,9 +120,9 @@ class Quaternion {
         : math.asin(sinp);
 
     // Yaw (z-axis rotation)
-    final siny_cosp = 2.0 * (w * z + x * y);
-    final cosy_cosp = 1.0 - 2.0 * (y * y + z * z);
-    final yaw = math.atan2(siny_cosp, cosy_cosp);
+    final sinyCosp = 2.0 * (w * z + x * y);
+    final cosyCosp = 1.0 - 2.0 * (y * y + z * z);
+    final yaw = math.atan2(sinyCosp, cosyCosp);
 
     return EulerAngles(roll: roll, pitch: pitch, yaw: yaw);
   }
