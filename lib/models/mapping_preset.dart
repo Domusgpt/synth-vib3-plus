@@ -1,13 +1,10 @@
-/**
- * Mapping Preset Model
- *
- * Defines a complete bidirectional parameter mapping configuration
- * that can be saved, loaded, and shared.
- *
- * A Paul Phillips Manifestation
- */
+/// Mapping Preset Model
+///
+/// Defines a complete bidirectional parameter mapping configuration that can
+/// be saved, loaded, and shared.
+///
+/// A Paul Phillips Manifestation
 
-import 'dart:convert';
 import '../mapping/audio_to_visual.dart';
 
 class MappingPreset {

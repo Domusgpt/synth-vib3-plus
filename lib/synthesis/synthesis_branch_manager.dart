@@ -517,15 +517,6 @@ class SynthesisBranchManager {
     return sample * 0.8;
   }
 
-  double _sawtooth(double phase) {
-    // Band-limited sawtooth (all harmonics)
-    double sample = 0.0;
-    for (int h = 1; h <= 8; h++) {
-      sample += math.sin(phase * h) / h;
-    }
-    return sample * 0.6;
-  }
-
   /// Get current configuration as string (for debugging)
   String get configString {
     return '''

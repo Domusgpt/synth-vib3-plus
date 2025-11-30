@@ -1,20 +1,17 @@
-/**
- * VIB34D Native Bridge
- *
- * Loads and controls the EXACT THREE JavaScript visualization systems:
- * - Quantum System (QuantumVisualizer.js)
- * - Holographic System (HolographicSystem.js)
- * - Faceted System (FacetedVisualizer.js)
- *
- * The JavaScript runs NATIVELY via WebView - we don't rewrite it!
- * We just pass parameters and get state back.
- *
- * A Paul Phillips Manifestation
- */
+/// VIB34D Native Bridge
+///
+/// Loads and controls the three JavaScript visualization systems:
+/// - Quantum System (QuantumVisualizer.js)
+/// - Holographic System (HolographicSystem.js)
+/// - Faceted System (FacetedVisualizer.js)
+///
+/// The JavaScript runs natively via WebView—we don't rewrite it; we pass
+/// parameters and receive state updates.
+///
+/// A Paul Phillips Manifestation
 
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 

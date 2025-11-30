@@ -1,21 +1,18 @@
-/**
- * Tilt Sensor Provider
- *
- * Integrates device accelerometer/gyroscope for tilt-based control
- * of the orb controller and other performance parameters.
- *
- * Features:
- * - Real-time accelerometer data processing
- * - Smoothing and filtering to reduce jitter
- * - Calibration system for different device orientations
- * - Configurable sensitivity and dead zones
- * - Auto-calibrate on startup
- *
- * A Paul Phillips Manifestation
- */
+/// Tilt Sensor Provider
+///
+/// Integrates device accelerometer/gyroscope for tilt-based control of the orb
+/// controller and other performance parameters.
+///
+/// Features:
+/// - Real-time accelerometer data processing
+/// - Smoothing and filtering to reduce jitter
+/// - Calibration system for different device orientations
+/// - Configurable sensitivity and dead zones
+/// - Auto-calibrate on startup
+///
+/// A Paul Phillips Manifestation
 
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
