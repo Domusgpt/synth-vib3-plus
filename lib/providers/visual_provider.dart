@@ -21,8 +21,8 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../ui/theme/synth_theme.dart';
 
 class VisualProvider with ChangeNotifier {
-  // Current VIB34D system
-  String _currentSystem = 'quantum'; // 'quantum', 'holographic', 'faceted'
+  // Current VIB34D system - default to 'faceted' (VIB3+ engine default)
+  String _currentSystem = 'faceted'; // 'faceted', 'quantum', 'holographic'
 
   // 4D Rotation angles (radians, 0-2π)
   double _rotationXW = 0.0;
@@ -66,6 +66,7 @@ class VisualProvider with ChangeNotifier {
 
   // Getters
   String get currentSystem => _currentSystem;
+  String get currentSystemName => _currentSystem; // Alias for clarity
   double get rotationXW => _rotationXW;
   double get rotationYW => _rotationYW;
   double get rotationZW => _rotationZW;
@@ -78,6 +79,7 @@ class VisualProvider with ChangeNotifier {
   int get activeVertexCount => _activeVertexCount;
   double get morphParameter => _morphParameter;
   int get currentGeometry => _currentGeometry;
+  int get geometryIndex => _currentGeometry; // Alias for VIB3+ API
   double get projectionDistance => _projectionDistance;
   double get layerSeparation => _layerSeparation;
   bool get isAnimating => _isAnimating;

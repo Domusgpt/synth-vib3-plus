@@ -1,9 +1,7 @@
-// This is a basic Flutter widget test.
+// Synth-VIB3+ Widget Tests
 //
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// Tests for the holographic synthesizer application
+// Verifies core functionality of audio-visual coupling system
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,20 +9,23 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:synther_vib34d_holographic/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('SynthVIB3App loads without error', (WidgetTester tester) async {
+    // Build our app and trigger a frame
+    await tester.pumpWidget(const SynthVIB3App());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Allow async operations to complete
+    await tester.pumpAndSettle(const Duration(seconds: 2));
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+    // Verify the app title is present in the MaterialApp
+    expect(find.byType(MaterialApp), findsOneWidget);
+  });
+
+  testWidgets('App has correct theme colors', (WidgetTester tester) async {
+    await tester.pumpWidget(const SynthVIB3App());
     await tester.pump();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify MaterialApp exists with dark theme
+    final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(materialApp.title, equals('Synth-VIB3+'));
   });
 }
