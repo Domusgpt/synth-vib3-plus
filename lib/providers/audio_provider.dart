@@ -33,6 +33,10 @@ class AudioProvider with ChangeNotifier {
   // PCM audio output state
   bool _pcmInitialized = false;
 
+  // Initialization tracking
+  bool _isInitialized = false;
+  final Completer<void> _initCompleter = Completer<void>();
+
   // Audio buffer management
   Float32List? _currentBuffer;
   final int bufferSize = 512;
@@ -65,11 +69,22 @@ class AudioProvider with ChangeNotifier {
   int _buffersGenerated = 0;
   DateTime _lastMetricsCheck = DateTime.now();
 
+  /// Check if provider is fully initialized
+  bool get isInitialized => _isInitialized;
+
+  /// Check if PCM audio is available
+  bool get isPcmAvailable => _pcmInitialized;
+
+  /// Future that completes when initialization is done
+  Future<void> get initialized => _initCompleter.future;
+
   AudioProvider() {
-    _initialize();
+    _initializeSync();
+    _initializeAsync();
   }
 
-  void _initialize() async {
+  /// Synchronous initialization (engines that don't need async)
+  void _initializeSync() {
     synthesizerEngine = SynthesizerEngine(
       sampleRate: sampleRate,
       bufferSize: bufferSize,
@@ -84,8 +99,13 @@ class AudioProvider with ChangeNotifier {
       sampleRate: sampleRate,
     );
 
-    // Initialize PCM player (static API)
+    debugPrint('✅ AudioProvider sync initialization complete');
+  }
+
+  /// Asynchronous initialization (PCM setup)
+  Future<void> _initializeAsync() async {
     try {
+      // Initialize PCM player (static API)
       await FlutterPcmSound.setup(
         sampleRate: sampleRate.toInt(),
         channelCount: 1, // Mono
@@ -94,10 +114,20 @@ class AudioProvider with ChangeNotifier {
       debugPrint('✅ PCM audio output initialized');
     } catch (e) {
       _pcmInitialized = false;
-      debugPrint('❌ Failed to initialize PCM audio: $e');
+      debugPrint('⚠️ PCM audio unavailable (software synthesis still works): $e');
     }
 
-    debugPrint('✅ AudioProvider initialized with SynthesisBranchManager');
+    _isInitialized = true;
+    _initCompleter.complete();
+    notifyListeners();
+    debugPrint('✅ AudioProvider fully initialized with SynthesisBranchManager');
+  }
+
+  /// Ensure initialization is complete before performing operations
+  Future<void> ensureInitialized() async {
+    if (!_isInitialized) {
+      await _initCompleter.future;
+    }
   }
 
   // Getters
