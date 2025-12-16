@@ -232,15 +232,20 @@ class VisualProvider with ChangeNotifier {
   void updateRotations(double deltaTime) {
     final dt = deltaTime * _rotationSpeed;
 
-    // Calculate velocity
-    _rotationVelocityXW = (_rotationXW - _rotationXW) / deltaTime;
-    _rotationVelocityYW = (_rotationYW - _rotationYW) / deltaTime;
-    _rotationVelocityZW = (_rotationZW - _rotationZW) / deltaTime;
+    // Store old values for velocity calculation
+    final oldXW = _rotationXW;
+    final oldYW = _rotationYW;
+    final oldZW = _rotationZW;
 
     // Update angles
     _rotationXW = (_rotationXW + dt * 0.5) % (2.0 * math.pi);
     _rotationYW = (_rotationYW + dt * 0.7) % (2.0 * math.pi);
     _rotationZW = (_rotationZW + dt * 0.3) % (2.0 * math.pi);
+
+    // Calculate velocity from the actual change
+    _rotationVelocityXW = (_rotationXW - oldXW) / deltaTime;
+    _rotationVelocityYW = (_rotationYW - oldYW) / deltaTime;
+    _rotationVelocityZW = (_rotationZW - oldZW) / deltaTime;
 
     // Update JavaScript
     _updateJavaScriptParameter('rot4dXW', _rotationXW);
