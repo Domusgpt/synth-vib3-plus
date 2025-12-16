@@ -15,6 +15,7 @@
  * A Paul Phillips Manifestation
  */
 
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -59,6 +60,12 @@ class VisualProvider with ChangeNotifier {
   bool _isAnimating = false;
   DateTime _lastUpdateTime = DateTime.now();
   double _currentFPS = 60.0; // Track actual FPS
+
+  // CRITICAL: Batched parameter updates to prevent WebView overload
+  final Map<String, dynamic> _pendingJSUpdates = {};
+  Timer? _jsUpdateTimer;
+  bool _jsUpdateScheduled = false;
+  static const _jsUpdateInterval = Duration(milliseconds: 50); // 20 Hz max to JS
 
   VisualProvider() {
     debugPrint('✅ VisualProvider initialized');
@@ -154,61 +161,69 @@ class VisualProvider with ChangeNotifier {
   }
 
   /// Set rotation speed (from audio modulation)
+  /// VIB3+ parameter: 'speed'
   void setRotationSpeed(double speed) {
     _rotationSpeed = speed.clamp(0.1, 5.0);
 
-    // Update JavaScript
-    _updateJavaScriptParameter('rotationSpeed', _rotationSpeed);
+    // Update JavaScript - VIB3+ uses 'speed' not 'rotationSpeed'
+    _updateJavaScriptParameter('speed', _rotationSpeed);
 
     notifyListeners();
   }
 
   /// Set tessellation density (from audio modulation)
+  /// VIB3+ parameter: 'gridDensity'
   void setTessellationDensity(int density) {
     _tessellationDensity = density.clamp(3, 10);
 
-    // Update JavaScript
-    _updateJavaScriptParameter('tessellationDensity', _tessellationDensity);
+    // Update JavaScript - VIB3+ uses 'gridDensity' not 'tessellationDensity'
+    _updateJavaScriptParameter('gridDensity', _tessellationDensity);
 
     notifyListeners();
   }
 
   /// Set vertex brightness (from audio modulation)
+  /// VIB3+ parameter: 'intensity'
   void setVertexBrightness(double brightness) {
     _vertexBrightness = brightness.clamp(0.0, 1.0);
 
-    // Update JavaScript
-    _updateJavaScriptParameter('vertexBrightness', _vertexBrightness);
+    // Update JavaScript - VIB3+ uses 'intensity' not 'vertexBrightness'
+    _updateJavaScriptParameter('intensity', _vertexBrightness);
 
     notifyListeners();
   }
 
   /// Set hue shift (from audio modulation)
+  /// VIB3+ parameter: 'hue' (0-360)
   void setHueShift(double hue) {
     _hueShift = hue % 360.0;
 
-    // Update JavaScript
-    _updateJavaScriptParameter('hueShift', _hueShift);
+    // Update JavaScript - VIB3+ uses 'hue' not 'hueShift'
+    _updateJavaScriptParameter('hue', _hueShift);
 
     notifyListeners();
   }
 
   /// Set glow intensity (from audio modulation)
+  /// VIB3+ parameter: 'saturation' (closest match for glow effect)
   void setGlowIntensity(double intensity) {
     _glowIntensity = intensity.clamp(0.0, 3.0);
 
-    // Update JavaScript
-    _updateJavaScriptParameter('glowIntensity', _glowIntensity);
+    // Update JavaScript - map to saturation for visual effect
+    final saturationValue = (intensity / 3.0).clamp(0.0, 1.0);
+    _updateJavaScriptParameter('saturation', saturationValue);
 
     notifyListeners();
   }
 
   /// Set RGB split amount (from audio modulation)
+  /// VIB3+ parameter: 'chaos' (closest match for distortion effects)
   void setRGBSplitAmount(double amount) {
     _rgbSplitAmount = amount.clamp(0.0, 10.0);
 
-    // Update JavaScript
-    _updateJavaScriptParameter('rgbSplitAmount', _rgbSplitAmount);
+    // Update JavaScript - map to chaos for visual distortion effect
+    final chaosValue = (amount / 10.0).clamp(0.0, 1.0);
+    _updateJavaScriptParameter('chaos', chaosValue);
 
     notifyListeners();
   }
@@ -264,9 +279,11 @@ class VisualProvider with ChangeNotifier {
   }
 
   /// Set morph parameter
+  /// VIB3+ parameter: 'morphFactor'
   void setMorphParameter(double morph) {
     _morphParameter = morph.clamp(0.0, 1.0);
-    _updateJavaScriptParameter('morphParameter', _morphParameter);
+    // VIB3+ uses 'morphFactor' not 'morphParameter'
+    _updateJavaScriptParameter('morphFactor', _morphParameter);
     notifyListeners();
   }
 
@@ -276,9 +293,10 @@ class VisualProvider with ChangeNotifier {
   }
 
   /// Set projection distance
+  /// Note: VIB3+ doesn't have a direct equivalent, but we store it for internal use
   void setProjectionDistance(double distance) {
     _projectionDistance = distance.clamp(5.0, 15.0);
-    _updateJavaScriptParameter('projectionDistance', _projectionDistance);
+    // VIB3+ doesn't support projectionDistance directly - skip JS update
     notifyListeners();
   }
 
@@ -288,9 +306,10 @@ class VisualProvider with ChangeNotifier {
   }
 
   /// Set layer separation
+  /// Note: VIB3+ doesn't have a direct equivalent, but we store it for internal use
   void setLayerSeparation(double separation) {
     _layerSeparation = separation.clamp(0.0, 5.0);
-    _updateJavaScriptParameter('layerSeparation', _layerSeparation);
+    // VIB3+ doesn't support layerSeparation directly - skip JS update
     notifyListeners();
   }
 
@@ -352,18 +371,50 @@ class VisualProvider with ChangeNotifier {
     return index < vertexCounts.length ? vertexCounts[index] : 100;
   }
 
-  /// Update JavaScript parameter via WebView
+  /// Queue a JavaScript parameter update (batched to prevent WebView overload)
   /// VIB3+ uses window.updateParameter(name, value) API
-  Future<void> _updateJavaScriptParameter(String name, dynamic value) async {
+  void _updateJavaScriptParameter(String name, dynamic value) {
     if (_webViewController == null) return;
 
-    try {
-      await _webViewController!.runJavaScript(
-        'if (window.updateParameter) { window.updateParameter("$name", $value); }'
-      );
-    } catch (e) {
-      debugPrint('⚠️  Error updating JS parameter $name: $e');
+    // Queue the update
+    _pendingJSUpdates[name] = value;
+
+    // Schedule a batched flush if not already scheduled
+    if (!_jsUpdateScheduled) {
+      _jsUpdateScheduled = true;
+      _jsUpdateTimer?.cancel();
+      _jsUpdateTimer = Timer(_jsUpdateInterval, _flushJSUpdates);
     }
+  }
+
+  /// Flush all pending JavaScript updates in a single call
+  Future<void> _flushJSUpdates() async {
+    _jsUpdateScheduled = false;
+
+    if (_webViewController == null || _pendingJSUpdates.isEmpty) return;
+
+    // Take a snapshot of pending updates and clear the queue
+    final updates = Map<String, dynamic>.from(_pendingJSUpdates);
+    _pendingJSUpdates.clear();
+
+    try {
+      // Build a single JavaScript call that updates all parameters
+      final jsStatements = updates.entries.map((e) {
+        final value = e.value is String ? '"${e.value}"' : e.value;
+        return 'if(window.updateParameter)window.updateParameter("${e.key}",$value);';
+      }).join('');
+
+      await _webViewController!.runJavaScript(jsStatements);
+    } catch (e) {
+      debugPrint('⚠️  Error flushing JS parameters: $e');
+    }
+  }
+
+  /// Force immediate flush of all pending JS updates (use sparingly)
+  Future<void> flushJSUpdatesNow() async {
+    _jsUpdateTimer?.cancel();
+    _jsUpdateScheduled = false;
+    await _flushJSUpdates();
   }
 
   /// Start animation loop
@@ -444,6 +495,7 @@ class VisualProvider with ChangeNotifier {
 
   @override
   void dispose() {
+    _jsUpdateTimer?.cancel();
     stopAnimation();
     super.dispose();
   }
