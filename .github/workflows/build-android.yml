@@ -3,9 +3,12 @@ name: Build Android APK
 on:
   push:
     branches:
-      - claude/flutter-native-visualizer-*
       - main
-  workflow_dispatch:
+      - 'claude/**'  # All claude branches
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:  # Manual trigger
 
 jobs:
   build-android:
@@ -55,7 +58,7 @@ jobs:
           retention-days: 30
 
       - name: Create Release
-        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/claude/flutter-native-visualizer')
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/claude/')
         uses: softprops/action-gh-release@v1
         with:
           tag_name: build-${{ github.sha }}
@@ -70,14 +73,14 @@ jobs:
             **Commit**: ${{ github.sha }}
             **Built**: ${{ github.event.head_commit.timestamp }}
 
-            ## Native VIB3+ Visualizer
+            ## VIB3+ Visualizer with Audio Synthesis
 
-            This build includes the complete native Flutter VIB3+ visualization system:
+            This build includes the complete VIB3+ visualization system:
             - ✅ 24 unique 4D polytope geometries
-            - ✅ Three visualization systems (Quantum, Holographic, Faceted)
+            - ✅ Three visualization systems (Faceted, Quantum, Holographic)
             - ✅ Full 6D rotation in 4D space
             - ✅ Audio-reactive rendering (60 FPS target)
-            - ✅ No WebView dependency
+            - ✅ Bidirectional audio-visual parameter coupling
 
             ## Installation
 
@@ -89,10 +92,9 @@ jobs:
             ## Testing Checklist
 
             - [ ] App launches without crashes
-            - [ ] Default geometry renders
-            - [ ] System switching works (Quantum/Holographic/Faceted)
+            - [ ] Visualizer displays (requires internet for VIB3+ engine)
+            - [ ] System switching works (Faceted/Quantum/Holographic)
             - [ ] All 24 geometries cycle through
-            - [ ] FPS stays above 55
             - [ ] Touch controls responsive
             - [ ] Audio synthesis works
 
@@ -104,3 +106,130 @@ jobs:
             A Paul Phillips Manifestation
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Deploy APK download page to GitHub Pages
+      - name: Prepare Pages deployment
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/claude/')
+        run: |
+          mkdir -p pages-deploy
+          cp build/release/*.apk pages-deploy/
+          cat > pages-deploy/index.html << 'HTMLEOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Synth-VIB3+ Download</title>
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body {
+                font-family: 'Segoe UI', system-ui, sans-serif;
+                background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #0f0f23 100%);
+                min-height: 100vh;
+                color: #fff;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+              }
+              .container {
+                max-width: 600px;
+                text-align: center;
+              }
+              h1 {
+                font-size: 2.5rem;
+                background: linear-gradient(90deg, #00ffff, #ff00ff, #00ffff);
+                background-size: 200% auto;
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                animation: gradient 3s ease infinite;
+                margin-bottom: 10px;
+              }
+              @keyframes gradient {
+                0%, 100% { background-position: 0% center; }
+                50% { background-position: 100% center; }
+              }
+              .subtitle {
+                color: #888;
+                margin-bottom: 40px;
+                font-size: 1.1rem;
+              }
+              .download-btn {
+                display: inline-block;
+                padding: 20px 40px;
+                background: linear-gradient(45deg, #00ffff33, #ff00ff33);
+                border: 2px solid #00ffff;
+                border-radius: 12px;
+                color: #00ffff;
+                text-decoration: none;
+                font-size: 1.3rem;
+                font-weight: bold;
+                transition: all 0.3s ease;
+                margin: 10px;
+              }
+              .download-btn:hover {
+                background: linear-gradient(45deg, #00ffff55, #ff00ff55);
+                transform: translateY(-3px);
+                box-shadow: 0 10px 30px rgba(0, 255, 255, 0.3);
+              }
+              .features {
+                margin-top: 40px;
+                text-align: left;
+                background: rgba(255,255,255,0.05);
+                padding: 20px 30px;
+                border-radius: 12px;
+                border: 1px solid rgba(255,255,255,0.1);
+              }
+              .features h3 {
+                color: #00ffff;
+                margin-bottom: 15px;
+              }
+              .features li {
+                margin: 8px 0;
+                color: #ccc;
+              }
+              .footer {
+                margin-top: 40px;
+                color: #666;
+                font-size: 0.9rem;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>Synth-VIB3+</h1>
+              <p class="subtitle">4D Holographic Audio-Visual Synthesizer</p>
+
+              <a href="synth-vib3-plus-latest.apk" class="download-btn">
+                📱 Download APK
+              </a>
+
+              <div class="features">
+                <h3>Features</h3>
+                <ul>
+                  <li>🔷 Faceted, Quantum, and Holographic visualization systems</li>
+                  <li>🎵 Real-time audio synthesis with visual coupling</li>
+                  <li>🌀 24 unique 4D polytope geometries</li>
+                  <li>✨ 60 FPS audio-reactive rendering</li>
+                  <li>🎛️ Touch-responsive XY performance pad</li>
+                </ul>
+              </div>
+
+              <p class="footer">
+                A Paul Phillips Manifestation<br>
+                © 2025 Clear Seas Solutions LLC
+              </p>
+            </div>
+          </body>
+          </html>
+          HTMLEOF
+
+      - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/claude/')
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./pages-deploy
+          destination_dir: download
+          keep_files: false
