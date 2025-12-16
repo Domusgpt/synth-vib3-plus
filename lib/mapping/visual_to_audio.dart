@@ -108,31 +108,14 @@ class VisualToAudioModulator {
 
   /// Sync geometry changes to audio provider
   void _syncGeometryToAudio() {
+    // FIX: Visual provider's currentGeometry is already the full 0-23 index
+    // that encodes both polytope core (0-7=Base, 8-15=Hypersphere, 16-23=Hypertetrahedron)
+    // and base geometry (index % 8). No offset calculation needed.
+    //
+    // The visual system (Quantum/Faceted/Holographic) is SEPARATE and controls
+    // sound family, NOT the polytope core / synthesis branch.
     final geometry = visualProvider.currentGeometry;
-    // Visual provider uses 0-7, but synthesis manager uses 0-23
-    // Need to calculate full geometry index from system + geometry
-    final systemOffset = _getSystemOffset(visualProvider.currentSystem);
-    final fullGeometry = systemOffset + geometry;
-    audioProvider.setGeometry(fullGeometry);
-  }
-
-  /// Get geometry offset based on current visual system
-  int _getSystemOffset(String system) {
-    // Each system has 8 base geometries (0-7)
-    // But they map to different polytope cores in the synthesis manager:
-    // - Quantum system → geometries 0-7 (Base core)
-    // - Faceted system → geometries 8-15 (Hypersphere core)
-    // - Holographic system → geometries 16-23 (Hypertetrahedron core)
-    switch (system.toLowerCase()) {
-      case 'quantum':
-        return 0;  // Base core (Direct synthesis)
-      case 'faceted':
-        return 8;  // Hypersphere core (FM synthesis)
-      case 'holographic':
-        return 16; // Hypertetrahedron core (Ring modulation)
-      default:
-        return 0;
-    }
+    audioProvider.setGeometry(geometry);
   }
 
   /// Sync visual system to audio sound family
