@@ -234,18 +234,30 @@ class _TopBezelState extends State<TopBezel> with SingleTickerProviderStateMixin
   }
 
   Widget _buildGeometryIndicator(VisualProvider visualProvider) {
-    final geometries = [
-      'Hypercube',
-      'Tesseract',
-      'Hypersphere',
-      'Torus',
-      '24-Cell',
-      '120-Cell',
-      'Klein Bottle',
-      'Fractal',
+    // 8 base geometry types (matching CLAUDE.md architecture)
+    final baseGeometries = [
+      'Tetrahedron',   // 0
+      'Hypercube',     // 1
+      'Sphere',        // 2
+      'Torus',         // 3
+      'Klein Bottle',  // 4
+      'Fractal',       // 5
+      'Wave',          // 6
+      'Crystal',       // 7
     ];
 
-    final currentGeometry = geometries[visualProvider.currentGeometry];
+    // 3 polytope cores (determines synthesis branch)
+    final coreNames = ['Base', 'Hypersphere', 'Hypertetra'];
+
+    // Calculate which base geometry and core from the full index (0-23)
+    final fullIndex = visualProvider.currentGeometry;
+    final coreIndex = fullIndex ~/ 8;  // 0, 1, or 2
+    final baseIndex = fullIndex % 8;   // 0-7
+
+    // Build display string: "Core: BaseGeometry" e.g. "Hypersphere: Torus"
+    final coreName = coreIndex < coreNames.length ? coreNames[coreIndex] : 'Unknown';
+    final baseName = baseIndex < baseGeometries.length ? baseGeometries[baseIndex] : 'Unknown';
+    final currentGeometry = '$coreName: $baseName';
 
     return Container(
       padding: const EdgeInsets.symmetric(

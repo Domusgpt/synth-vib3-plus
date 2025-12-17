@@ -141,7 +141,8 @@ class SynthesisPanelContent extends StatelessWidget {
       children: branches.asMap().entries.map((entry) {
         final index = entry.key;
         final label = entry.value;
-        final isActive = currentBranch == index;
+        // FIX: Compare String to String (currentBranch returns 'Direct', 'FM', or 'Ring Mod')
+        final isActive = currentBranch == label;
 
         return Expanded(
           child: Padding(
@@ -151,7 +152,16 @@ class SynthesisPanelContent extends StatelessWidget {
                   : 0,
             ),
             child: GestureDetector(
-              onTap: () => audioProvider.setSynthesisBranch(index),
+              onTap: () {
+                // FIX: Calculate correct geometry index for branch switch
+                // Keep the current base geometry (0-7) but change the core/branch
+                // index 0 = Direct (geometries 0-7)
+                // index 1 = FM (geometries 8-15)
+                // index 2 = Ring Mod (geometries 16-23)
+                final currentBase = audioProvider.synthesisBranchManager.currentGeometry % 8;
+                final newGeometryIndex = (index * 8) + currentBase;
+                audioProvider.setSynthesisBranch(newGeometryIndex);
+              },
               child: AnimatedContainer(
                 duration: SynthTheme.transitionQuick,
                 height: SynthTheme.touchTargetMinimum,

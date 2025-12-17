@@ -133,78 +133,130 @@ class GeometryPanelContent extends StatelessWidget {
   ) {
     final theme = SynthTheme(systemColors: systemColors);
 
-    // 24 geometries organized by synthesis branch (3 cores × 8 base geometries)
-    // Names reflect SONIC CHARACTER, not visual geometry names
-    final geometries = [
-      // BASE/DIRECT (0-7): Pure synthesis with filtering
-      'Fundamental',    // 0: Tetrahedron
-      'Complex',        // 1: Hypercube
-      'Smooth',         // 2: Sphere
-      'Cyclic',         // 3: Torus
-      'Twisted',        // 4: Klein Bottle
-      'Recursive',      // 5: Fractal
-      'Flowing',        // 6: Wave
-      'Crystalline',    // 7: Crystal
+    // Architecture: 8 base geometries × 3 polytope cores = 24 combinations
+    // geometryIndex = (coreIndex * 8) + baseIndex
 
-      // HYPERSPHERE/FM (8-15): FM synthesis (🌀 prefix)
-      '🌀 Fundamental', // 8: FM Tetrahedron
-      '🌀 Complex',     // 9: FM Hypercube
-      '🌀 Smooth',      // 10: FM Sphere
-      '🌀 Cyclic',      // 11: FM Torus
-      '🌀 Twisted',     // 12: FM Klein Bottle
-      '🌀 Recursive',   // 13: FM Fractal
-      '🌀 Flowing',     // 14: FM Wave
-      '🌀 Crystalline', // 15: FM Crystal
-
-      // HYPERTETRAHEDRON/RING MOD (16-23): Ring modulation (🔺 prefix)
-      '🔺 Fundamental', // 16: Ring Tetrahedron
-      '🔺 Complex',     // 17: Ring Hypercube
-      '🔺 Smooth',      // 18: Ring Sphere
-      '🔺 Cyclic',      // 19: Ring Torus
-      '🔺 Twisted',     // 20: Ring Klein Bottle
-      '🔺 Recursive',   // 21: Ring Fractal
-      '🔺 Flowing',     // 22: Ring Wave
-      '🔺 Crystalline', // 23: Ring Crystal
+    // 8 base geometry types (determines voice character)
+    final baseGeometries = [
+      'Tetrahedron',   // 0: Fundamental, minimal filtering
+      'Hypercube',     // 1: Complex, dual oscillators with detune
+      'Sphere',        // 2: Smooth, filtered harmonics
+      'Torus',         // 3: Cyclic, rhythmic phase modulation
+      'Klein Bottle',  // 4: Twisted, asymmetric stereo
+      'Fractal',       // 5: Recursive, self-modulating
+      'Wave',          // 6: Flowing, sweeping filters
+      'Crystal',       // 7: Crystalline, sharp attack transients
     ];
 
+    // 3 polytope cores (determines synthesis branch)
+    final polytopeCores = [
+      {'name': 'Base', 'subtitle': 'Direct Synthesis', 'offset': 0},
+      {'name': 'Hypersphere', 'subtitle': 'FM Synthesis', 'offset': 8},
+      {'name': 'Hypertetra', 'subtitle': 'Ring Modulation', 'offset': 16},
+    ];
+
+    // Calculate current core and base from full geometry index
+    final currentGeometry = visualProvider.currentGeometry;
+    final currentCoreIndex = currentGeometry ~/ 8;
+    final currentBaseIndex = currentGeometry % 8;
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Show current synthesis branch
-        Padding(
-          padding: const EdgeInsets.only(bottom: SynthTheme.spacingSmall),
-          child: Text(
-            _getSynthesisBranchLabel(visualProvider.currentGeometry),
-            style: SynthTheme.textStyleBody.copyWith(
-              color: systemColors.accent,
-              fontSize: 11,
-            ),
+        // POLYTOPE CORE SELECTOR (3 buttons in a row)
+        Text(
+          'POLYTOPE CORE (Synthesis Branch)',
+          style: SynthTheme.textStyleCaption.copyWith(
+            color: systemColors.accent,
           ),
         ),
+        const SizedBox(height: SynthTheme.spacingSmall),
+        Row(
+          children: polytopeCores.asMap().entries.map((entry) {
+            final index = entry.key;
+            final core = entry.value;
+            final isActive = currentCoreIndex == index;
 
+            return Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  right: index < polytopeCores.length - 1 ? SynthTheme.spacingSmall : 0,
+                ),
+                child: GestureDetector(
+                  onTap: () {
+                    // Change core but keep current base geometry
+                    final newIndex = (index * 8) + currentBaseIndex;
+                    visualProvider.setGeometry(newIndex);
+                  },
+                  child: AnimatedContainer(
+                    duration: SynthTheme.transitionQuick,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: theme.getNeoskeuButtonDecoration(isActive: isActive),
+                    child: Column(
+                      children: [
+                        Text(
+                          core['name'] as String,
+                          style: SynthTheme.textStyleBody.copyWith(
+                            color: theme.getTextColor(isActive),
+                            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 11,
+                          ),
+                        ),
+                        Text(
+                          core['subtitle'] as String,
+                          style: SynthTheme.textStyleCaption.copyWith(
+                            color: theme.getTextColor(isActive).withOpacity(0.7),
+                            fontSize: 8,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+
+        const SizedBox(height: SynthTheme.spacingMedium),
+
+        // BASE GEOMETRY SELECTOR (8 buttons in 2x4 grid)
+        Text(
+          'BASE GEOMETRY (Voice Character)',
+          style: SynthTheme.textStyleCaption.copyWith(
+            color: systemColors.accent,
+          ),
+        ),
+        const SizedBox(height: SynthTheme.spacingSmall),
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 2.2,
+            crossAxisCount: 4,
+            childAspectRatio: 1.8,
             crossAxisSpacing: SynthTheme.spacingSmall,
             mainAxisSpacing: SynthTheme.spacingSmall,
           ),
-          itemCount: geometries.length,
-          itemBuilder: (context, index) {
-            final isActive = visualProvider.currentGeometry == index;
+          itemCount: baseGeometries.length,
+          itemBuilder: (context, baseIndex) {
+            final isActive = currentBaseIndex == baseIndex;
             return GestureDetector(
-              onTap: () => visualProvider.setGeometry(index),
+              onTap: () {
+                // Change base geometry but keep current core
+                final newIndex = (currentCoreIndex * 8) + baseIndex;
+                visualProvider.setGeometry(newIndex);
+              },
               child: AnimatedContainer(
                 duration: SynthTheme.transitionQuick,
                 decoration: theme.getNeoskeuButtonDecoration(isActive: isActive),
                 child: Center(
                   child: Text(
-                    geometries[index],
+                    baseGeometries[baseIndex],
+                    textAlign: TextAlign.center,
                     style: SynthTheme.textStyleBody.copyWith(
                       color: theme.getTextColor(isActive),
                       fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                      fontSize: 11,
+                      fontSize: 9,
                     ),
                   ),
                 ),
@@ -212,17 +264,25 @@ class GeometryPanelContent extends StatelessWidget {
             );
           },
         ),
+
+        const SizedBox(height: SynthTheme.spacingSmall),
+
+        // Show current configuration
+        Container(
+          padding: const EdgeInsets.all(SynthTheme.spacingSmall),
+          decoration: BoxDecoration(
+            color: SynthTheme.cardBackground,
+            borderRadius: BorderRadius.circular(SynthTheme.radiusSmall),
+            border: Border.all(color: systemColors.primary.withOpacity(0.3)),
+          ),
+          child: Text(
+            'Current: ${polytopeCores[currentCoreIndex]['name']} ${baseGeometries[currentBaseIndex]} (Index: $currentGeometry)',
+            style: SynthTheme.textStyleCaption.copyWith(
+              color: systemColors.primary,
+            ),
+          ),
+        ),
       ],
     );
-  }
-
-  String _getSynthesisBranchLabel(int geometryIndex) {
-    final coreIndex = geometryIndex ~/ 8;
-    switch (coreIndex) {
-      case 0: return 'DIRECT SYNTHESIS (Base 0-7)';
-      case 1: return 'FM SYNTHESIS (Hypersphere 8-15)';
-      case 2: return 'RING MODULATION (Hypertetrahedron 16-23)';
-      default: return 'SYNTHESIS BRANCH';
-    }
   }
 }
