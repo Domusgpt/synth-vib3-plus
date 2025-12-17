@@ -127,9 +127,13 @@ class TiltSensorProvider with ChangeNotifier {
   }
 
   void _finalizeCalibration() {
-    // Calculate average of samples
-    _calibrationX = _calibrationSamplesX.reduce((a, b) => a + b) / _calibrationSamplesX.length;
-    _calibrationY = _calibrationSamplesY.reduce((a, b) => a + b) / _calibrationSamplesY.length;
+    // Calculate average of samples (handle empty lists for test mode)
+    if (_calibrationSamplesX.isNotEmpty) {
+      _calibrationX = _calibrationSamplesX.reduce((a, b) => a + b) / _calibrationSamplesX.length;
+    }
+    if (_calibrationSamplesY.isNotEmpty) {
+      _calibrationY = _calibrationSamplesY.reduce((a, b) => a + b) / _calibrationSamplesY.length;
+    }
 
     // Clear samples
     _calibrationSamplesX.clear();

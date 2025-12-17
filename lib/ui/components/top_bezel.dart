@@ -100,9 +100,12 @@ class _TopBezelState extends State<TopBezel> with SingleTickerProviderStateMixin
             ],
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,  // Prevent overflow
             children: [
               // Collapsed view (always visible)
-              _buildCollapsedContent(uiState, visualProvider, audioProvider),
+              Flexible(
+                child: _buildCollapsedContent(uiState, visualProvider, audioProvider),
+              ),
 
               // Expanded content (only when expanded)
               if (_isExpanded)

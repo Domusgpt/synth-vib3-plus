@@ -20,10 +20,21 @@
  * A Paul Phillips Manifestation
  */
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../providers/visual_provider.dart';
 import '../providers/audio_provider.dart';
+
+/// Check if we're running in test mode (no WebView platform available)
+bool _checkTestMode() {
+  try {
+    // This will throw if no platform is set
+    return WebViewPlatform.instance == null;
+  } catch (_) {
+    return true;
+  }
+}
 
 class VIB34DWidget extends StatefulWidget {
   final VisualProvider visualProvider;
@@ -48,11 +59,13 @@ class VIB34DWidget extends StatefulWidget {
 }
 
 class _VIB34DWidgetState extends State<VIB34DWidget> {
-  late WebViewController _webViewController;
+  WebViewController? _webViewController;
   bool _isLoading = true;
   String? _errorMessage;
   int _loadRetryCount = 0;
   bool _engineReady = false;
+  bool _isInitialized = false;
+  bool _isTestMode = false;
 
   /// Hosted VIB3+ engine URL - ES modules require proper web server
   Uri get _vib3EngineUri {
@@ -69,11 +82,18 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
   @override
   void initState() {
     super.initState();
+    // Check if we're in test mode (no WebView platform available)
+    if (_checkTestMode()) {
+      debugPrint('⚠️ VIB34DWidget: Running in test mode - WebView disabled');
+      _isTestMode = true;
+      _isLoading = false;
+      return;
+    }
     _initializeWebView();
   }
 
   void _initializeWebView() async {
-    _webViewController = WebViewController()
+    final controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.black)
       ..addJavaScriptChannel(
@@ -104,8 +124,13 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
       )
       ..enableZoom(false);
 
+    setState(() {
+      _webViewController = controller;
+      _isInitialized = true;
+    });
+
     await _loadEngine();
-    widget.visualProvider.setWebViewController(_webViewController);
+    widget.visualProvider.setWebViewController(controller);
   }
 
   /// Handle messages from JavaScript
@@ -153,8 +178,11 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
 
   /// Sync initial state to VIB3+
   Future<void> _syncInitialState() async {
+    final controller = _webViewController;
+    if (controller == null) return;
+
     try {
-      await _webViewController.runJavaScript('''
+      await controller.runJavaScript('''
         if (window.switchSystem) {
           window.switchSystem('${widget.initialSystem}');
           console.log('✅ Flutter synced initial system: ${widget.initialSystem}');
@@ -166,6 +194,9 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
   }
 
   Future<void> _loadEngine() async {
+    final controller = _webViewController;
+    if (controller == null) return;
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -174,7 +205,7 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
     debugPrint('🚀 Loading VIB3+ engine from: $_vib3EngineUri');
 
     try {
-      await _webViewController.loadRequest(_vib3EngineUri);
+      await controller.loadRequest(_vib3EngineUri);
       debugPrint('✅ VIB3+ engine request sent');
     } catch (e) {
       _handleWebViewError('Failed to load VIB3+ engine: $e');
@@ -201,8 +232,11 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
 
   /// Inject Flutter bridge functions into VIB3+
   Future<void> _injectFlutterBridge() async {
+    final controller = _webViewController;
+    if (controller == null) return;
+
     try {
-      await _webViewController.runJavaScript('''
+      await controller.runJavaScript('''
         // Flutter Bridge for VIB3+ ↔ Flutter communication
         console.log('🔗 Injecting Flutter Bridge...');
 
@@ -277,13 +311,14 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
 
   /// Switch to a different VIB3+ system
   Future<void> switchSystem(String systemName) async {
-    if (!_engineReady) {
+    final controller = _webViewController;
+    if (controller == null || !_engineReady) {
       debugPrint('⚠️ Cannot switch system - VIB3+ not ready');
       return;
     }
 
     try {
-      await _webViewController.runJavaScript('''
+      await controller.runJavaScript('''
         if (window.switchSystem) {
           window.switchSystem('$systemName');
         }
@@ -296,10 +331,28 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // In test mode, show a simple placeholder
+    if (_isTestMode) {
+      return Container(
+        color: Colors.black,
+        child: const Center(
+          child: Text(
+            'VIB3+ Test Mode',
+            style: TextStyle(color: Colors.cyan, fontSize: 16),
+          ),
+        ),
+      );
+    }
+
+    final controller = _webViewController;
+
     return Stack(
       children: [
         // WebView with VIB3+ visualization (Faceted, Quantum, Holographic)
-        WebViewWidget(controller: _webViewController),
+        if (controller != null)
+          WebViewWidget(controller: controller)
+        else
+          Container(color: Colors.black),  // Placeholder while initializing
 
         // Loading indicator
         if (_isLoading)
