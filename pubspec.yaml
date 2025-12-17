@@ -63,9 +63,14 @@ dependencies:
   path_provider: ^2.1.0               # File system paths
   webview_flutter: ^4.4.2             # WebView for VIB34D systems
   sensors_plus: ^6.0.1                # Accelerometer/gyroscope for tilt control
+  collection: ^1.18.0                 # Advanced collection utilities
+  logger: ^2.0.2                      # Better logging for debugging
+  equatable: ^2.0.5                   # Value equality for state objects
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  integration_test:
     sdk: flutter
 
   # The "flutter_lints" package below contains a set of recommended lints to
@@ -74,6 +79,12 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+
+  # Testing packages
+  mockito: ^5.4.4                         # Mocking framework
+  build_runner: ^2.4.9                    # Code generation for mockito
+  fake_async: ^1.3.1                      # Time manipulation in tests
+  golden_toolkit: ^0.15.0                 # Visual regression testing
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

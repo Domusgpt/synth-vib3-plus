@@ -1,0 +1,29 @@
+{
+  "name": "synth-vib3-plus",
+  "version": "1.0.0",
+  "description": "Professional holographic synthesizer with 4D VIB34D visualization and bidirectional audio-visual coupling",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "npx playwright test",
+    "test:ui": "npx playwright test --ui",
+    "test:headed": "npx playwright test --headed",
+    "test:debug": "npx playwright test --debug",
+    "test:report": "npx playwright show-report",
+    "test:update": "npx playwright test --update-snapshots"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://local_proxy@127.0.0.1:30353/git/Domusgpt/synth-vib3-plus"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.57.0"
+  }
+}

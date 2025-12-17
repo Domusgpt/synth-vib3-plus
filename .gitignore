@@ -28,3 +28,15 @@ pubspec.lock
 *.pyc
 *.swp
 *.DS_Store
+
+# Node.js / Playwright
+node_modules/
+package-lock.json
+playwright-report/
+test-results/
+test-results.json
+screenshots/
+
+# Coverage
+coverage/
+.coverage
