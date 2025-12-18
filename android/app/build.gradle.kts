@@ -37,6 +37,36 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    packaging {
+        // Exclude duplicate Flutter embedding classes
+        resources {
+            excludes += listOf(
+                "META-INF/DEPENDENCIES",
+                "META-INF/LICENSE",
+                "META-INF/LICENSE.txt",
+                "META-INF/license.txt",
+                "META-INF/NOTICE",
+                "META-INF/NOTICE.txt",
+                "META-INF/notice.txt",
+                "META-INF/ASL2.0"
+            )
+        }
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+}
+
+configurations.all {
+    resolutionStrategy {
+        // Force datastore-core-android to avoid conflict with datastore-core-jvm
+        force("androidx.datastore:datastore-core:1.1.3")
+        force("androidx.datastore:datastore-preferences-core:1.1.3")
+    }
+    // Exclude duplicate datastore JVM artifacts
+    exclude(group = "androidx.datastore", module = "datastore-core-jvm")
+    exclude(group = "androidx.datastore", module = "datastore-preferences-core-jvm")
 }
 
 flutter {
