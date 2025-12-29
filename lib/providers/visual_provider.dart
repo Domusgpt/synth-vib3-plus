@@ -25,12 +25,22 @@ class VisualProvider with ChangeNotifier {
   // Current VIB34D system - default to 'faceted' (VIB3+ engine default)
   String _currentSystem = 'faceted'; // 'faceted', 'quantum', 'holographic'
 
+  // 3D Rotation angles (radians, 0-2π) - ADDED: These were missing!
+  double _rotationXY = 0.0;
+  double _rotationXZ = 0.0;
+  double _rotationYZ = 0.0;
+
   // 4D Rotation angles (radians, 0-2π)
   double _rotationXW = 0.0;
   double _rotationYW = 0.0;
   double _rotationZW = 0.0;
 
-  // Rotation velocity (for advanced modulation)
+  // 3D Rotation velocity (for advanced modulation)
+  double _rotationVelocityXY = 0.0;
+  double _rotationVelocityXZ = 0.0;
+  double _rotationVelocityYZ = 0.0;
+
+  // 4D Rotation velocity (for advanced modulation)
   double _rotationVelocityXW = 0.0;
   double _rotationVelocityYW = 0.0;
   double _rotationVelocityZW = 0.0;
@@ -74,6 +84,11 @@ class VisualProvider with ChangeNotifier {
   // Getters
   String get currentSystem => _currentSystem;
   String get currentSystemName => _currentSystem; // Alias for clarity
+  // 3D rotation getters
+  double get rotationXY => _rotationXY;
+  double get rotationXZ => _rotationXZ;
+  double get rotationYZ => _rotationYZ;
+  // 4D rotation getters
   double get rotationXW => _rotationXW;
   double get rotationYW => _rotationYW;
   double get rotationZW => _rotationZW;
@@ -232,22 +247,38 @@ class VisualProvider with ChangeNotifier {
   void updateRotations(double deltaTime) {
     final dt = deltaTime * _rotationSpeed;
 
-    // Store old values for velocity calculation
+    // Store old values for velocity calculation (3D)
+    final oldXY = _rotationXY;
+    final oldXZ = _rotationXZ;
+    final oldYZ = _rotationYZ;
+    // Store old values for velocity calculation (4D)
     final oldXW = _rotationXW;
     final oldYW = _rotationYW;
     final oldZW = _rotationZW;
 
-    // Update angles
+    // Update 3D rotation angles (different speeds for variety)
+    _rotationXY = (_rotationXY + dt * 0.4) % (2.0 * math.pi);
+    _rotationXZ = (_rotationXZ + dt * 0.6) % (2.0 * math.pi);
+    _rotationYZ = (_rotationYZ + dt * 0.35) % (2.0 * math.pi);
+
+    // Update 4D rotation angles
     _rotationXW = (_rotationXW + dt * 0.5) % (2.0 * math.pi);
     _rotationYW = (_rotationYW + dt * 0.7) % (2.0 * math.pi);
     _rotationZW = (_rotationZW + dt * 0.3) % (2.0 * math.pi);
 
-    // Calculate velocity from the actual change
+    // Calculate velocity from the actual change (3D)
+    _rotationVelocityXY = (_rotationXY - oldXY) / deltaTime;
+    _rotationVelocityXZ = (_rotationXZ - oldXZ) / deltaTime;
+    _rotationVelocityYZ = (_rotationYZ - oldYZ) / deltaTime;
+    // Calculate velocity from the actual change (4D)
     _rotationVelocityXW = (_rotationXW - oldXW) / deltaTime;
     _rotationVelocityYW = (_rotationYW - oldYW) / deltaTime;
     _rotationVelocityZW = (_rotationZW - oldZW) / deltaTime;
 
-    // Update JavaScript
+    // Update JavaScript with all 6 rotations
+    _updateJavaScriptParameter('rot4dXY', _rotationXY);
+    _updateJavaScriptParameter('rot4dXZ', _rotationXZ);
+    _updateJavaScriptParameter('rot4dYZ', _rotationYZ);
     _updateJavaScriptParameter('rot4dXW', _rotationXW);
     _updateJavaScriptParameter('rot4dYW', _rotationYW);
     _updateJavaScriptParameter('rot4dZW', _rotationZW);
@@ -256,8 +287,17 @@ class VisualProvider with ChangeNotifier {
   }
 
   /// Get rotation angle for specific plane (for visual→audio modulation)
+  /// Supports all 6 rotation planes: XY, XZ, YZ (3D) and XW, YW, ZW (4D)
   double getRotationAngle(String plane) {
     switch (plane.toUpperCase()) {
+      // 3D rotations
+      case 'XY':
+        return _rotationXY;
+      case 'XZ':
+        return _rotationXZ;
+      case 'YZ':
+        return _rotationYZ;
+      // 4D rotations
       case 'XW':
         return _rotationXW;
       case 'YW':
@@ -270,8 +310,14 @@ class VisualProvider with ChangeNotifier {
   }
 
   /// Get rotation velocity (for advanced modulation)
+  /// Combines all 6 rotation velocities into a single magnitude
   double getRotationVelocity() {
     return math.sqrt(
+      // 3D rotation velocities
+      _rotationVelocityXY * _rotationVelocityXY +
+      _rotationVelocityXZ * _rotationVelocityXZ +
+      _rotationVelocityYZ * _rotationVelocityYZ +
+      // 4D rotation velocities
       _rotationVelocityXW * _rotationVelocityXW +
       _rotationVelocityYW * _rotationVelocityYW +
       _rotationVelocityZW * _rotationVelocityZW
@@ -439,6 +485,11 @@ class VisualProvider with ChangeNotifier {
   Map<String, dynamic> getVisualState() {
     return {
       'system': _currentSystem,
+      // 3D rotations
+      'rotationXY': _rotationXY,
+      'rotationXZ': _rotationXZ,
+      'rotationYZ': _rotationYZ,
+      // 4D rotations
       'rotationXW': _rotationXW,
       'rotationYW': _rotationYW,
       'rotationZW': _rotationZW,
@@ -477,21 +528,46 @@ class VisualProvider with ChangeNotifier {
     await switchSystem(systemName);
   }
 
-  /// Set rotation XW
+  // ========== 3D ROTATION SETTERS (XY, XZ, YZ) ==========
+
+  /// Set rotation XY (3D space rotation)
+  void setRotationXY(double angle) {
+    _rotationXY = angle % (2.0 * math.pi);
+    _updateJavaScriptParameter('rot4dXY', _rotationXY);
+    notifyListeners();
+  }
+
+  /// Set rotation XZ (3D space rotation)
+  void setRotationXZ(double angle) {
+    _rotationXZ = angle % (2.0 * math.pi);
+    _updateJavaScriptParameter('rot4dXZ', _rotationXZ);
+    notifyListeners();
+  }
+
+  /// Set rotation YZ (3D space rotation)
+  void setRotationYZ(double angle) {
+    _rotationYZ = angle % (2.0 * math.pi);
+    _updateJavaScriptParameter('rot4dYZ', _rotationYZ);
+    notifyListeners();
+  }
+
+  // ========== 4D ROTATION SETTERS (XW, YW, ZW) ==========
+
+  /// Set rotation XW (4D hyperspace rotation)
   void setRotationXW(double angle) {
     _rotationXW = angle % (2.0 * math.pi);
     _updateJavaScriptParameter('rot4dXW', _rotationXW);
     notifyListeners();
   }
 
-  /// Set rotation YW
+  /// Set rotation YW (4D hyperspace rotation)
   void setRotationYW(double angle) {
     _rotationYW = angle % (2.0 * math.pi);
     _updateJavaScriptParameter('rot4dYW', _rotationYW);
     notifyListeners();
   }
 
-  /// Set rotation ZW
+  /// Set rotation ZW (4D hyperspace rotation)
   void setRotationZW(double angle) {
     _rotationZW = angle % (2.0 * math.pi);
     _updateJavaScriptParameter('rot4dZW', _rotationZW);
