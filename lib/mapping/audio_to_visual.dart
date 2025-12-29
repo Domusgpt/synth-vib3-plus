@@ -38,6 +38,7 @@ class AudioToVisualModulator {
 
   void _initializeDefaultMappings() {
     _mappings = {
+      // ========== CORE VISUAL PARAMETERS ==========
       'bassEnergy_to_rotationSpeed': ParameterMapping(
         sourceParam: 'bassEnergy',
         targetParam: 'rotationSpeed',
@@ -73,21 +74,109 @@ class AudioToVisualModulator {
         maxRange: 3.0,
         curve: MappingCurve.exponential,
       ),
+
+      // ========== 3D ROTATION MODULATION (NEW!) ==========
+      // Bass drives XY rotation intensity
+      'bassEnergy_to_rotationXY': ParameterMapping(
+        sourceParam: 'bassEnergy',
+        targetParam: 'rotationModXY',
+        minRange: 0.0,
+        maxRange: 0.5, // Add up to 0.5 radians per frame
+        curve: MappingCurve.exponential,
+      ),
+      // Mid drives XZ rotation intensity
+      'midEnergy_to_rotationXZ': ParameterMapping(
+        sourceParam: 'midEnergy',
+        targetParam: 'rotationModXZ',
+        minRange: 0.0,
+        maxRange: 0.4,
+        curve: MappingCurve.linear,
+      ),
+      // High drives YZ rotation intensity
+      'highEnergy_to_rotationYZ': ParameterMapping(
+        sourceParam: 'highEnergy',
+        targetParam: 'rotationModYZ',
+        minRange: 0.0,
+        maxRange: 0.3,
+        curve: MappingCurve.linear,
+      ),
+
+      // ========== 4D ROTATION MODULATION ==========
+      // RMS (overall energy) drives 4D rotations
+      'rms_to_rotationXW': ParameterMapping(
+        sourceParam: 'rms',
+        targetParam: 'rotationModXW',
+        minRange: 0.0,
+        maxRange: 0.3,
+        curve: MappingCurve.exponential,
+      ),
+      'rms_to_rotationYW': ParameterMapping(
+        sourceParam: 'rms',
+        targetParam: 'rotationModYW',
+        minRange: 0.0,
+        maxRange: 0.25,
+        curve: MappingCurve.exponential,
+      ),
+      // Bass also affects ZW for that deep rumble feel
+      'bassEnergy_to_rotationZW': ParameterMapping(
+        sourceParam: 'bassEnergy',
+        targetParam: 'rotationModZW',
+        minRange: 0.0,
+        maxRange: 0.2,
+        curve: MappingCurve.exponential,
+      ),
     };
   }
+
+  // Normalization constants for audio features
+  // These approximate maximum expected values to normalize to 0-1 range
+  static const double _bassNormalize = 2.0;      // Bass energy can be quite high
+  static const double _midNormalize = 1.5;       // Mid energy moderate
+  static const double _highNormalize = 1.0;      // High energy lower
+  static const double _centroidNormalize = 8000.0; // Max frequency we care about
+  static const double _rmsNormalize = 0.5;       // Typical max RMS for synth
+
+  // Smoothing for audio reactivity (prevents jitter)
+  double _smoothedBass = 0.0;
+  double _smoothedMid = 0.0;
+  double _smoothedHigh = 0.0;
+  double _smoothedCentroid = 0.0;
+  double _smoothedRms = 0.0;
+  static const double _smoothingFactor = 0.3; // Lower = smoother, higher = more reactive
 
   /// Main update function called at 60 FPS
   void updateFromAudio(Float32List audioBuffer) {
     // Perform FFT analysis
     final fftData = analyzer.computeFFT(audioBuffer);
 
-    // Extract audio features
+    // Extract and NORMALIZE audio features to 0-1 range
+    final rawBass = analyzer.getBandEnergy(fftData, 20.0, 250.0);
+    final rawMid = analyzer.getBandEnergy(fftData, 250.0, 2000.0);
+    final rawHigh = analyzer.getBandEnergy(fftData, 2000.0, 8000.0);
+    final rawCentroid = analyzer.computeSpectralCentroid(fftData);
+    final rawRms = analyzer.computeRMS(audioBuffer);
+
+    // Normalize to 0-1 range
+    final normBass = (rawBass / _bassNormalize).clamp(0.0, 1.0);
+    final normMid = (rawMid / _midNormalize).clamp(0.0, 1.0);
+    final normHigh = (rawHigh / _highNormalize).clamp(0.0, 1.0);
+    final normCentroid = (rawCentroid / _centroidNormalize).clamp(0.0, 1.0);
+    final normRms = (rawRms / _rmsNormalize).clamp(0.0, 1.0);
+
+    // Apply smoothing to prevent jitter
+    _smoothedBass = _smoothedBass * (1 - _smoothingFactor) + normBass * _smoothingFactor;
+    _smoothedMid = _smoothedMid * (1 - _smoothingFactor) + normMid * _smoothingFactor;
+    _smoothedHigh = _smoothedHigh * (1 - _smoothingFactor) + normHigh * _smoothingFactor;
+    _smoothedCentroid = _smoothedCentroid * (1 - _smoothingFactor) + normCentroid * _smoothingFactor;
+    _smoothedRms = _smoothedRms * (1 - _smoothingFactor) + normRms * _smoothingFactor;
+
+    // Build normalized features map
     final features = {
-      'bassEnergy': analyzer.getBandEnergy(fftData, 20.0, 250.0),
-      'midEnergy': analyzer.getBandEnergy(fftData, 250.0, 2000.0),
-      'highEnergy': analyzer.getBandEnergy(fftData, 2000.0, 8000.0),
-      'spectralCentroid': analyzer.computeSpectralCentroid(fftData),
-      'rms': analyzer.computeRMS(audioBuffer),
+      'bassEnergy': _smoothedBass,
+      'midEnergy': _smoothedMid,
+      'highEnergy': _smoothedHigh,
+      'spectralCentroid': _smoothedCentroid,
+      'rms': _smoothedRms,
       'stereoWidth': 0.5, // Placeholder - requires stereo buffer
     };
 
@@ -103,6 +192,7 @@ class AudioToVisualModulator {
 
   void _updateVisualParameter(String paramName, double value) {
     switch (paramName) {
+      // Core visual parameters
       case 'rotationSpeed':
         visualProvider.setRotationSpeed(value);
         break;
@@ -120,6 +210,34 @@ class AudioToVisualModulator {
         break;
       case 'rgbSplitAmount':
         visualProvider.setRGBSplitAmount(value);
+        break;
+
+      // 3D rotation modulation (additive to current rotation)
+      case 'rotationModXY':
+        final currentXY = visualProvider.rotationXY;
+        visualProvider.setRotationXY(currentXY + value * 0.016); // ~60fps, so scale by frame time
+        break;
+      case 'rotationModXZ':
+        final currentXZ = visualProvider.rotationXZ;
+        visualProvider.setRotationXZ(currentXZ + value * 0.016);
+        break;
+      case 'rotationModYZ':
+        final currentYZ = visualProvider.rotationYZ;
+        visualProvider.setRotationYZ(currentYZ + value * 0.016);
+        break;
+
+      // 4D rotation modulation (additive to current rotation)
+      case 'rotationModXW':
+        final currentXW = visualProvider.rotationXW;
+        visualProvider.setRotationXW(currentXW + value * 0.016);
+        break;
+      case 'rotationModYW':
+        final currentYW = visualProvider.rotationYW;
+        visualProvider.setRotationYW(currentYW + value * 0.016);
+        break;
+      case 'rotationModZW':
+        final currentZW = visualProvider.rotationZW;
+        visualProvider.setRotationZW(currentZW + value * 0.016);
         break;
     }
   }
