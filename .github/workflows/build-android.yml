@@ -88,6 +88,7 @@ jobs:
             - ✅ Full 6D rotation in 4D space
             - ✅ Audio-reactive rendering (60 FPS target)
             - ✅ Bidirectional audio-visual parameter coupling
+            - ✅ Works offline (local VIB3+ engine, no network required)
 
             ## Installation
 
@@ -99,7 +100,7 @@ jobs:
             ## Testing Checklist
 
             - [ ] App launches without crashes
-            - [ ] Visualizer displays (requires internet for VIB3+ engine)
+            - [ ] Visualizer displays (uses local VIB3+ engine - works offline)
             - [ ] System switching works (Faceted/Quantum/Holographic)
             - [ ] All 24 geometries cycle through
             - [ ] Touch controls responsive
