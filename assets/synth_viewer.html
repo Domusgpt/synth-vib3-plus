@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Synth-VIB3+ Viewer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+      touch-action: none;
+    }
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <script>
+    /**
+     * Synth-VIB3+ Minimal Viewer
+     * Pure visualization engine - no UI, no menus, no legacy features
+     * All control happens via Flutter bridge
+     */
+
+    // Global state
+    const state = {
+      system: 'quantum',
+      geometry: 0,
+      parameters: {
+        rot4dXY: 0.02,
+        rot4dXZ: 0.01,
+        rot4dYZ: 0.015,
+        rot4dXW: 0.008,
+        rot4dYW: 0.012,
+        rot4dZW: 0.005,
+        morphFactor: 0.5,
+        chaos: 0.0,
+        speed: 1.0,
+        hue: 180,
+        saturation: 1.0,
+        brightness: 1.0,
+        glowIntensity: 1.0,
+        gridDensity: 6
+      },
+      audio: {
+        bass: 0.0,
+        mid: 0.0,
+        high: 0.0,
+        energy: 0.0
+      }
+    };
+
+    // 4D Polytope vertices (base geometries)
+    const GEOMETRIES = {
+      tetrahedron: [
+        [1, 1, 1, 0], [-1, -1, 1, 0], [-1, 1, -1, 0], [1, -1, -1, 0]
+      ],
+      hypercube: [
+        [-1,-1,-1,-1], [1,-1,-1,-1], [-1,1,-1,-1], [1,1,-1,-1],
+        [-1,-1,1,-1], [1,-1,1,-1], [-1,1,1,-1], [1,1,1,-1],
+        [-1,-1,-1,1], [1,-1,-1,1], [-1,1,-1,1], [1,1,-1,1],
+        [-1,-1,1,1], [1,-1,1,1], [-1,1,1,1], [1,1,1,1]
+      ],
+      sphere: (() => {
+        const verts = [];
+        for (let i = 0; i < 20; i++) {
+          const phi = Math.acos(-1 + (2 * i) / 19);
+          const theta = Math.sqrt(20 * Math.PI) * phi;
+          verts.push([
+            Math.cos(theta) * Math.sin(phi),
+            Math.sin(theta) * Math.sin(phi),
+            Math.cos(phi),
+            0.5 * Math.sin(phi * 2)
+          ]);
+        }
+        return verts;
+      })(),
+      torus: (() => {
+        const verts = [];
+        const R = 1.0, r = 0.4;
+        for (let i = 0; i < 16; i++) {
+          for (let j = 0; j < 8; j++) {
+            const u = (i / 16) * Math.PI * 2;
+            const v = (j / 8) * Math.PI * 2;
+            verts.push([
+              (R + r * Math.cos(v)) * Math.cos(u),
+              (R + r * Math.cos(v)) * Math.sin(u),
+              r * Math.sin(v),
+              0.3 * Math.sin(u) * Math.sin(v)
+            ]);
+          }
+        }
+        return verts;
+      })()
+    };
+
+    // Rendering
+    let canvas, ctx;
+    let frameId;
+
+    function init() {
+      console.log('🎨 Synth-VIB3+ Viewer initializing...');
+
+      canvas = document.createElement('canvas');
+      canvas.id = 'main-canvas';
+      document.getElementById('canvas-container').appendChild(canvas);
+
+      ctx = canvas.getContext('2d');
+      resize();
+      window.addEventListener('resize', resize);
+
+      // Start render loop
+      frameId = requestAnimationFrame(render);
+
+      console.log('✅ Synth-VIB3+ Viewer ready');
+
+      // Notify Flutter
+      if (window.FlutterBridge) {
+        window.FlutterBridge.postMessage('READY:SynthViewer');
+      }
+    }
+
+    function resize() {
+      canvas.width = window.innerWidth * window.devicePixelRatio;
+      canvas.height = window.innerHeight * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+
+    // 4D rotation matrices
+    function rotate4D(vertex, angles) {
+      let [x, y, z, w] = vertex;
+
+      // XY rotation
+      let cos = Math.cos(angles.xy), sin = Math.sin(angles.xy);
+      [x, y] = [x * cos - y * sin, x * sin + y * cos];
+
+      // XZ rotation
+      cos = Math.cos(angles.xz); sin = Math.sin(angles.xz);
+      [x, z] = [x * cos - z * sin, x * sin + z * cos];
+
+      // YZ rotation
+      cos = Math.cos(angles.yz); sin = Math.sin(angles.yz);
+      [y, z] = [y * cos - z * sin, y * sin + z * cos];
+
+      // XW rotation
+      cos = Math.cos(angles.xw); sin = Math.sin(angles.xw);
+      [x, w] = [x * cos - w * sin, x * sin + w * cos];
+
+      // YW rotation
+      cos = Math.cos(angles.yw); sin = Math.sin(angles.yw);
+      [y, w] = [y * cos - w * sin, y * sin + w * cos];
+
+      // ZW rotation
+      cos = Math.cos(angles.zw); sin = Math.sin(angles.zw);
+      [z, w] = [z * cos - w * sin, z * sin + w * cos];
+
+      return [x, y, z, w];
+    }
+
+    // Project 4D to 2D
+    function project(vertex) {
+      const [x, y, z, w] = vertex;
+      const distance = 3;
+      const scale = distance / (distance - w);
+      const scale2 = distance / (distance - z * 0.5);
+
+      return {
+        x: x * scale * scale2,
+        y: y * scale * scale2,
+        scale: scale * scale2,
+        depth: w + z * 0.5
+      };
+    }
+
+    // Get system colors
+    function getSystemColors() {
+      switch (state.system) {
+        case 'quantum':
+          return { primary: '#00FFFF', secondary: '#0088CC', glow: 'rgba(0, 255, 255, 0.3)' };
+        case 'faceted':
+          return { primary: '#FF00FF', secondary: '#880088', glow: 'rgba(255, 0, 255, 0.3)' };
+        case 'holographic':
+          return { primary: '#FFAA00', secondary: '#885500', glow: 'rgba(255, 170, 0, 0.3)' };
+        default:
+          return { primary: '#00FFFF', secondary: '#0088CC', glow: 'rgba(0, 255, 255, 0.3)' };
+      }
+    }
+
+    // Get geometry vertices
+    function getGeometryVertices() {
+      const baseGeom = state.geometry % 8;
+      const names = ['tetrahedron', 'hypercube', 'sphere', 'torus', 'tetrahedron', 'hypercube', 'sphere', 'torus'];
+      return GEOMETRIES[names[baseGeom]] || GEOMETRIES.tetrahedron;
+    }
+
+    // Animation state
+    let time = 0;
+
+    function render() {
+      frameId = requestAnimationFrame(render);
+
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const centerX = width / 2;
+      const centerY = height / 2;
+      const scale = Math.min(width, height) * 0.3;
+
+      // Clear with fade effect
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+      ctx.fillRect(0, 0, width, height);
+
+      // Update time
+      time += 0.016 * state.parameters.speed;
+
+      // Audio reactivity
+      const audioMod = 1.0 + state.audio.energy * 0.3;
+      const bassMod = 1.0 + state.audio.bass * 0.5;
+
+      // Get colors
+      const colors = getSystemColors();
+
+      // Calculate rotation angles (base + animated + audio-reactive)
+      const angles = {
+        xy: state.parameters.rot4dXY * time * bassMod,
+        xz: state.parameters.rot4dXZ * time,
+        yz: state.parameters.rot4dYZ * time,
+        xw: state.parameters.rot4dXW * time * audioMod,
+        yw: state.parameters.rot4dYW * time,
+        zw: state.parameters.rot4dZW * time
+      };
+
+      // Get and transform vertices
+      const vertices = getGeometryVertices();
+      const projected = vertices.map(v => {
+        // Apply morphing
+        const morphed = v.map((c, i) =>
+          c * (1.0 + state.parameters.morphFactor * 0.2 * Math.sin(time + i))
+        );
+
+        // Apply chaos
+        const chaotic = morphed.map(c =>
+          c + state.parameters.chaos * 0.1 * (Math.random() - 0.5)
+        );
+
+        // Rotate in 4D
+        const rotated = rotate4D(chaotic, angles);
+
+        // Project to 2D
+        return project(rotated);
+      });
+
+      // Draw connections (edges)
+      ctx.strokeStyle = colors.primary;
+      ctx.lineWidth = 1.5 * (1.0 + state.audio.mid * 0.5);
+      ctx.shadowColor = colors.glow;
+      ctx.shadowBlur = 15 * state.parameters.glowIntensity * (1.0 + state.audio.high);
+
+      ctx.beginPath();
+      for (let i = 0; i < projected.length; i++) {
+        for (let j = i + 1; j < projected.length; j++) {
+          const p1 = projected[i];
+          const p2 = projected[j];
+
+          // Only connect nearby vertices
+          const dx = p1.x - p2.x;
+          const dy = p1.y - p2.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < 1.5) {
+            const x1 = centerX + p1.x * scale;
+            const y1 = centerY + p1.y * scale;
+            const x2 = centerX + p2.x * scale;
+            const y2 = centerY + p2.y * scale;
+
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+          }
+        }
+      }
+      ctx.stroke();
+
+      // Draw vertices
+      projected.forEach((p, i) => {
+        const x = centerX + p.x * scale;
+        const y = centerY + p.y * scale;
+        const size = (3 + p.scale * 2) * state.parameters.brightness * (1.0 + state.audio.high * 0.5);
+
+        // Glow
+        ctx.beginPath();
+        ctx.arc(x, y, size * 2, 0, Math.PI * 2);
+        ctx.fillStyle = colors.glow;
+        ctx.fill();
+
+        // Core
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fillStyle = colors.primary;
+        ctx.fill();
+      });
+
+      // Reset shadow
+      ctx.shadowBlur = 0;
+    }
+
+    // Flutter Bridge API
+    window.synthViewer = {
+      // Switch visual system
+      switchSystem: (system) => {
+        state.system = system.toLowerCase();
+        console.log('🎨 System:', state.system);
+        if (window.FlutterBridge) {
+          window.FlutterBridge.postMessage('SYSTEM:' + state.system);
+        }
+      },
+
+      // Set geometry (0-23)
+      setGeometry: (index) => {
+        state.geometry = Math.max(0, Math.min(23, index));
+        console.log('🔷 Geometry:', state.geometry);
+      },
+
+      // Update visual parameters (batch)
+      updateParameters: (params) => {
+        Object.assign(state.parameters, params);
+      },
+
+      // Update single parameter
+      updateParameter: (name, value) => {
+        if (name in state.parameters) {
+          state.parameters[name] = value;
+        }
+      },
+
+      // Update audio data for reactivity
+      updateAudio: (audioData) => {
+        Object.assign(state.audio, audioData);
+      },
+
+      // Get current state
+      getState: () => ({ ...state }),
+
+      // Get parameter value
+      getParameter: (name) => state.parameters[name]
+    };
+
+    // Also expose as window.vib34d for backwards compatibility
+    window.vib34d = window.synthViewer;
+    window.switchSystem = window.synthViewer.switchSystem;
+    window.updateParameter = window.synthViewer.updateParameter;
+
+    // Initialize on load
+    if (document.readyState === 'complete') {
+      init();
+    } else {
+      window.addEventListener('load', init);
+    }
+
+    // Backup init after short delay (Android WebView sometimes doesn't fire load)
+    setTimeout(init, 200);
+  </script>
+</body>
+</html>
