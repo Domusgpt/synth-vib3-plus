@@ -88,6 +88,8 @@ flutter:
 
   shaders:
     - assets/shaders/faceted.frag
+    - assets/shaders/quantum.frag
+    - assets/shaders/holographic.frag
 
   assets:
     - assets/shaders/vertex/

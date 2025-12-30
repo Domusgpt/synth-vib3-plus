@@ -2,6 +2,7 @@
 ///
 /// Renders VIB3+ visualization using Flutter's native FragmentProgram
 /// This is the TRUE native port of the WebGL shaders - GPU accelerated
+/// Supports all 3 systems: Quantum, Faceted, Holographic
 ///
 /// A Paul Phillips Manifestation
 
@@ -34,6 +35,7 @@ class _VIB3ShaderWidgetState extends State<VIB3ShaderWidget>
 
   bool _shadersLoaded = false;
   String? _loadError;
+  int _shadersLoadedCount = 0;
 
   // Audio reactivity (smoothed)
   double _bassEnergy = 0.0;
@@ -60,20 +62,73 @@ class _VIB3ShaderWidgetState extends State<VIB3ShaderWidget>
 
   Future<void> _loadShaders() async {
     try {
-      // Load the faceted shader (we'll add quantum and holographic later)
-      _facetedProgram = await ui.FragmentProgram.fromAsset(
-        'assets/shaders/faceted.frag',
-      );
+      // Load all 3 shaders in parallel
+      final results = await Future.wait([
+        ui.FragmentProgram.fromAsset('assets/shaders/faceted.frag'),
+        ui.FragmentProgram.fromAsset('assets/shaders/quantum.frag'),
+        ui.FragmentProgram.fromAsset('assets/shaders/holographic.frag'),
+      ]);
+
+      _facetedProgram = results[0];
+      _quantumProgram = results[1];
+      _holographicProgram = results[2];
 
       setState(() {
         _shadersLoaded = true;
+        _shadersLoadedCount = 3;
       });
-      debugPrint('✅ VIB3+ shaders loaded successfully');
+      debugPrint('✅ All 3 VIB3+ shaders loaded successfully');
     } catch (e) {
-      setState(() {
-        _loadError = e.toString();
-      });
-      debugPrint('❌ Failed to load VIB3+ shaders: $e');
+      // Try loading individually to identify which failed
+      debugPrint('⚠️ Parallel load failed, trying individual: $e');
+
+      try {
+        _facetedProgram = await ui.FragmentProgram.fromAsset('assets/shaders/faceted.frag');
+        _shadersLoadedCount++;
+        debugPrint('✅ Faceted shader loaded');
+      } catch (e) {
+        debugPrint('❌ Faceted shader failed: $e');
+      }
+
+      try {
+        _quantumProgram = await ui.FragmentProgram.fromAsset('assets/shaders/quantum.frag');
+        _shadersLoadedCount++;
+        debugPrint('✅ Quantum shader loaded');
+      } catch (e) {
+        debugPrint('❌ Quantum shader failed: $e');
+      }
+
+      try {
+        _holographicProgram = await ui.FragmentProgram.fromAsset('assets/shaders/holographic.frag');
+        _shadersLoadedCount++;
+        debugPrint('✅ Holographic shader loaded');
+      } catch (e) {
+        debugPrint('❌ Holographic shader failed: $e');
+      }
+
+      if (_shadersLoadedCount > 0) {
+        setState(() {
+          _shadersLoaded = true;
+        });
+        debugPrint('✅ Loaded $_shadersLoadedCount/3 shaders');
+      } else {
+        setState(() {
+          _loadError = e.toString();
+        });
+        debugPrint('❌ Failed to load any VIB3+ shaders: $e');
+      }
+    }
+  }
+
+  ui.FragmentProgram? _getShaderForSystem(String system) {
+    switch (system.toLowerCase()) {
+      case 'quantum':
+        return _quantumProgram ?? _facetedProgram;
+      case 'holographic':
+        return _holographicProgram ?? _facetedProgram;
+      case 'faceted':
+      default:
+        return _facetedProgram;
     }
   }
 
@@ -81,7 +136,7 @@ class _VIB3ShaderWidgetState extends State<VIB3ShaderWidget>
     if (!mounted) return;
 
     setState(() {
-      _time = _stopwatch.elapsed.inMicroseconds / 1000.0; // Time in milliseconds
+      _time = _stopwatch.elapsed.inMicroseconds / 1000.0;
 
       // Update audio reactivity
       final audioProvider = Provider.of<AudioProvider>(context, listen: false);
@@ -160,6 +215,15 @@ class _VIB3ShaderWidgetState extends State<VIB3ShaderWidget>
 
     return Consumer<VisualProvider>(
       builder: (context, visualProvider, child) {
+        final currentSystem = visualProvider.currentSystem;
+        final program = _getShaderForSystem(currentSystem);
+
+        if (program == null) {
+          return const Center(
+            child: Text('No shader available', style: TextStyle(color: Colors.orange)),
+          );
+        }
+
         return LayoutBuilder(
           builder: (context, constraints) {
             final size = Size(constraints.maxWidth, constraints.maxHeight);
@@ -170,18 +234,19 @@ class _VIB3ShaderWidgetState extends State<VIB3ShaderWidget>
               child: CustomPaint(
                 size: size,
                 painter: _VIB3ShaderPainter(
-                  program: _facetedProgram!,
+                  program: program,
+                  systemType: currentSystem,
                   time: _time,
                   resolution: size,
                   mouse: _touchPosition,
                   geometry: visualProvider.currentGeometry.toDouble(),
                   gridDensity: visualProvider.tessellationDensity.toDouble(),
                   morphFactor: visualProvider.morphParameter,
-                  chaos: 0.2, // Could expose this
+                  chaos: 0.2,
                   speed: visualProvider.rotationSpeed,
                   hue: visualProvider.hueShift,
                   intensity: visualProvider.vertexBrightness,
-                  saturation: 0.8, // Could expose this
+                  saturation: 0.8,
                   rot4dXW: visualProvider.rotationXW,
                   rot4dYW: visualProvider.rotationYW,
                   rot4dZW: visualProvider.rotationZW,
@@ -190,6 +255,7 @@ class _VIB3ShaderWidgetState extends State<VIB3ShaderWidget>
                   bassEnergy: _bassEnergy,
                   midEnergy: _midEnergy,
                   highEnergy: _highEnergy,
+                  layerSeparation: visualProvider.layerSeparation,
                 ),
               ),
             );
@@ -203,6 +269,7 @@ class _VIB3ShaderWidgetState extends State<VIB3ShaderWidget>
 /// Custom painter that renders the VIB3+ shader
 class _VIB3ShaderPainter extends CustomPainter {
   final ui.FragmentProgram program;
+  final String systemType;
   final double time;
   final Size resolution;
   final Offset mouse;
@@ -222,9 +289,11 @@ class _VIB3ShaderPainter extends CustomPainter {
   final double bassEnergy;
   final double midEnergy;
   final double highEnergy;
+  final double layerSeparation;
 
   _VIB3ShaderPainter({
     required this.program,
+    required this.systemType,
     required this.time,
     required this.resolution,
     required this.mouse,
@@ -244,13 +313,13 @@ class _VIB3ShaderPainter extends CustomPainter {
     required this.bassEnergy,
     required this.midEnergy,
     required this.highEnergy,
+    required this.layerSeparation,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final shader = program.fragmentShader();
 
-    // Set uniforms in order matching the shader
     int idx = 0;
 
     // u_resolution (vec2)
@@ -298,6 +367,15 @@ class _VIB3ShaderPainter extends CustomPainter {
 
     // u_clickIntensity (float)
     shader.setFloat(idx++, clickIntensity);
+
+    // System-specific uniforms
+    if (systemType.toLowerCase() == 'quantum') {
+      // u_layerIndex for quantum shader (0-4)
+      shader.setFloat(idx++, 2.0); // Content layer by default
+    } else if (systemType.toLowerCase() == 'holographic') {
+      // u_layerSeparation for holographic shader
+      shader.setFloat(idx++, layerSeparation);
+    }
 
     final paint = Paint()..shader = shader;
 
