@@ -97,11 +97,24 @@ class _SynthMainContent extends StatefulWidget {
 }
 
 class _SynthMainContentState extends State<_SynthMainContent> {
+  bool _audioInitialized = false;
+
   @override
   void initState() {
     super.initState();
-    // DON'T auto-start audio - let user trigger via XY pad touch
-    // Audio will start when they touch the performance pad
+    // Wait for audio to initialize before enabling interaction
+    _initializeAudio();
+  }
+
+  Future<void> _initializeAudio() async {
+    final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+    await audioProvider.ensureInitialized();
+    if (mounted) {
+      setState(() {
+        _audioInitialized = true;
+      });
+      debugPrint('✅ Audio system ready - PCM initialized: ${audioProvider.isPcmAvailable}');
+    }
   }
 
   @override
@@ -109,6 +122,26 @@ class _SynthMainContentState extends State<_SynthMainContent> {
     final uiState = Provider.of<UIStateProvider>(context);
     final visualProvider = Provider.of<VisualProvider>(context);
     final systemColors = visualProvider.systemColors;
+
+    // Show loading indicator until audio is ready
+    if (!_audioInitialized) {
+      return Scaffold(
+        backgroundColor: SynthTheme.backgroundColor,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: systemColors.primary),
+              const SizedBox(height: 16),
+              Text(
+                'Initializing Audio...',
+                style: SynthTheme.textStyleBody.copyWith(color: systemColors.primary),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: SynthTheme.backgroundColor,

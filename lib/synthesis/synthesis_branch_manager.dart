@@ -266,6 +266,12 @@ class SynthesisBranchManager {
   double _vibratoPhase = 0.0;      // LFO phase
   static const double _vibratoRate = 5.0; // Hz (vibrato speed)
 
+  // ADSR envelope overrides (null = use geometry defaults)
+  double? _attackOverride;    // ms
+  double? _decayOverride;     // ms (not currently used, but for future)
+  double? _sustainOverride;   // 0-1 (not currently used, but for future)
+  double? _releaseOverride;   // ms
+
   // Delay buffer for delay effect
   late List<double> _delayBuffer;
   int _delayWritePos = 0;
@@ -330,6 +336,16 @@ class SynthesisBranchManager {
   /// Set vibrato depth (semitones, from orb controller)
   void setVibratoDepth(double depth) {
     _vibratoDepth = depth.clamp(0.0, 2.0);
+  }
+
+  /// Set attack time override (ms, null = use geometry default)
+  void setAttackOverride(double? attackMs) {
+    _attackOverride = attackMs?.clamp(1.0, 5000.0);
+  }
+
+  /// Set release time override (ms, null = use geometry default)
+  void setReleaseOverride(double? releaseMs) {
+    _releaseOverride = releaseMs?.clamp(1.0, 10000.0);
   }
 
   // Getters for external access
@@ -507,8 +523,11 @@ class SynthesisBranchManager {
 
   /// Calculate envelope level (musical ADSR)
   double _updateEnvelope() {
-    final attackSamples = (_currentVoiceCharacter.attackMs * sampleRate / 1000.0).round();
-    final releaseSamples = (_currentVoiceCharacter.releaseMs * sampleRate / 1000.0).round();
+    // Use override if set, otherwise use geometry-derived values
+    final attackMs = _attackOverride ?? _currentVoiceCharacter.attackMs;
+    final releaseMs = _releaseOverride ?? _currentVoiceCharacter.releaseMs;
+    final attackSamples = (attackMs * sampleRate / 1000.0).round();
+    final releaseSamples = (releaseMs * sampleRate / 1000.0).round();
 
     if (_noteIsOn) {
       // Attack phase

@@ -394,22 +394,27 @@ class AudioProvider with ChangeNotifier {
   /// Set reverb parameters
   void setReverbRoomSize(double roomSize) {
     synthesizerEngine.reverb.roomSize = roomSize.clamp(0.0, 1.0);
+    // Note: SynthesisBranchManager uses reverbMix, not roomSize
     notifyListeners();
   }
 
   void setReverbDamping(double damping) {
     synthesizerEngine.reverb.damping = damping.clamp(0.0, 1.0);
+    // Note: SynthesisBranchManager uses reverbMix, not damping
     notifyListeners();
   }
 
   /// Set delay parameters
   void setDelayFeedback(double feedback) {
-    synthesizerEngine.delay.feedback = feedback.clamp(0.0, 0.95);
+    final clampedFeedback = feedback.clamp(0.0, 0.95);
+    synthesizerEngine.delay.feedback = clampedFeedback;
+    synthesisBranchManager.setDelayFeedback(clampedFeedback); // SYNC
     notifyListeners();
   }
 
   void setDelayMix(double mix) {
     synthesizerEngine.delay.mix = mix.clamp(0.0, 1.0);
+    // Note: SynthesisBranchManager uses fixed 0.3 delayMix internally
     notifyListeners();
   }
 
@@ -549,22 +554,30 @@ class AudioProvider with ChangeNotifier {
 
   /// Envelope setters
   void setEnvelopeAttack(double attack) {
-    synthesizerEngine.envelope.attack = attack.clamp(0.001, 5.0);
+    final clampedAttack = attack.clamp(0.001, 5.0);
+    synthesizerEngine.envelope.attack = clampedAttack;
+    // Convert seconds to ms for SynthesisBranchManager
+    synthesisBranchManager.setAttackOverride(clampedAttack * 1000.0); // SYNC
     notifyListeners();
   }
 
   void setEnvelopeDecay(double decay) {
     synthesizerEngine.envelope.decay = decay.clamp(0.001, 5.0);
+    // Note: SynthesisBranchManager uses simple AR envelope, no decay parameter
     notifyListeners();
   }
 
   void setEnvelopeSustain(double sustain) {
     synthesizerEngine.envelope.sustain = sustain.clamp(0.0, 1.0);
+    // Note: SynthesisBranchManager uses simple AR envelope, sustain is always 1.0
     notifyListeners();
   }
 
   void setEnvelopeRelease(double release) {
-    synthesizerEngine.envelope.release = release.clamp(0.001, 10.0);
+    final clampedRelease = release.clamp(0.001, 10.0);
+    synthesizerEngine.envelope.release = clampedRelease;
+    // Convert seconds to ms for SynthesisBranchManager
+    synthesisBranchManager.setReleaseOverride(clampedRelease * 1000.0); // SYNC
     notifyListeners();
   }
 
