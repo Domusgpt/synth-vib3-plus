@@ -6,7 +6,6 @@
 // Note: Full widget tests require platform dependencies (PCM audio, WebView).
 // These tests focus on pure Dart components that can run headlessly.
 
-import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 

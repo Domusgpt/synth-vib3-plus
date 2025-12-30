@@ -18,7 +18,6 @@
  */
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:webview_flutter/webview_flutter.dart';
 import '../providers/visual_provider.dart';
 import '../providers/audio_provider.dart';

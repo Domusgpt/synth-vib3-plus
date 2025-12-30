@@ -5,7 +5,6 @@
 // - Parameter range transformations
 // - Edge cases and boundary conditions
 
-import 'dart:math' as math;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:synther_vib34d_holographic/mapping/audio_to_visual.dart';
 

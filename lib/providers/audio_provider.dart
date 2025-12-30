@@ -60,7 +60,6 @@ class AudioProvider with ChangeNotifier {
   double _smoothedResonance = 0.5;
   double _smoothedOsc1Detune = 0.0;
   double _smoothedOsc2Detune = 0.0;
-  double _smoothedReverbMix = 0.3;
   final double _smoothingFactor = 0.95; // Higher = smoother but slower (0.9-0.99)
 
   // Audio generation timer
@@ -482,16 +481,14 @@ class AudioProvider with ChangeNotifier {
   /// Set pitch bend in semitones
   void setPitchBend(double semitones) {
     _pitchBend = semitones.clamp(-12.0, 12.0);
-    // Apply pitch bend to synth engine
-    // TODO: Implement in synthesizer_engine.dart
+    synthesisBranchManager.setPitchBend(_pitchBend); // SYNC to branch manager
     notifyListeners();
   }
 
   /// Set vibrato depth
   void setVibratoDepth(double depth) {
     _vibratoDepth = depth.clamp(0.0, 2.0);
-    // Apply vibrato to synth engine
-    // TODO: Implement in synthesizer_engine.dart
+    synthesisBranchManager.setVibratoDepth(_vibratoDepth); // SYNC to branch manager
     notifyListeners();
   }
 

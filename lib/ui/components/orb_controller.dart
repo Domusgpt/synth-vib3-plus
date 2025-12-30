@@ -15,7 +15,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:math' as math;
 import '../theme/synth_theme.dart';
 import '../../providers/ui_state_provider.dart';
 import '../../providers/audio_provider.dart';

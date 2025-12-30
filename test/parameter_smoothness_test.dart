@@ -7,7 +7,6 @@
 // - No parameter jumps or sudden changes
 
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:synther_vib34d_holographic/audio/synthesizer_engine.dart';
 import 'package:synther_vib34d_holographic/audio/audio_analyzer.dart';

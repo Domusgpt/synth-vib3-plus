@@ -260,6 +260,12 @@ class SynthesisBranchManager {
   double _osc1Detune = 0.0;        // cents
   double _osc2Detune = 0.0;        // cents
 
+  // Pitch bend and vibrato (from orb controller)
+  double _pitchBend = 0.0;         // semitones (-12 to +12)
+  double _vibratoDepth = 0.0;      // semitones (0 to 2)
+  double _vibratoPhase = 0.0;      // LFO phase
+  static const double _vibratoRate = 5.0; // Hz (vibrato speed)
+
   // Delay buffer for delay effect
   late List<double> _delayBuffer;
   int _delayWritePos = 0;
@@ -314,6 +320,16 @@ class SynthesisBranchManager {
   /// Set oscillator 2 detune (cents)
   void setOsc2Detune(double cents) {
     _osc2Detune = cents.clamp(-100.0, 100.0);
+  }
+
+  /// Set pitch bend (semitones, from orb controller)
+  void setPitchBend(double semitones) {
+    _pitchBend = semitones.clamp(-12.0, 12.0);
+  }
+
+  /// Set vibrato depth (semitones, from orb controller)
+  void setVibratoDepth(double depth) {
+    _vibratoDepth = depth.clamp(0.0, 2.0);
   }
 
   // Getters for external access
@@ -402,9 +418,20 @@ class SynthesisBranchManager {
 
   /// Generate audio buffer with current configuration
   Float32List generateBuffer(int frames, double frequency) {
-    // Apply external detune to frequency
+    // Update vibrato LFO phase
+    final vibratoIncrement = _vibratoRate / sampleRate * 2.0 * math.pi * frames;
+    _vibratoPhase += vibratoIncrement;
+    if (_vibratoPhase > 2.0 * math.pi) _vibratoPhase -= 2.0 * math.pi;
+
+    // Calculate vibrato modulation (sine LFO)
+    final vibratoMod = math.sin(_vibratoPhase) * _vibratoDepth;
+
+    // Apply pitch bend + vibrato + external detune to frequency
+    // Pitch bend and vibrato are in semitones, convert to ratio
+    final pitchModSemitones = _pitchBend + vibratoMod;
+    final pitchModRatio = math.pow(2.0, pitchModSemitones / 12.0);
     final detuneRatio1 = math.pow(2.0, _osc1Detune / 1200.0);
-    final detunedFreq = frequency * detuneRatio1;
+    final detunedFreq = frequency * detuneRatio1 * pitchModRatio;
 
     Float32List buffer;
 
@@ -532,6 +559,7 @@ class SynthesisBranchManager {
       sample *= _currentSoundFamily.waveformMix[0]; // Sine component
       sample += _currentSoundFamily.waveformMix[1] * _square(_phase1) * 0.3; // Square (quieter)
       sample += _currentSoundFamily.waveformMix[2] * _triangle(_phase1) * 0.4; // Triangle
+      sample += _currentSoundFamily.waveformMix[3] * _sawtooth(_phase1) * 0.35; // Sawtooth (for holographic)
 
       // Add minimal musical noise for warmth
       sample += (_random.nextDouble() * 2.0 - 1.0) * _currentSoundFamily.noiseLevel;

@@ -68,7 +68,6 @@ class VisualProvider with ChangeNotifier {
 
   // Animation state
   bool _isAnimating = false;
-  DateTime _lastUpdateTime = DateTime.now();
   double _currentFPS = 60.0; // Track actual FPS
 
   // CRITICAL: Batched parameter updates to prevent WebView overload
@@ -471,7 +470,6 @@ class VisualProvider with ChangeNotifier {
   /// Start animation loop
   void startAnimation() {
     _isAnimating = true;
-    _lastUpdateTime = DateTime.now();
     notifyListeners();
   }
 
