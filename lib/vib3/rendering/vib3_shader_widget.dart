@@ -247,9 +247,14 @@ class _VIB3ShaderWidgetState extends State<VIB3ShaderWidget>
                   hue: visualProvider.hueShift,
                   intensity: visualProvider.vertexBrightness,
                   saturation: 0.8,
-                  rot4dXW: visualProvider.rotationXW,
-                  rot4dYW: visualProvider.rotationYW,
-                  rot4dZW: visualProvider.rotationZW,
+                  dimension: 3.8, // 4D dimension parameter
+                  // VIB3+ 6D ROTATION SYSTEM
+                  rot4dXY: visualProvider.rotationXY, // 3D space rotation
+                  rot4dXZ: visualProvider.rotationXZ, // 3D space rotation
+                  rot4dYZ: visualProvider.rotationYZ, // 3D space rotation
+                  rot4dXW: visualProvider.rotationXW, // 4D hyperspace rotation
+                  rot4dYW: visualProvider.rotationYW, // 4D hyperspace rotation
+                  rot4dZW: visualProvider.rotationZW, // 4D hyperspace rotation
                   mouseIntensity: _touchIntensity,
                   clickIntensity: _touchIntensity,
                   bassEnergy: _bassEnergy,
@@ -281,9 +286,14 @@ class _VIB3ShaderPainter extends CustomPainter {
   final double hue;
   final double intensity;
   final double saturation;
-  final double rot4dXW;
-  final double rot4dYW;
-  final double rot4dZW;
+  final double dimension;
+  // VIB3+ 6D ROTATION SYSTEM
+  final double rot4dXY; // 3D space rotation
+  final double rot4dXZ; // 3D space rotation
+  final double rot4dYZ; // 3D space rotation
+  final double rot4dXW; // 4D hyperspace rotation
+  final double rot4dYW; // 4D hyperspace rotation
+  final double rot4dZW; // 4D hyperspace rotation
   final double mouseIntensity;
   final double clickIntensity;
   final double bassEnergy;
@@ -305,6 +315,10 @@ class _VIB3ShaderPainter extends CustomPainter {
     required this.hue,
     required this.intensity,
     required this.saturation,
+    required this.dimension,
+    required this.rot4dXY,
+    required this.rot4dXZ,
+    required this.rot4dYZ,
     required this.rot4dXW,
     required this.rot4dYW,
     required this.rot4dZW,
@@ -333,7 +347,7 @@ class _VIB3ShaderPainter extends CustomPainter {
     shader.setFloat(idx++, mouse.dx);
     shader.setFloat(idx++, mouse.dy);
 
-    // u_geometry (float)
+    // u_geometry (float) - 0-23 for 24-geometry system
     shader.setFloat(idx++, geometry);
 
     // u_gridDensity (float) - modulated by mid energy
@@ -357,10 +371,18 @@ class _VIB3ShaderPainter extends CustomPainter {
     // u_saturation (float)
     shader.setFloat(idx++, saturation);
 
-    // u_rot4dXW, u_rot4dYW, u_rot4dZW (floats)
-    shader.setFloat(idx++, rot4dXW);
-    shader.setFloat(idx++, rot4dYW);
-    shader.setFloat(idx++, rot4dZW);
+    // u_dimension (float) - 4D projection depth
+    shader.setFloat(idx++, dimension);
+
+    // VIB3+ COMPLETE 6D ROTATION SYSTEM
+    // 3D space rotations (modulated by audio)
+    shader.setFloat(idx++, rot4dXY + bassEnergy * 0.2);  // u_rot4dXY
+    shader.setFloat(idx++, rot4dXZ + midEnergy * 0.15);  // u_rot4dXZ
+    shader.setFloat(idx++, rot4dYZ + highEnergy * 0.1);  // u_rot4dYZ
+    // 4D hyperspace rotations (modulated by audio)
+    shader.setFloat(idx++, rot4dXW + bassEnergy * 0.3);  // u_rot4dXW
+    shader.setFloat(idx++, rot4dYW + midEnergy * 0.25);  // u_rot4dYW
+    shader.setFloat(idx++, rot4dZW + highEnergy * 0.2);  // u_rot4dZW
 
     // u_mouseIntensity (float)
     shader.setFloat(idx++, mouseIntensity);
