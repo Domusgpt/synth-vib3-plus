@@ -20,6 +20,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_pcm_sound/flutter_pcm_sound.dart';
+import 'package:audio_session/audio_session.dart';
 import '../audio/audio_analyzer.dart';
 import '../audio/synthesizer_engine.dart';
 import '../synthesis/synthesis_branch_manager.dart'; // Includes VisualSystem enum
@@ -104,6 +105,29 @@ class AudioProvider with ChangeNotifier {
 
   /// Asynchronous initialization (PCM setup)
   Future<void> _initializeAsync() async {
+    // CRITICAL: Configure audio session FIRST for Android compatibility
+    try {
+      final session = await AudioSession.instance;
+      await session.configure(const AudioSessionConfiguration(
+        avAudioSessionCategory: AVAudioSessionCategory.playback,
+        avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.defaultToSpeaker,
+        avAudioSessionMode: AVAudioSessionMode.defaultMode,
+        avAudioSessionRouteSharingPolicy: AVAudioSessionRouteSharingPolicy.defaultPolicy,
+        avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.none,
+        androidAudioAttributes: AndroidAudioAttributes(
+          contentType: AndroidAudioContentType.music,
+          usage: AndroidAudioUsage.media,
+          flags: AndroidAudioFlags.none,
+        ),
+        androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
+        androidWillPauseWhenDucked: false,
+      ));
+      await session.setActive(true);
+      debugPrint('✅ Audio session configured for playback');
+    } catch (e) {
+      debugPrint('⚠️ Audio session configuration failed: $e');
+    }
+
     try {
       // Initialize PCM player (static API)
       await FlutterPcmSound.setup(
