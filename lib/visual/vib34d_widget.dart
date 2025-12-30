@@ -1,13 +1,13 @@
 /**
  * VIB34D Widget
  *
- * Flutter WebView widget that displays the Synth-VIB3+ visualization.
- * Uses LOCAL HTML asset - no network dependency, no legacy UI.
+ * Flutter WebView widget that displays the VIB3+ visualization.
+ * Loads from remote GitHub Pages for FULL WebGL 4D visualization.
  *
  * Features:
- * - Local WebView-based visualization (works offline)
- * - Full support for Faceted, Quantum, and Holographic systems
- * - Clean synth-focused viewer (no gallery, no trading cards, no export)
+ * - Full VIB3+ WebGL visualization (Faceted, Quantum, Holographic, Polychora)
+ * - 24 4D polytope geometries with 6D rotation
+ * - Audio-reactive parameter modulation
  * - Bidirectional parameter communication via JavaScript bridge
  *
  * Integrates with:
@@ -154,24 +154,25 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
     }
   }
 
-  /// Load the local synth viewer HTML from assets
+  /// Load the VIB3+ engine - use remote URL for full WebGL visualization
   Future<void> _loadLocalViewer() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    debugPrint('🚀 Loading Synth Viewer from local assets...');
+    debugPrint('🚀 Loading VIB3+ Engine...');
 
     try {
-      // Load HTML from assets
-      final htmlContent = await rootBundle.loadString('assets/synth_viewer.html');
-      await _webViewController.loadHtmlString(htmlContent, baseUrl: 'about:blank');
-      debugPrint('✅ Synth Viewer loaded from assets');
+      // Load from GitHub Pages - this has the FULL WebGL visualization
+      // The local synth_viewer.html was a placeholder - it doesn't have the real VIB3+ code
+      const vib3Url = 'https://domusgpt.github.io/vib3-plus-engine/';
+      await _webViewController.loadRequest(Uri.parse(vib3Url));
+      debugPrint('✅ VIB3+ loading from: $vib3Url');
     } catch (e) {
-      debugPrint('❌ Failed to load synth viewer: $e');
+      debugPrint('❌ Failed to load VIB3+: $e');
       setState(() {
-        _errorMessage = 'Failed to load visualization: $e';
+        _errorMessage = 'Failed to load VIB3+ visualization: $e';
         _isLoading = false;
       });
     }
