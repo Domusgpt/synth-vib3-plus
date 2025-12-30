@@ -260,7 +260,14 @@ class SynthesisBranchManager {
   double _osc1Detune = 0.0;        // cents
   double _osc2Detune = 0.0;        // cents
 
-  SynthesisBranchManager({this.sampleRate = 44100.0});
+  // Delay buffer for delay effect
+  late List<double> _delayBuffer;
+  int _delayWritePos = 0;
+  static const int _maxDelaySamples = 88200; // 2 seconds at 44100
+
+  SynthesisBranchManager({this.sampleRate = 44100.0}) {
+    _delayBuffer = List<double>.filled(_maxDelaySamples, 0.0);
+  }
 
   // ========== PARAMETER SETTERS ==========
 
@@ -395,23 +402,30 @@ class SynthesisBranchManager {
 
   /// Generate audio buffer with current configuration
   Float32List generateBuffer(int frames, double frequency) {
+    // Apply external detune to frequency
+    final detuneRatio1 = math.pow(2.0, _osc1Detune / 1200.0);
+    final detunedFreq = frequency * detuneRatio1;
+
     Float32List buffer;
 
     // Route to appropriate synthesis branch based on core
     switch (_currentCore) {
       case PolytopeCor.base:
-        buffer = _generateDirect(frames, frequency);
+        buffer = _generateDirect(frames, detunedFreq);
         break;
       case PolytopeCor.hypersphere:
-        buffer = _generateFM(frames, frequency);
+        buffer = _generateFM(frames, detunedFreq);
         break;
       case PolytopeCor.hypertetrahedron:
-        buffer = _generateRingMod(frames, frequency);
+        buffer = _generateRingMod(frames, detunedFreq);
         break;
     }
 
     // Apply external filter to the generated buffer
     _applyFilter(buffer);
+
+    // Apply delay effect
+    _applyDelay(buffer);
 
     // Apply master volume
     for (int i = 0; i < buffer.length; i++) {
@@ -419,6 +433,29 @@ class SynthesisBranchManager {
     }
 
     return buffer;
+  }
+
+  /// Apply delay effect using _delayTime and _delayFeedback
+  void _applyDelay(Float32List buffer) {
+    final delaySamples = (_delayTime * sampleRate / 1000.0).round().clamp(1, _maxDelaySamples - 1);
+    final delayMix = 0.3; // Fixed wet/dry mix
+
+    for (int i = 0; i < buffer.length; i++) {
+      final input = buffer[i];
+
+      // Read from delay buffer
+      final readPos = (_delayWritePos - delaySamples + _maxDelaySamples) % _maxDelaySamples;
+      final delayed = _delayBuffer[readPos];
+
+      // Write to delay buffer with feedback
+      _delayBuffer[_delayWritePos] = input + (delayed * _delayFeedback);
+
+      // Mix dry and wet
+      buffer[i] = (input * (1.0 - delayMix) + delayed * delayMix).clamp(-1.0, 1.0);
+
+      // Advance write position
+      _delayWritePos = (_delayWritePos + 1) % _maxDelaySamples;
+    }
   }
 
   /// Apply lowpass filter using external cutoff and resonance parameters
@@ -518,9 +555,12 @@ class SynthesisBranchManager {
   Float32List _generateFM(int frames, double frequency) {
     final buffer = Float32List(frames);
 
+    // Apply osc2 detune to modulator frequency
+    final osc2DetuneRatio = math.pow(2.0, _osc2Detune / 1200.0);
+
     // Musical FM ratios (2:1 = octave, produces musical overtones)
     final carrierIncrement = frequency / sampleRate * 2.0 * math.pi;
-    final modulatorIncrement = carrierIncrement * 2.0; // Perfect octave
+    final modulatorIncrement = carrierIncrement * 2.0 * osc2DetuneRatio; // Perfect octave with detune
 
     // FM index based on harmonic richness
     final fmIndex = 1.5 + (_currentVoiceCharacter.harmonicCount * 0.3);
