@@ -28,7 +28,7 @@ import '../../providers/ui_state_provider.dart';
 import '../../providers/visual_provider.dart';
 import '../../providers/audio_provider.dart';
 import '../../providers/tilt_sensor_provider.dart';
-import '../../vib3/vib3_native_widget.dart';
+import '../../vib3/rendering/vib3_shader_widget.dart';
 import '../../mapping/parameter_bridge.dart';
 
 class SynthMainScreen extends StatefulWidget {
@@ -161,11 +161,11 @@ class _SynthMainContentState extends State<_SynthMainContent> {
   }
 
   Widget _buildVisualizationLayer(BuildContext context) {
-    // Use native Flutter Canvas renderer - no WebView needed!
-    // VIB3NativeWidget renders 5 translucent 2D layers at 60 FPS
+    // Use native Flutter FragmentProgram shader renderer
+    // TRUE port of VIB3+ WebGL shaders - GPU accelerated, same visual quality
     // Works completely offline with zero network dependencies
     return const Positioned.fill(
-      child: VIB3NativeWidget(),
+      child: VIB3ShaderWidget(),
     );
   }
 

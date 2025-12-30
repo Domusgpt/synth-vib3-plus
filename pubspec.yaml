@@ -86,6 +86,9 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  shaders:
+    - assets/shaders/faceted.frag
+
   assets:
     - assets/shaders/vertex/
     - assets/shaders/fragment/
