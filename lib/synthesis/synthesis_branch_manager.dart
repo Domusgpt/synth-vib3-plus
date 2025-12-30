@@ -240,7 +240,81 @@ class SynthesisBranchManager {
   // Random number generator for noise
   final _random = math.Random();
 
+  // ========== EXTERNAL PARAMETERS (from UI/visual system) ==========
+  // Filter
+  double _filterCutoff = 4000.0;   // Hz (20-20000)
+  double _filterResonance = 0.5;   // 0-1
+  double _filterZ1 = 0.0;          // Filter state
+  double _filterZ2 = 0.0;          // Filter state
+
+  // Effects
+  double _reverbMix = 0.3;         // 0-1
+  double _delayTime = 250.0;       // ms
+  double _delayFeedback = 0.4;     // 0-1
+
+  // Master
+  double _masterVolume = 0.7;      // 0-1
+  double _mixBalance = 0.5;        // 0-1 (oscillator balance)
+
+  // Modulation from visual system
+  double _osc1Detune = 0.0;        // cents
+  double _osc2Detune = 0.0;        // cents
+
   SynthesisBranchManager({this.sampleRate = 44100.0});
+
+  // ========== PARAMETER SETTERS ==========
+
+  /// Set filter cutoff (Hz)
+  void setFilterCutoff(double cutoff) {
+    _filterCutoff = cutoff.clamp(20.0, 20000.0);
+  }
+
+  /// Set filter resonance (0-1)
+  void setFilterResonance(double resonance) {
+    _filterResonance = resonance.clamp(0.0, 0.99);
+  }
+
+  /// Set reverb mix (0-1)
+  void setReverbMix(double mix) {
+    _reverbMix = mix.clamp(0.0, 1.0);
+  }
+
+  /// Set delay time (ms)
+  void setDelayTime(double time) {
+    _delayTime = time.clamp(0.0, 1000.0);
+  }
+
+  /// Set delay feedback (0-1)
+  void setDelayFeedback(double feedback) {
+    _delayFeedback = feedback.clamp(0.0, 0.95);
+  }
+
+  /// Set master volume (0-1)
+  void setMasterVolume(double volume) {
+    _masterVolume = volume.clamp(0.0, 1.0);
+  }
+
+  /// Set oscillator mix balance (0-1)
+  void setMixBalance(double balance) {
+    _mixBalance = balance.clamp(0.0, 1.0);
+  }
+
+  /// Set oscillator 1 detune (cents)
+  void setOsc1Detune(double cents) {
+    _osc1Detune = cents.clamp(-100.0, 100.0);
+  }
+
+  /// Set oscillator 2 detune (cents)
+  void setOsc2Detune(double cents) {
+    _osc2Detune = cents.clamp(-100.0, 100.0);
+  }
+
+  // Getters for external access
+  double get filterCutoff => _filterCutoff;
+  double get filterResonance => _filterResonance;
+  double get reverbMix => _reverbMix;
+  double get masterVolume => _masterVolume;
+  double get mixBalance => _mixBalance;
 
   /// Set geometry (0-23) and update all derived state
   void setGeometry(int geometry) {
@@ -321,14 +395,49 @@ class SynthesisBranchManager {
 
   /// Generate audio buffer with current configuration
   Float32List generateBuffer(int frames, double frequency) {
+    Float32List buffer;
+
     // Route to appropriate synthesis branch based on core
     switch (_currentCore) {
       case PolytopeCor.base:
-        return _generateDirect(frames, frequency);
+        buffer = _generateDirect(frames, frequency);
+        break;
       case PolytopeCor.hypersphere:
-        return _generateFM(frames, frequency);
+        buffer = _generateFM(frames, frequency);
+        break;
       case PolytopeCor.hypertetrahedron:
-        return _generateRingMod(frames, frequency);
+        buffer = _generateRingMod(frames, frequency);
+        break;
+    }
+
+    // Apply external filter to the generated buffer
+    _applyFilter(buffer);
+
+    // Apply master volume
+    for (int i = 0; i < buffer.length; i++) {
+      buffer[i] = (buffer[i] * _masterVolume).clamp(-1.0, 1.0);
+    }
+
+    return buffer;
+  }
+
+  /// Apply lowpass filter using external cutoff and resonance parameters
+  void _applyFilter(Float32List buffer) {
+    // Normalized cutoff frequency (0-1 range)
+    final normalizedCutoff = (2.0 * _filterCutoff / sampleRate).clamp(0.01, 0.99);
+
+    // Filter coefficient
+    final f = 2.0 * math.sin(math.pi * normalizedCutoff);
+    final q = _filterResonance;
+
+    for (int i = 0; i < buffer.length; i++) {
+      final input = buffer[i];
+
+      // 2-pole lowpass filter
+      _filterZ1 += f * (input - _filterZ1 + q * (_filterZ1 - _filterZ2));
+      _filterZ2 += f * (_filterZ1 - _filterZ2);
+
+      buffer[i] = _filterZ2.clamp(-1.0, 1.0);
     }
   }
 

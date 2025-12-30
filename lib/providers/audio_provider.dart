@@ -357,6 +357,7 @@ class AudioProvider with ChangeNotifier {
   void setMasterVolume(double volume) {
     _masterVolume = volume.clamp(0.0, 1.0);
     synthesizerEngine.masterVolume = _masterVolume;
+    synthesisBranchManager.setMasterVolume(_masterVolume); // SYNC
     notifyListeners();
   }
 
@@ -378,12 +379,16 @@ class AudioProvider with ChangeNotifier {
   }
 
   void setFilterCutoff(double cutoff) {
-    synthesizerEngine.filter.baseCutoff = cutoff.clamp(20.0, 20000.0);
+    final clampedCutoff = cutoff.clamp(20.0, 20000.0);
+    synthesizerEngine.filter.baseCutoff = clampedCutoff;
+    synthesisBranchManager.setFilterCutoff(clampedCutoff); // SYNC to branch manager
     notifyListeners();
   }
 
   void setFilterResonance(double resonance) {
-    synthesizerEngine.filter.resonance = resonance.clamp(0.0, 1.0);
+    final clampedResonance = resonance.clamp(0.0, 1.0);
+    synthesizerEngine.filter.resonance = clampedResonance;
+    synthesisBranchManager.setFilterResonance(clampedResonance); // SYNC
     notifyListeners();
   }
 
@@ -494,6 +499,7 @@ class AudioProvider with ChangeNotifier {
   void setMixBalance(double balance) {
     _mixBalance = balance.clamp(0.0, 1.0);
     synthesizerEngine.mixBalance = _mixBalance;
+    synthesisBranchManager.setMixBalance(_mixBalance); // SYNC
     notifyListeners();
   }
 
@@ -523,14 +529,18 @@ class AudioProvider with ChangeNotifier {
   /// Oscillator 1 detune
   double get oscillator1Detune => synthesizerEngine.oscillator1.detune;
   void setOscillator1Detune(double cents) {
-    synthesizerEngine.oscillator1.detune = cents.clamp(-100.0, 100.0);
+    final clampedCents = cents.clamp(-100.0, 100.0);
+    synthesizerEngine.oscillator1.detune = clampedCents;
+    synthesisBranchManager.setOsc1Detune(clampedCents); // SYNC
     notifyListeners();
   }
 
   /// Oscillator 2 detune
   double get oscillator2Detune => synthesizerEngine.oscillator2.detune;
   void setOscillator2Detune(double cents) {
-    synthesizerEngine.oscillator2.detune = cents.clamp(-100.0, 100.0);
+    final clampedCents = cents.clamp(-100.0, 100.0);
+    synthesizerEngine.oscillator2.detune = clampedCents;
+    synthesisBranchManager.setOsc2Detune(clampedCents); // SYNC
     notifyListeners();
   }
 
@@ -579,7 +589,9 @@ class AudioProvider with ChangeNotifier {
 
   /// Reverb mix setter
   void setReverbMix(double mix) {
-    synthesizerEngine.reverb.mix = mix.clamp(0.0, 1.0);
+    final clampedMix = mix.clamp(0.0, 1.0);
+    synthesizerEngine.reverb.mix = clampedMix;
+    synthesisBranchManager.setReverbMix(clampedMix); // SYNC
     notifyListeners();
   }
 
@@ -590,7 +602,9 @@ class AudioProvider with ChangeNotifier {
 
   /// Delay time setter
   void setDelayTime(double time) {
-    synthesizerEngine.delay.time = time.clamp(0.001, 2.0);
+    final clampedTime = time.clamp(0.001, 2.0);
+    synthesizerEngine.delay.time = clampedTime;
+    synthesisBranchManager.setDelayTime(clampedTime * 1000.0); // SYNC (convert to ms)
     notifyListeners();
   }
 
