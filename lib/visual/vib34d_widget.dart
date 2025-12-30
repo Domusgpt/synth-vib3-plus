@@ -336,7 +336,7 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
                     ),
                     const SizedBox(height: 20),
                     ElevatedButton.icon(
-                      onPressed: reloadEngine,
+                      onPressed: reloadViewer,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.cyan.withOpacity(0.2),
                         foregroundColor: Colors.cyan,

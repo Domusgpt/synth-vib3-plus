@@ -98,6 +98,7 @@ flutter:
     - assets/vib3plus_viewer.html  # VIB3+ Working System
     - assets/vib3_flutter.html  # Minimal Flutter-compatible VIB3+
     - assets/vib3plus_flutter_full.html  # FULL VIB3+ with fixed paths
+    - assets/synth_viewer.html  # Clean local synth-focused viewer (no legacy UI)
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
