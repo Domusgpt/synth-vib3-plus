@@ -88,7 +88,7 @@ jobs:
             - ✅ Full 6D rotation in 4D space
             - ✅ Audio-reactive rendering (60 FPS target)
             - ✅ Bidirectional audio-visual parameter coupling
-            - ⚠️ Requires internet for VIB3+ visualization (loads from GitHub Pages)
+            - ✅ Works OFFLINE (VIB3+ bundled with app using loadFlutterAsset)
 
             ## Installation
 
@@ -100,7 +100,7 @@ jobs:
             ## Testing Checklist
 
             - [ ] App launches without crashes
-            - [ ] Visualizer displays (requires internet for VIB3+ engine)
+            - [ ] Visualizer displays (works offline - bundled with app)
             - [ ] System switching works (Faceted/Quantum/Holographic)
             - [ ] All 24 geometries cycle through
             - [ ] Touch controls responsive

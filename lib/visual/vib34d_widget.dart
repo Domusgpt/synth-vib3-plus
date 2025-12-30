@@ -2,18 +2,17 @@
  * VIB34D Widget
  *
  * Flutter WebView widget that displays the VIB3+ visualization.
- * Loads from remote GitHub Pages for FULL WebGL 4D visualization.
+ * Loads from LOCAL Flutter assets - works completely offline.
  *
  * Features:
  * - Full VIB3+ WebGL visualization (Faceted, Quantum, Holographic, Polychora)
  * - 24 4D polytope geometries with 6D rotation
  * - Audio-reactive parameter modulation
  * - Bidirectional parameter communication via JavaScript bridge
+ * - OFFLINE - no network required
  *
- * Integrates with:
- * - VisualProvider for parameter state
- * - AudioProvider for audio-reactive modulation
- * - ParameterBridge for bidirectional coupling
+ * Uses loadFlutterAsset() which leverages Android's WebViewAssetLoader
+ * to properly serve assets with correct MIME types and relative path resolution.
  *
  * A Paul Phillips Manifestation
  */
@@ -154,27 +153,38 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
     }
   }
 
-  /// Load the VIB3+ engine - use remote URL for full WebGL visualization
+  /// Load the VIB3+ engine from local Flutter assets (works offline)
   Future<void> _loadLocalViewer() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    debugPrint('🚀 Loading VIB3+ Engine...');
+    debugPrint('🚀 Loading VIB3+ Engine from local assets...');
 
     try {
-      // Load from GitHub Pages - this has the FULL WebGL visualization
-      // The local synth_viewer.html was a placeholder - it doesn't have the real VIB3+ code
-      const vib3Url = 'https://domusgpt.github.io/vib3-plus-engine/';
-      await _webViewController.loadRequest(Uri.parse(vib3Url));
-      debugPrint('✅ VIB3+ loading from: $vib3Url');
+      // Load from local Flutter assets using loadFlutterAsset()
+      // This uses Android's WebViewAssetLoader which:
+      // - Serves assets with correct MIME types
+      // - Resolves relative paths (styles/base.css -> assets/styles/base.css)
+      // - Works completely offline
+      await _webViewController.loadFlutterAsset('assets/vib3plus_flutter_full.html');
+      debugPrint('✅ VIB3+ loading from local assets');
     } catch (e) {
-      debugPrint('❌ Failed to load VIB3+: $e');
-      setState(() {
-        _errorMessage = 'Failed to load VIB3+ visualization: $e';
-        _isLoading = false;
-      });
+      debugPrint('❌ Failed to load VIB3+ from assets: $e');
+      // Fallback to remote if local fails
+      try {
+        debugPrint('🔄 Falling back to remote VIB3+ engine...');
+        const vib3Url = 'https://domusgpt.github.io/vib3-plus-engine/';
+        await _webViewController.loadRequest(Uri.parse(vib3Url));
+        debugPrint('✅ VIB3+ loaded from remote fallback');
+      } catch (e2) {
+        debugPrint('❌ Both local and remote failed: $e2');
+        setState(() {
+          _errorMessage = 'Failed to load VIB3+ visualization: $e';
+          _isLoading = false;
+        });
+      }
     }
   }
 
