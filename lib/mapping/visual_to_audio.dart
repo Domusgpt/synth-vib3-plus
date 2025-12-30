@@ -118,6 +118,22 @@ class VisualToAudioModulator {
         maxRange: 500.0,  // 500ms
         curve: MappingCurve.linear,
       ),
+      // Chaos (RGB split) → Noise injection (0-30%)
+      'chaos_to_noise': ParameterMapping(
+        sourceParam: 'chaos',
+        targetParam: 'noiseAmount',
+        minRange: 0.0,
+        maxRange: 0.3,  // 30% max noise
+        curve: MappingCurve.exponential,
+      ),
+      // Speed → LFO rate (0.1 - 10 Hz)
+      'speed_to_lfoRate': ParameterMapping(
+        sourceParam: 'rotationSpeed',
+        targetParam: 'lfoRate',
+        minRange: 0.1,
+        maxRange: 10.0,
+        curve: MappingCurve.linear,
+      ),
     };
   }
 
@@ -184,6 +200,10 @@ class VisualToAudioModulator {
       'layerDepth': _normalizeLayerDepth(
         visualProvider.getLayerSeparation(),
       ),
+      // Chaos (RGB split) - 0-10 normalized to 0-1
+      'chaos': (visualProvider.rgbSplitAmount / 10.0).clamp(0.0, 1.0),
+      // Speed (rotation speed) - already 0-3, normalize to 0-1
+      'rotationSpeed': (visualProvider.rotationSpeed / 3.0).clamp(0.0, 1.0),
     };
   }
 
@@ -249,6 +269,15 @@ class VisualToAudioModulator {
         break;
       case 'delayTime':
         synth.setDelayTime(value);
+        audioProvider.synthesisBranchManager.setDelayTime(value); // SYNC
+        break;
+      // NEW: Chaos → Noise injection
+      case 'noiseAmount':
+        audioProvider.synthesisBranchManager.setNoiseAmount(value);
+        break;
+      // NEW: Speed → LFO rate
+      case 'lfoRate':
+        audioProvider.synthesisBranchManager.setLFORate(value);
         break;
     }
   }

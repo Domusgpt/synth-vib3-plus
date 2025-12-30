@@ -264,13 +264,19 @@ class SynthesisBranchManager {
   double _pitchBend = 0.0;         // semitones (-12 to +12)
   double _vibratoDepth = 0.0;      // semitones (0 to 2)
   double _vibratoPhase = 0.0;      // LFO phase
-  static const double _vibratoRate = 5.0; // Hz (vibrato speed)
+  double _vibratoRate = 5.0;       // Hz (vibrato speed, controlled by Speed parameter)
 
   // ADSR envelope overrides (null = use geometry defaults)
   double? _attackOverride;    // ms
   double? _decayOverride;     // ms (not currently used, but for future)
   double? _sustainOverride;   // 0-1 (not currently used, but for future)
   double? _releaseOverride;   // ms
+
+  // Chaos/noise control (from visual Chaos parameter)
+  double _noiseAmount = 0.0;  // 0-1 (maps to noise injection level)
+
+  // LFO rate (from visual Speed parameter)
+  double _lfoRate = 1.0;      // Hz (modulation speed)
 
   // Delay buffer for delay effect
   late List<double> _delayBuffer;
@@ -346,6 +352,18 @@ class SynthesisBranchManager {
   /// Set release time override (ms, null = use geometry default)
   void setReleaseOverride(double? releaseMs) {
     _releaseOverride = releaseMs?.clamp(1.0, 10000.0);
+  }
+
+  /// Set noise amount (0-1, from visual Chaos parameter)
+  void setNoiseAmount(double amount) {
+    _noiseAmount = amount.clamp(0.0, 1.0);
+  }
+
+  /// Set LFO rate (Hz, from visual Speed parameter)
+  void setLFORate(double rate) {
+    _lfoRate = rate.clamp(0.1, 20.0);
+    // Also update vibrato rate for consistent modulation speed
+    _vibratoRate = _lfoRate;
   }
 
   // Getters for external access
@@ -580,8 +598,9 @@ class SynthesisBranchManager {
       sample += _currentSoundFamily.waveformMix[2] * _triangle(_phase1) * 0.4; // Triangle
       sample += _currentSoundFamily.waveformMix[3] * _sawtooth(_phase1) * 0.35; // Sawtooth (for holographic)
 
-      // Add minimal musical noise for warmth
-      sample += (_random.nextDouble() * 2.0 - 1.0) * _currentSoundFamily.noiseLevel;
+      // Add noise: base level from sound family + chaos-controlled amount
+      final totalNoise = _currentSoundFamily.noiseLevel + (_noiseAmount * 0.3);
+      sample += (_random.nextDouble() * 2.0 - 1.0) * totalNoise;
 
       // Apply envelope
       sample *= envelope;
