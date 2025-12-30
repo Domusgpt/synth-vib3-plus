@@ -28,7 +28,7 @@ import '../../providers/ui_state_provider.dart';
 import '../../providers/visual_provider.dart';
 import '../../providers/audio_provider.dart';
 import '../../providers/tilt_sensor_provider.dart';
-import '../../visual/vib34d_widget.dart';
+import '../../vib3/vib3_native_widget.dart';
 import '../../mapping/parameter_bridge.dart';
 
 class SynthMainScreen extends StatefulWidget {
@@ -161,14 +161,11 @@ class _SynthMainContentState extends State<_SynthMainContent> {
   }
 
   Widget _buildVisualizationLayer(BuildContext context) {
-    final visualProvider = Provider.of<VisualProvider>(context, listen: false);
-    final audioProvider = Provider.of<AudioProvider>(context, listen: false);
-
-    return Positioned.fill(
-      child: VIB34DWidget(
-        visualProvider: visualProvider,
-        audioProvider: audioProvider,
-      ),
+    // Use native Flutter Canvas renderer - no WebView needed!
+    // VIB3NativeWidget renders 5 translucent 2D layers at 60 FPS
+    // Works completely offline with zero network dependencies
+    return const Positioned.fill(
+      child: VIB3NativeWidget(),
     );
   }
 
