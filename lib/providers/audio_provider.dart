@@ -105,16 +105,33 @@ class AudioProvider with ChangeNotifier {
   /// Asynchronous initialization (PCM setup)
   Future<void> _initializeAsync() async {
     try {
+      // Enable verbose PCM logging for debugging
+      await FlutterPcmSound.setLogLevel(LogLevel.verbose);
+      debugPrint('🔊 PCM log level set to verbose');
+
       // Initialize PCM player (static API)
       await FlutterPcmSound.setup(
         sampleRate: sampleRate.toInt(),
         channelCount: 1, // Mono
       );
+
+      // Set up feed callback for better audio sync
+      FlutterPcmSound.setFeedCallback((int remainingFrames) {
+        if (_isPlaying && remainingFrames < bufferSize * 2) {
+          // Buffer is running low, generate more audio
+          _generateAudioBuffer();
+        }
+      });
+
+      // Set feed threshold to trigger callback when buffer is low
+      await FlutterPcmSound.setFeedThreshold(bufferSize * 2);
+
       _pcmInitialized = true;
-      debugPrint('✅ PCM audio output initialized');
+      debugPrint('✅ PCM audio output initialized (sample rate: ${sampleRate.toInt()} Hz, mono)');
     } catch (e) {
       _pcmInitialized = false;
-      debugPrint('⚠️ PCM audio unavailable (software synthesis still works): $e');
+      debugPrint('⚠️ PCM audio unavailable: $e');
+      debugPrint('   Audio synthesis will still work, but no sound output');
     }
 
     _isInitialized = true;
@@ -158,6 +175,21 @@ class AudioProvider with ChangeNotifier {
     _lastMetricsCheck = DateTime.now();
     _buffersGenerated = 0;
 
+    debugPrint('▶️  Starting audio playback...');
+    debugPrint('   PCM initialized: $_pcmInitialized');
+    debugPrint('   Current note: $_currentNote (${_midiNoteToFrequency(_currentNote).toStringAsFixed(1)} Hz)');
+    debugPrint('   Buffer size: $bufferSize samples');
+
+    // Pre-fill audio buffer to avoid initial silence
+    if (_pcmInitialized) {
+      debugPrint('   Pre-filling audio buffer...');
+      for (int i = 0; i < 4; i++) {
+        await _generateAudioBuffer();
+      }
+      // Kick-start playback
+      FlutterPcmSound.start();
+    }
+
     // Generate audio buffers at regular intervals
     _audioGenerationTimer = Timer.periodic(
       Duration(milliseconds: (bufferSize * 1000 / sampleRate).round()),
@@ -165,7 +197,7 @@ class AudioProvider with ChangeNotifier {
     );
 
     notifyListeners();
-    debugPrint('▶️  Audio started');
+    debugPrint('▶️  Audio playback started');
   }
 
   /// Stop audio generation and playback
@@ -180,7 +212,7 @@ class AudioProvider with ChangeNotifier {
   dynamic parameterBridge;
 
   /// Generate next audio buffer
-  void _generateAudioBuffer() async {
+  Future<void> _generateAudioBuffer() async {
     try {
       // ELEGANT: Update visual→audio parameters HERE (not on separate timer)
       // This syncs parameter updates with audio buffer generation
@@ -190,6 +222,11 @@ class AudioProvider with ChangeNotifier {
 
       // Calculate frequency from MIDI note
       final frequency = _midiNoteToFrequency(_currentNote);
+
+      // Debug: Log every 50 buffers (~0.5 seconds)
+      if (_buffersGenerated % 50 == 0 && _buffersGenerated > 0) {
+        debugPrint('🔊 Audio: ${_buffersGenerated} buffers, note $_currentNote (${frequency.toStringAsFixed(1)} Hz), PCM: $_pcmInitialized');
+      }
 
       // Apply parameter smoothing before generating buffer
       _smoothedFilterCutoff = _smoothedFilterCutoff * _smoothingFactor +
@@ -395,7 +432,7 @@ class AudioProvider with ChangeNotifier {
   Future<void> startMicrophoneInput() async {
     // TODO: Implement microphone input
     // This requires platform-specific audio input API
-    // Will use flutter_sound or audio_session for microphone capture
+    // Will use flutter_sound or record package for microphone capture
     debugPrint('🎤 Microphone input not yet implemented');
   }
 

@@ -15,7 +15,6 @@
  * A Paul Phillips Manifestation
  */
 
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -101,7 +100,7 @@ class _VIB3NativeWidgetState extends State<VIB3NativeWidget>
     if (widget.audioReactive && audioProvider.isInitialized) {
       final buffer = audioProvider.getCurrentBuffer();
       if (buffer != null) {
-        _audioFeatures = audioProvider.analyzer.analyze(buffer);
+        _audioFeatures = audioProvider.analyzer.extractFeatures(buffer);
       }
     }
 
@@ -146,7 +145,7 @@ class _VIB3NativeWidgetState extends State<VIB3NativeWidget>
           bassEnergy: _audioFeatures?.bassEnergy ?? 0.0,
           midEnergy: _audioFeatures?.midEnergy ?? 0.0,
           highEnergy: _audioFeatures?.highEnergy ?? 0.0,
-          rmsAmplitude: _audioFeatures?.rmsAmplitude ?? 0.0,
+          rmsAmplitude: _audioFeatures?.rms ?? 0.0,
         );
 
         return RepaintBoundary(

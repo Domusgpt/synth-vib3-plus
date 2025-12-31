@@ -101,8 +101,11 @@ class _TopBezelState extends State<TopBezel> with SingleTickerProviderStateMixin
           ),
           child: Column(
             children: [
-              // Collapsed view (always visible)
-              _buildCollapsedContent(uiState, visualProvider, audioProvider),
+              // Collapsed view (always visible) - use Expanded when not expanded to fill available space
+              if (!_isExpanded)
+                Expanded(child: _buildCollapsedContent(uiState, visualProvider, audioProvider))
+              else
+                _buildCollapsedContent(uiState, visualProvider, audioProvider),
 
               // Expanded content (only when expanded)
               if (_isExpanded)
@@ -124,7 +127,6 @@ class _TopBezelState extends State<TopBezel> with SingleTickerProviderStateMixin
     return GestureDetector(
       onTap: _toggleExpanded,
       child: Container(
-        height: SynthTheme.topBezelHeight,
         padding: const EdgeInsets.symmetric(horizontal: SynthTheme.spacingMedium),
         child: Row(
           children: [

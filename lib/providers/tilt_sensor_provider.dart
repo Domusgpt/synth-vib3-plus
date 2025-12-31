@@ -127,17 +127,23 @@ class TiltSensorProvider with ChangeNotifier {
   }
 
   void _finalizeCalibration() {
-    // Calculate average of samples
-    _calibrationX = _calibrationSamplesX.reduce((a, b) => a + b) / _calibrationSamplesX.length;
-    _calibrationY = _calibrationSamplesY.reduce((a, b) => a + b) / _calibrationSamplesY.length;
+    // Only calculate if we have samples (avoid empty list reduce error)
+    if (_calibrationSamplesX.isNotEmpty && _calibrationSamplesY.isNotEmpty) {
+      _calibrationX = _calibrationSamplesX.reduce((a, b) => a + b) / _calibrationSamplesX.length;
+      _calibrationY = _calibrationSamplesY.reduce((a, b) => a + b) / _calibrationSamplesY.length;
+      debugPrint('🎯 Tilt calibration complete: X=$_calibrationX, Y=$_calibrationY');
+    } else {
+      // No samples collected (e.g., no accelerometer or test environment)
+      _calibrationX = 0.0;
+      _calibrationY = 0.0;
+      debugPrint('🎯 Tilt calibration skipped (no sensor data)');
+    }
 
     // Clear samples
     _calibrationSamplesX.clear();
     _calibrationSamplesY.clear();
 
     _isCalibrating = false;
-
-    debugPrint('🎯 Tilt calibration complete: X=$_calibrationX, Y=$_calibrationY');
     notifyListeners();
   }
 
