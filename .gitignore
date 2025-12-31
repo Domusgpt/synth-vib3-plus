@@ -30,3 +30,5 @@ pubspec.lock
 *.DS_Store
 output_test.wav
 synth-vib3-plus.apk
+google-cloud-sdk/
+google-cloud-cli-linux-x86_64.tar.gz
