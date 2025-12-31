@@ -543,21 +543,30 @@ class SynthesisBranchManager {
   double _updateEnvelope() {
     // Use override if set, otherwise use geometry-derived values
     final attackMs = _attackOverride ?? _currentVoiceCharacter.attackMs;
+    final decayMs = _decayOverride ?? 100.0; // Default 100ms decay
+    final sustainLevel = _sustainOverride ?? 0.7; // Default 70% sustain
     final releaseMs = _releaseOverride ?? _currentVoiceCharacter.releaseMs;
+
     final attackSamples = (attackMs * sampleRate / 1000.0).round();
+    final decaySamples = (decayMs * sampleRate / 1000.0).round();
     final releaseSamples = (releaseMs * sampleRate / 1000.0).round();
 
     if (_noteIsOn) {
-      // Attack phase
       if (_samplesSinceNoteOn < attackSamples) {
+        // Attack phase: ramp from 0 to 1
         _envelopeLevel = _samplesSinceNoteOn / attackSamples;
+      } else if (_samplesSinceNoteOn < attackSamples + decaySamples) {
+        // Decay phase: ramp from 1 to sustain level
+        final decayProgress = (_samplesSinceNoteOn - attackSamples) / decaySamples;
+        _envelopeLevel = 1.0 - (1.0 - sustainLevel) * decayProgress;
       } else {
-        _envelopeLevel = 1.0; // Sustain at full level
+        // Sustain phase: hold at sustain level
+        _envelopeLevel = sustainLevel;
       }
       _samplesSinceNoteOn++;
     } else {
-      // Release phase
-      _envelopeLevel *= math.exp(-4.5 / releaseSamples); // Exponential decay
+      // Release phase: exponential decay from current level
+      _envelopeLevel *= math.exp(-4.5 / releaseSamples);
     }
 
     return _envelopeLevel;

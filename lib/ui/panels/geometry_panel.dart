@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import '../theme/synth_theme.dart';
 import '../components/holographic_slider.dart';
 import '../../providers/visual_provider.dart';
+import '../../providers/audio_provider.dart';
 
 class GeometryPanelContent extends StatelessWidget {
   const GeometryPanelContent({Key? key}) : super(key: key);
@@ -19,6 +20,7 @@ class GeometryPanelContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visualProvider = Provider.of<VisualProvider>(context);
+    final audioProvider = Provider.of<AudioProvider>(context, listen: false);
     final systemColors = visualProvider.systemColors;
 
     return Column(
@@ -32,7 +34,7 @@ class GeometryPanelContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: SynthTheme.spacingSmall),
-        _buildGeometryGrid(visualProvider, systemColors),
+        _buildGeometryGrid(visualProvider, audioProvider, systemColors),
         const SizedBox(height: SynthTheme.spacingLarge),
 
         // Section: 3D Rotation (XY, XZ, YZ planes)
@@ -229,6 +231,7 @@ class GeometryPanelContent extends StatelessWidget {
 
   Widget _buildGeometryGrid(
     VisualProvider visualProvider,
+    AudioProvider audioProvider,
     SystemColors systemColors,
   ) {
     final theme = SynthTheme(systemColors: systemColors);
@@ -287,6 +290,7 @@ class GeometryPanelContent extends StatelessWidget {
                     // Change core but keep current base geometry
                     final newIndex = (index * 8) + currentBaseIndex;
                     visualProvider.setGeometry(newIndex);
+                    audioProvider.setGeometry(newIndex); // Sync audio synthesis branch
                   },
                   child: AnimatedContainer(
                     duration: SynthTheme.transitionQuick,
@@ -345,6 +349,7 @@ class GeometryPanelContent extends StatelessWidget {
                 // Change base geometry but keep current core
                 final newIndex = (currentCoreIndex * 8) + baseIndex;
                 visualProvider.setGeometry(newIndex);
+                audioProvider.setGeometry(newIndex); // Sync audio synthesis branch
               },
               child: AnimatedContainer(
                 duration: SynthTheme.transitionQuick,
