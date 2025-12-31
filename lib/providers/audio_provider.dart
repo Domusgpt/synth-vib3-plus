@@ -432,7 +432,7 @@ class AudioProvider with ChangeNotifier {
   Future<void> startMicrophoneInput() async {
     // TODO: Implement microphone input
     // This requires platform-specific audio input API
-    // Will use flutter_sound or audio_session for microphone capture
+    // Will use flutter_sound or record package for microphone capture
     debugPrint('🎤 Microphone input not yet implemented');
   }
 
