@@ -213,7 +213,6 @@ class AudioReactiveModulator {
   final ModulationConfig config;
 
   // Beat detection state
-  double _lastBeatTime = 0.0;
   double _beatDecay = 0.0;
 
   // Modulated output values
@@ -244,7 +243,6 @@ class AudioReactiveModulator {
 
     // Beat detection
     if (_buffer.detectBeat()) {
-      _lastBeatTime = time;
       _beatDecay = 1.0;
     } else {
       _beatDecay *= 0.92; // Decay rate
@@ -363,7 +361,6 @@ class AudioReactiveModulator {
 /// Helper to generate test audio data for demos
 class TestAudioGenerator {
   final math.Random _random = math.Random();
-  double _phase = 0.0;
 
   /// Generate simulated audio reactivity data
   AudioReactivityData generate(double time, {

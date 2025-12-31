@@ -14,7 +14,6 @@
 
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
-import 'package:vector_math/vector_math.dart' as vm;
 
 /// Visual system types
 enum VisualSystem {

@@ -33,7 +33,6 @@ import 'package:vector_math/vector_math.dart' as vm;
 import '../core/vib3_engine.dart';
 import '../geometry/polytope_generator.dart';
 import '../geometry/geometry_library.dart';
-import '../geometry/polychora_4d.dart';
 import '../math/rotation_4d.dart';
 import '../effects/post_processing.dart';
 
@@ -409,10 +408,6 @@ class HolographicRenderer extends VisualSystemRenderer {
       0.7 + state.saturation * 0.2,
       0.5 + depth * 0.2,
     ).toColor();
-
-    // Calculate layer-specific radius
-    final baseRadius = math.min(canvasSize.width, canvasSize.height) * 0.35;
-    final layerRadius = baseRadius * layerScale * (1.0 + state.audioData.bassEnergy * 0.1);
 
     // Draw edges with chromatic aberration for deeper layers
     for (final edge in polytope.edges) {

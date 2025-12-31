@@ -23,10 +23,8 @@
  * © 2025 Paul Phillips - Clear Seas Solutions LLC
  */
 
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:flutter/gestures.dart';
 
 import '../core/vib3_engine.dart';
 import '../rendering/visual_system_renderer.dart';
@@ -104,11 +102,6 @@ class _VIB3WidgetState extends State<VIB3Widget>
   double _interactionRotationXW = 0.0;
   double _interactionRotationYW = 0.0;
   Offset? _lastPanPosition;
-
-  // Performance tracking
-  int _frameCount = 0;
-  double _fpsUpdateTime = 0.0;
-  double _currentFps = 60.0;
 
   @override
   void initState() {
@@ -196,14 +189,6 @@ class _VIB3WidgetState extends State<VIB3Widget>
 
     // Update state with auto-rotation and audio modulation
     _updateState(deltaTime);
-
-    // Track FPS
-    _frameCount++;
-    if (_time - _fpsUpdateTime >= 1.0) {
-      _currentFps = _frameCount / (_time - _fpsUpdateTime);
-      _frameCount = 0;
-      _fpsUpdateTime = _time;
-    }
 
     // Trigger repaint
     if (mounted) {

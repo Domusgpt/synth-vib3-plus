@@ -405,7 +405,6 @@ class PolychoraGenerator {
 
     // The 120-cell has 600 vertices
     // Generate using golden ratio coordinates
-    final invSqrt2 = 1 / math.sqrt(2);
 
     // All permutations and sign changes of:
     // (0, 0, 2, 2), (1, 1, 1, √5), (φ^-2, φ, φ, φ), (φ^-1, φ^-1, φ^-1, φ^2)
@@ -413,13 +412,6 @@ class PolychoraGenerator {
 
     // Simplified version with key vertices for visualization
     // Full 120-cell has 600 vertices - we use representative subset
-    final baseCoords = <List<double>>[
-      // 24-cell subset scaled
-      [2, 0, 0, 0], [-2, 0, 0, 0],
-      [0, 2, 0, 0], [0, -2, 0, 0],
-      [0, 0, 2, 0], [0, 0, -2, 0],
-      [0, 0, 0, 2], [0, 0, 0, -2],
-    ];
 
     // Add golden ratio based vertices
     for (final signs in _generateSigns(4)) {

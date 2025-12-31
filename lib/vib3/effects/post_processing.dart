@@ -18,7 +18,6 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:vector_math/vector_math.dart' as vm;
 
 /// Post-processing effect configuration
 class PostProcessingConfig {
@@ -390,7 +389,6 @@ class ScanlineEffect {
 class NoiseEffect {
   final double intensity;
   final double scale;
-  final math.Random _random = math.Random();
 
   NoiseEffect({
     this.intensity = 0.1,
@@ -567,7 +565,6 @@ class MotionTrailSystem {
   final double fadeRate;
 
   final List<List<(Offset, double)>> _trails = [];
-  int _currentFrame = 0;
 
   MotionTrailSystem({
     this.maxTrailLength = 5,
@@ -599,8 +596,6 @@ class MotionTrailSystem {
         _trails[i].removeAt(0);
       }
     }
-
-    _currentFrame++;
   }
 
   /// Get trail for a vertex
