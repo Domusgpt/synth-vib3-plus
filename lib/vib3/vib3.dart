@@ -75,7 +75,6 @@ export 'math/rotation_4d.dart';
 // Geometry system
 export 'geometry/geometry_library.dart';
 export 'geometry/polytope_generator.dart';
-export 'geometry/polychora_4d.dart';
 
 // Rendering
 export 'rendering/vib3_native_renderer.dart';
