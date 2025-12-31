@@ -260,9 +260,15 @@ class AudioProvider with ChangeNotifier {
             await FlutterPcmSound.feed(
               PcmArrayInt16.fromList(int16Buffer.toList()),
             );
+
+            // Debug: log every 50 buffers
+            if (_buffersGenerated % 50 == 0) {
+              final maxSample = int16Buffer.reduce((a, b) => a.abs() > b.abs() ? a : b);
+              debugPrint('🔊 PCM fed: buffer #$_buffersGenerated, maxSample: $maxSample');
+            }
           } catch (e) {
-            // Silently ignore PCM playback errors to avoid spam
-            if (_buffersGenerated % 100 == 0) {
+            // Log PCM errors more frequently for debugging
+            if (_buffersGenerated % 10 == 0) {
               debugPrint('⚠️ PCM playback error: $e');
             }
           }
@@ -289,6 +295,8 @@ class AudioProvider with ChangeNotifier {
     _currentNote = midiNote;
     synthesizerEngine.setNote(midiNote);
     synthesisBranchManager.noteOn(); // Trigger envelope in branch manager
+
+    debugPrint('🎵 playNote($midiNote) - isPlaying: $_isPlaying, pcmInit: $_pcmInitialized');
 
     if (!_isPlaying) {
       startAudio();
