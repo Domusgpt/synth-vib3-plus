@@ -13,8 +13,9 @@ void main() {
     // Build our app and trigger a frame
     await tester.pumpWidget(const SynthVIB3App());
 
-    // Allow async operations to complete
-    await tester.pumpAndSettle(const Duration(seconds: 2));
+    // Pump a few frames (don't use pumpAndSettle - app has continuous animations)
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
 
     // Verify the app title is present in the MaterialApp
     expect(find.byType(MaterialApp), findsOneWidget);
@@ -22,7 +23,7 @@ void main() {
 
   testWidgets('App has correct theme colors', (WidgetTester tester) async {
     await tester.pumpWidget(const SynthVIB3App());
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
     // Verify MaterialApp exists with dark theme
     final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
