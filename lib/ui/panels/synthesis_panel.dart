@@ -26,17 +26,7 @@ class SynthesisPanelContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Section: Synthesis Branch
-        Text(
-          'SYNTHESIS BRANCH',
-          style: SynthTheme.textStyleHeading.copyWith(
-            color: systemColors.primary,
-          ),
-        ),
-        const SizedBox(height: SynthTheme.spacingSmall),
-        _buildBranchSelector(audioProvider, systemColors),
-        const SizedBox(height: SynthTheme.spacingLarge),
-
+        // NOTE: Synthesis Branch selector removed - use Geometry Panel's Polytope Core instead
         // Section: Oscillators
         Text(
           'OSCILLATORS',
@@ -129,59 +119,5 @@ class SynthesisPanelContent extends StatelessWidget {
     );
   }
 
-  Widget _buildBranchSelector(
-    AudioProvider audioProvider,
-    SystemColors systemColors,
-  ) {
-    final theme = SynthTheme(systemColors: systemColors);
-    final branches = ['Direct', 'FM', 'Ring Mod'];
-    final currentBranch = audioProvider.currentSynthesisBranch;
-
-    return Row(
-      children: branches.asMap().entries.map((entry) {
-        final index = entry.key;
-        final label = entry.value;
-        // FIX: Compare String to String (currentBranch returns 'Direct', 'FM', or 'Ring Mod')
-        final isActive = currentBranch == label;
-
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(
-              right: index < branches.length - 1
-                  ? SynthTheme.spacingSmall
-                  : 0,
-            ),
-            child: GestureDetector(
-              onTap: () {
-                // FIX: Calculate correct geometry index for branch switch
-                // Keep the current base geometry (0-7) but change the core/branch
-                // index 0 = Direct (geometries 0-7)
-                // index 1 = FM (geometries 8-15)
-                // index 2 = Ring Mod (geometries 16-23)
-                final currentBase = audioProvider.synthesisBranchManager.currentGeometry % 8;
-                final newGeometryIndex = (index * 8) + currentBase;
-                audioProvider.setSynthesisBranch(newGeometryIndex);
-              },
-              child: AnimatedContainer(
-                duration: SynthTheme.transitionQuick,
-                height: SynthTheme.touchTargetMinimum,
-                decoration: theme.getNeoskeuButtonDecoration(isActive: isActive),
-                child: Center(
-                  child: Text(
-                    label,
-                    style: SynthTheme.textStyleBody.copyWith(
-                      color: theme.getTextColor(isActive),
-                      fontWeight: isActive
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
+  // NOTE: _buildBranchSelector removed - redundant with Geometry Panel's Polytope Core selector
 }
