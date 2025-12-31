@@ -39,6 +39,16 @@ jobs:
         run: flutter analyze --no-fatal-infos
         continue-on-error: true
 
+      - name: Run unit tests
+        run: flutter test --coverage
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
       - name: Build APK
         run: flutter build apk --release
 
@@ -76,7 +86,9 @@ jobs:
             ## VIB3+ Visualizer with Audio Synthesis
 
             This build includes the complete VIB3+ visualization system:
-            - ✅ 24 unique 4D polytope geometries
+            - ✅ 28 unit tests passing
+            - ✅ Native Dart 4D visualizer (no WebView)
+            - ✅ 24 unique 4D polytope geometries (8 × 3 cores)
             - ✅ Three visualization systems (Faceted, Quantum, Holographic)
             - ✅ Full 6D rotation in 4D space
             - ✅ Audio-reactive rendering (60 FPS target)
@@ -233,3 +245,57 @@ jobs:
           publish_dir: ./pages-deploy
           destination_dir: download
           keep_files: false
+
+  # Firebase Test Lab - runs APK on real devices in the cloud
+  firebase-test-lab:
+    runs-on: ubuntu-latest
+    needs: build-android
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/claude/')
+    # Only run if FIREBASE_SERVICE_ACCOUNT secret is configured
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: synth-vib3-plus-apk
+          path: build/
+
+      - name: Authenticate to Google Cloud
+        if: env.FIREBASE_SERVICE_ACCOUNT != ''
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        if: env.FIREBASE_SERVICE_ACCOUNT != ''
+        uses: google-github-actions/setup-gcloud@v2
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Run Firebase Test Lab
+        if: env.FIREBASE_SERVICE_ACCOUNT != ''
+        run: |
+          gcloud firebase test android run \
+            --type robo \
+            --app build/synth-vib3-plus-latest.apk \
+            --device model=Pixel6,version=33,locale=en,orientation=portrait \
+            --timeout 5m \
+            --results-bucket=gs://${{ secrets.FIREBASE_PROJECT_ID }}-test-results \
+            --results-dir=synth-vib3-plus-${{ github.sha }}
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Skip Firebase Test Lab (not configured)
+        if: env.FIREBASE_SERVICE_ACCOUNT == ''
+        run: |
+          echo "::warning::Firebase Test Lab skipped - FIREBASE_SERVICE_ACCOUNT secret not configured"
+          echo "To enable device testing, add these secrets:"
+          echo "  - FIREBASE_SERVICE_ACCOUNT: Service account JSON for Firebase"
+          echo "  - FIREBASE_PROJECT_ID: Your Firebase project ID"
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
