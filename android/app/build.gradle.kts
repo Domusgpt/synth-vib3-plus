@@ -8,6 +8,7 @@ plugins {
 android {
     namespace = "com.clearseas.synther_vib34d_holographic"
     compileSdk = flutter.compileSdkVersion
+    buildToolsVersion = "34.0.0"
     ndkVersion = "27.0.12077973"
 
     compileOptions {

@@ -20,6 +20,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_pcm_sound/flutter_pcm_sound.dart';
+import 'package:audio_session/audio_session.dart';
 import '../audio/audio_analyzer.dart';
 import '../audio/synthesizer_engine.dart';
 import '../synthesis/synthesis_branch_manager.dart'; // Includes VisualSystem enum
@@ -59,7 +60,6 @@ class AudioProvider with ChangeNotifier {
   double _smoothedResonance = 0.5;
   double _smoothedOsc1Detune = 0.0;
   double _smoothedOsc2Detune = 0.0;
-  double _smoothedReverbMix = 0.3;
   final double _smoothingFactor = 0.95; // Higher = smoother but slower (0.9-0.99)
 
   // Audio generation timer
@@ -104,6 +104,29 @@ class AudioProvider with ChangeNotifier {
 
   /// Asynchronous initialization (PCM setup)
   Future<void> _initializeAsync() async {
+    // CRITICAL: Configure audio session FIRST for Android compatibility
+    try {
+      final session = await AudioSession.instance;
+      await session.configure(const AudioSessionConfiguration(
+        avAudioSessionCategory: AVAudioSessionCategory.playback,
+        avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.defaultToSpeaker,
+        avAudioSessionMode: AVAudioSessionMode.defaultMode,
+        avAudioSessionRouteSharingPolicy: AVAudioSessionRouteSharingPolicy.defaultPolicy,
+        avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.none,
+        androidAudioAttributes: AndroidAudioAttributes(
+          contentType: AndroidAudioContentType.music,
+          usage: AndroidAudioUsage.media,
+          flags: AndroidAudioFlags.none,
+        ),
+        androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
+        androidWillPauseWhenDucked: false,
+      ));
+      await session.setActive(true);
+      debugPrint('✅ Audio session configured for playback');
+    } catch (e) {
+      debugPrint('⚠️ Audio session configuration failed: $e');
+    }
+
     try {
       // Initialize PCM player (static API)
       await FlutterPcmSound.setup(
@@ -237,9 +260,15 @@ class AudioProvider with ChangeNotifier {
             await FlutterPcmSound.feed(
               PcmArrayInt16.fromList(int16Buffer.toList()),
             );
+
+            // Debug: log every 50 buffers
+            if (_buffersGenerated % 50 == 0) {
+              final maxSample = int16Buffer.reduce((a, b) => a.abs() > b.abs() ? a : b);
+              debugPrint('🔊 PCM fed: buffer #$_buffersGenerated, maxSample: $maxSample');
+            }
           } catch (e) {
-            // Silently ignore PCM playback errors to avoid spam
-            if (_buffersGenerated % 100 == 0) {
+            // Log PCM errors more frequently for debugging
+            if (_buffersGenerated % 10 == 0) {
               debugPrint('⚠️ PCM playback error: $e');
             }
           }
@@ -266,6 +295,8 @@ class AudioProvider with ChangeNotifier {
     _currentNote = midiNote;
     synthesizerEngine.setNote(midiNote);
     synthesisBranchManager.noteOn(); // Trigger envelope in branch manager
+
+    debugPrint('🎵 playNote($midiNote) - isPlaying: $_isPlaying, pcmInit: $_pcmInitialized');
 
     if (!_isPlaying) {
       startAudio();
@@ -333,6 +364,7 @@ class AudioProvider with ChangeNotifier {
   void setMasterVolume(double volume) {
     _masterVolume = volume.clamp(0.0, 1.0);
     synthesizerEngine.masterVolume = _masterVolume;
+    synthesisBranchManager.setMasterVolume(_masterVolume); // SYNC
     notifyListeners();
   }
 
@@ -354,34 +386,43 @@ class AudioProvider with ChangeNotifier {
   }
 
   void setFilterCutoff(double cutoff) {
-    synthesizerEngine.filter.baseCutoff = cutoff.clamp(20.0, 20000.0);
+    final clampedCutoff = cutoff.clamp(20.0, 20000.0);
+    synthesizerEngine.filter.baseCutoff = clampedCutoff;
+    synthesisBranchManager.setFilterCutoff(clampedCutoff); // SYNC to branch manager
     notifyListeners();
   }
 
   void setFilterResonance(double resonance) {
-    synthesizerEngine.filter.resonance = resonance.clamp(0.0, 1.0);
+    final clampedResonance = resonance.clamp(0.0, 1.0);
+    synthesizerEngine.filter.resonance = clampedResonance;
+    synthesisBranchManager.setFilterResonance(clampedResonance); // SYNC
     notifyListeners();
   }
 
   /// Set reverb parameters
   void setReverbRoomSize(double roomSize) {
     synthesizerEngine.reverb.roomSize = roomSize.clamp(0.0, 1.0);
+    // Note: SynthesisBranchManager uses reverbMix, not roomSize
     notifyListeners();
   }
 
   void setReverbDamping(double damping) {
     synthesizerEngine.reverb.damping = damping.clamp(0.0, 1.0);
+    // Note: SynthesisBranchManager uses reverbMix, not damping
     notifyListeners();
   }
 
   /// Set delay parameters
   void setDelayFeedback(double feedback) {
-    synthesizerEngine.delay.feedback = feedback.clamp(0.0, 0.95);
+    final clampedFeedback = feedback.clamp(0.0, 0.95);
+    synthesizerEngine.delay.feedback = clampedFeedback;
+    synthesisBranchManager.setDelayFeedback(clampedFeedback); // SYNC
     notifyListeners();
   }
 
   void setDelayMix(double mix) {
     synthesizerEngine.delay.mix = mix.clamp(0.0, 1.0);
+    // Note: SynthesisBranchManager uses fixed 0.3 delayMix internally
     notifyListeners();
   }
 
@@ -453,16 +494,14 @@ class AudioProvider with ChangeNotifier {
   /// Set pitch bend in semitones
   void setPitchBend(double semitones) {
     _pitchBend = semitones.clamp(-12.0, 12.0);
-    // Apply pitch bend to synth engine
-    // TODO: Implement in synthesizer_engine.dart
+    synthesisBranchManager.setPitchBend(_pitchBend); // SYNC to branch manager
     notifyListeners();
   }
 
   /// Set vibrato depth
   void setVibratoDepth(double depth) {
     _vibratoDepth = depth.clamp(0.0, 2.0);
-    // Apply vibrato to synth engine
-    // TODO: Implement in synthesizer_engine.dart
+    synthesisBranchManager.setVibratoDepth(_vibratoDepth); // SYNC to branch manager
     notifyListeners();
   }
 
@@ -470,6 +509,7 @@ class AudioProvider with ChangeNotifier {
   void setMixBalance(double balance) {
     _mixBalance = balance.clamp(0.0, 1.0);
     synthesizerEngine.mixBalance = _mixBalance;
+    synthesisBranchManager.setMixBalance(_mixBalance); // SYNC
     notifyListeners();
   }
 
@@ -499,14 +539,18 @@ class AudioProvider with ChangeNotifier {
   /// Oscillator 1 detune
   double get oscillator1Detune => synthesizerEngine.oscillator1.detune;
   void setOscillator1Detune(double cents) {
-    synthesizerEngine.oscillator1.detune = cents.clamp(-100.0, 100.0);
+    final clampedCents = cents.clamp(-100.0, 100.0);
+    synthesizerEngine.oscillator1.detune = clampedCents;
+    synthesisBranchManager.setOsc1Detune(clampedCents); // SYNC
     notifyListeners();
   }
 
   /// Oscillator 2 detune
   double get oscillator2Detune => synthesizerEngine.oscillator2.detune;
   void setOscillator2Detune(double cents) {
-    synthesizerEngine.oscillator2.detune = cents.clamp(-100.0, 100.0);
+    final clampedCents = cents.clamp(-100.0, 100.0);
+    synthesizerEngine.oscillator2.detune = clampedCents;
+    synthesisBranchManager.setOsc2Detune(clampedCents); // SYNC
     notifyListeners();
   }
 
@@ -518,22 +562,30 @@ class AudioProvider with ChangeNotifier {
 
   /// Envelope setters
   void setEnvelopeAttack(double attack) {
-    synthesizerEngine.envelope.attack = attack.clamp(0.001, 5.0);
+    final clampedAttack = attack.clamp(0.001, 5.0);
+    synthesizerEngine.envelope.attack = clampedAttack;
+    // Convert seconds to ms for SynthesisBranchManager
+    synthesisBranchManager.setAttackOverride(clampedAttack * 1000.0); // SYNC
     notifyListeners();
   }
 
   void setEnvelopeDecay(double decay) {
     synthesizerEngine.envelope.decay = decay.clamp(0.001, 5.0);
+    // Note: SynthesisBranchManager uses simple AR envelope, no decay parameter
     notifyListeners();
   }
 
   void setEnvelopeSustain(double sustain) {
     synthesizerEngine.envelope.sustain = sustain.clamp(0.0, 1.0);
+    // Note: SynthesisBranchManager uses simple AR envelope, sustain is always 1.0
     notifyListeners();
   }
 
   void setEnvelopeRelease(double release) {
-    synthesizerEngine.envelope.release = release.clamp(0.001, 10.0);
+    final clampedRelease = release.clamp(0.001, 10.0);
+    synthesizerEngine.envelope.release = clampedRelease;
+    // Convert seconds to ms for SynthesisBranchManager
+    synthesisBranchManager.setReleaseOverride(clampedRelease * 1000.0); // SYNC
     notifyListeners();
   }
 
@@ -555,7 +607,9 @@ class AudioProvider with ChangeNotifier {
 
   /// Reverb mix setter
   void setReverbMix(double mix) {
-    synthesizerEngine.reverb.mix = mix.clamp(0.0, 1.0);
+    final clampedMix = mix.clamp(0.0, 1.0);
+    synthesizerEngine.reverb.mix = clampedMix;
+    synthesisBranchManager.setReverbMix(clampedMix); // SYNC
     notifyListeners();
   }
 
@@ -566,7 +620,9 @@ class AudioProvider with ChangeNotifier {
 
   /// Delay time setter
   void setDelayTime(double time) {
-    synthesizerEngine.delay.time = time.clamp(0.001, 2.0);
+    final clampedTime = time.clamp(0.001, 2.0);
+    synthesizerEngine.delay.time = clampedTime;
+    synthesisBranchManager.setDelayTime(clampedTime * 1000.0); // SYNC (convert to ms)
     notifyListeners();
   }
 

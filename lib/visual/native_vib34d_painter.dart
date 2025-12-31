@@ -8,7 +8,6 @@
  */
 
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:vector_math/vector_math.dart' as vm;
 

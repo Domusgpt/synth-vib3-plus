@@ -240,7 +240,147 @@ class SynthesisBranchManager {
   // Random number generator for noise
   final _random = math.Random();
 
-  SynthesisBranchManager({this.sampleRate = 44100.0});
+  // ========== EXTERNAL PARAMETERS (from UI/visual system) ==========
+  // Filter
+  double _filterCutoff = 4000.0;   // Hz (20-20000)
+  double _filterResonance = 0.5;   // 0-1
+  double _filterZ1 = 0.0;          // Filter state
+  double _filterZ2 = 0.0;          // Filter state
+
+  // Effects
+  double _reverbMix = 0.3;         // 0-1
+  double _delayTime = 250.0;       // ms
+  double _delayFeedback = 0.4;     // 0-1
+
+  // Master
+  double _masterVolume = 0.7;      // 0-1
+  double _mixBalance = 0.5;        // 0-1 (oscillator balance)
+
+  // Modulation from visual system
+  double _osc1Detune = 0.0;        // cents
+  double _osc2Detune = 0.0;        // cents
+
+  // Pitch bend and vibrato (from orb controller)
+  double _pitchBend = 0.0;         // semitones (-12 to +12)
+  double _vibratoDepth = 0.0;      // semitones (0 to 2)
+  double _vibratoPhase = 0.0;      // LFO phase
+  double _vibratoRate = 5.0;       // Hz (vibrato speed, controlled by Speed parameter)
+
+  // ADSR envelope overrides (null = use geometry defaults)
+  double? _attackOverride;    // ms
+  double? _decayOverride;     // ms (not currently used, but for future)
+  double? _sustainOverride;   // 0-1 (not currently used, but for future)
+  double? _releaseOverride;   // ms
+
+  // Chaos/noise control (from visual Chaos parameter)
+  double _noiseAmount = 0.0;  // 0-1 (maps to noise injection level)
+
+  // LFO rate (from visual Speed parameter)
+  double _lfoRate = 1.0;      // Hz (modulation speed)
+
+  // Drive/saturation (from visual Saturation parameter)
+  double _drive = 0.0;        // 0-1 (maps to harmonic distortion)
+
+  // Delay buffer for delay effect
+  late List<double> _delayBuffer;
+  int _delayWritePos = 0;
+  static const int _maxDelaySamples = 88200; // 2 seconds at 44100
+
+  SynthesisBranchManager({this.sampleRate = 44100.0}) {
+    _delayBuffer = List<double>.filled(_maxDelaySamples, 0.0);
+  }
+
+  // ========== PARAMETER SETTERS ==========
+
+  /// Set filter cutoff (Hz)
+  void setFilterCutoff(double cutoff) {
+    _filterCutoff = cutoff.clamp(20.0, 20000.0);
+  }
+
+  /// Set filter resonance (0-1)
+  void setFilterResonance(double resonance) {
+    _filterResonance = resonance.clamp(0.0, 0.99);
+  }
+
+  /// Set reverb mix (0-1)
+  void setReverbMix(double mix) {
+    _reverbMix = mix.clamp(0.0, 1.0);
+  }
+
+  /// Set delay time (ms)
+  void setDelayTime(double time) {
+    _delayTime = time.clamp(0.0, 1000.0);
+  }
+
+  /// Set delay feedback (0-1)
+  void setDelayFeedback(double feedback) {
+    _delayFeedback = feedback.clamp(0.0, 0.95);
+  }
+
+  /// Set master volume (0-1)
+  void setMasterVolume(double volume) {
+    _masterVolume = volume.clamp(0.0, 1.0);
+  }
+
+  /// Set oscillator mix balance (0-1)
+  void setMixBalance(double balance) {
+    _mixBalance = balance.clamp(0.0, 1.0);
+  }
+
+  /// Set oscillator 1 detune (cents)
+  void setOsc1Detune(double cents) {
+    _osc1Detune = cents.clamp(-100.0, 100.0);
+  }
+
+  /// Set oscillator 2 detune (cents)
+  void setOsc2Detune(double cents) {
+    _osc2Detune = cents.clamp(-100.0, 100.0);
+  }
+
+  /// Set pitch bend (semitones, from orb controller)
+  void setPitchBend(double semitones) {
+    _pitchBend = semitones.clamp(-12.0, 12.0);
+  }
+
+  /// Set vibrato depth (semitones, from orb controller)
+  void setVibratoDepth(double depth) {
+    _vibratoDepth = depth.clamp(0.0, 2.0);
+  }
+
+  /// Set attack time override (ms, null = use geometry default)
+  void setAttackOverride(double? attackMs) {
+    _attackOverride = attackMs?.clamp(1.0, 5000.0);
+  }
+
+  /// Set release time override (ms, null = use geometry default)
+  void setReleaseOverride(double? releaseMs) {
+    _releaseOverride = releaseMs?.clamp(1.0, 10000.0);
+  }
+
+  /// Set noise amount (0-1, from visual Chaos parameter)
+  void setNoiseAmount(double amount) {
+    _noiseAmount = amount.clamp(0.0, 1.0);
+  }
+
+  /// Set LFO rate (Hz, from visual Speed parameter)
+  void setLFORate(double rate) {
+    _lfoRate = rate.clamp(0.1, 20.0);
+    // Also update vibrato rate for consistent modulation speed
+    _vibratoRate = _lfoRate;
+  }
+
+  /// Set drive amount (0-1, from visual Saturation parameter)
+  /// Higher drive adds harmonic distortion/warmth
+  void setDrive(double amount) {
+    _drive = amount.clamp(0.0, 1.0);
+  }
+
+  // Getters for external access
+  double get filterCutoff => _filterCutoff;
+  double get filterResonance => _filterResonance;
+  double get reverbMix => _reverbMix;
+  double get masterVolume => _masterVolume;
+  double get mixBalance => _mixBalance;
 
   /// Set geometry (0-23) and update all derived state
   void setGeometry(int geometry) {
@@ -321,33 +461,121 @@ class SynthesisBranchManager {
 
   /// Generate audio buffer with current configuration
   Float32List generateBuffer(int frames, double frequency) {
+    // Update vibrato LFO phase
+    final vibratoIncrement = _vibratoRate / sampleRate * 2.0 * math.pi * frames;
+    _vibratoPhase += vibratoIncrement;
+    if (_vibratoPhase > 2.0 * math.pi) _vibratoPhase -= 2.0 * math.pi;
+
+    // Calculate vibrato modulation (sine LFO)
+    final vibratoMod = math.sin(_vibratoPhase) * _vibratoDepth;
+
+    // Apply pitch bend + vibrato + external detune to frequency
+    // Pitch bend and vibrato are in semitones, convert to ratio
+    final pitchModSemitones = _pitchBend + vibratoMod;
+    final pitchModRatio = math.pow(2.0, pitchModSemitones / 12.0);
+    final detuneRatio1 = math.pow(2.0, _osc1Detune / 1200.0);
+    final detunedFreq = frequency * detuneRatio1 * pitchModRatio;
+
+    Float32List buffer;
+
     // Route to appropriate synthesis branch based on core
     switch (_currentCore) {
       case PolytopeCor.base:
-        return _generateDirect(frames, frequency);
+        buffer = _generateDirect(frames, detunedFreq);
+        break;
       case PolytopeCor.hypersphere:
-        return _generateFM(frames, frequency);
+        buffer = _generateFM(frames, detunedFreq);
+        break;
       case PolytopeCor.hypertetrahedron:
-        return _generateRingMod(frames, frequency);
+        buffer = _generateRingMod(frames, detunedFreq);
+        break;
+    }
+
+    // Apply external filter to the generated buffer
+    _applyFilter(buffer);
+
+    // Apply delay effect
+    _applyDelay(buffer);
+
+    // Apply master volume
+    for (int i = 0; i < buffer.length; i++) {
+      buffer[i] = (buffer[i] * _masterVolume).clamp(-1.0, 1.0);
+    }
+
+    return buffer;
+  }
+
+  /// Apply delay effect using _delayTime and _delayFeedback
+  void _applyDelay(Float32List buffer) {
+    final delaySamples = (_delayTime * sampleRate / 1000.0).round().clamp(1, _maxDelaySamples - 1);
+    final delayMix = 0.3; // Fixed wet/dry mix
+
+    for (int i = 0; i < buffer.length; i++) {
+      final input = buffer[i];
+
+      // Read from delay buffer
+      final readPos = (_delayWritePos - delaySamples + _maxDelaySamples) % _maxDelaySamples;
+      final delayed = _delayBuffer[readPos];
+
+      // Write to delay buffer with feedback
+      _delayBuffer[_delayWritePos] = input + (delayed * _delayFeedback);
+
+      // Mix dry and wet
+      buffer[i] = (input * (1.0 - delayMix) + delayed * delayMix).clamp(-1.0, 1.0);
+
+      // Advance write position
+      _delayWritePos = (_delayWritePos + 1) % _maxDelaySamples;
+    }
+  }
+
+  /// Apply lowpass filter using external cutoff and resonance parameters
+  void _applyFilter(Float32List buffer) {
+    // Normalized cutoff frequency (0-1 range)
+    final normalizedCutoff = (2.0 * _filterCutoff / sampleRate).clamp(0.01, 0.99);
+
+    // Filter coefficient
+    final f = 2.0 * math.sin(math.pi * normalizedCutoff);
+    final q = _filterResonance;
+
+    for (int i = 0; i < buffer.length; i++) {
+      final input = buffer[i];
+
+      // 2-pole lowpass filter
+      _filterZ1 += f * (input - _filterZ1 + q * (_filterZ1 - _filterZ2));
+      _filterZ2 += f * (_filterZ1 - _filterZ2);
+
+      buffer[i] = _filterZ2.clamp(-1.0, 1.0);
     }
   }
 
   /// Calculate envelope level (musical ADSR)
   double _updateEnvelope() {
-    final attackSamples = (_currentVoiceCharacter.attackMs * sampleRate / 1000.0).round();
-    final releaseSamples = (_currentVoiceCharacter.releaseMs * sampleRate / 1000.0).round();
+    // Use override if set, otherwise use geometry-derived values
+    final attackMs = _attackOverride ?? _currentVoiceCharacter.attackMs;
+    final decayMs = _decayOverride ?? 100.0; // Default 100ms decay
+    final sustainLevel = _sustainOverride ?? 0.7; // Default 70% sustain
+    final releaseMs = _releaseOverride ?? _currentVoiceCharacter.releaseMs;
+
+    final attackSamples = (attackMs * sampleRate / 1000.0).round();
+    final decaySamples = (decayMs * sampleRate / 1000.0).round();
+    final releaseSamples = (releaseMs * sampleRate / 1000.0).round();
 
     if (_noteIsOn) {
-      // Attack phase
       if (_samplesSinceNoteOn < attackSamples) {
+        // Attack phase: ramp from 0 to 1
         _envelopeLevel = _samplesSinceNoteOn / attackSamples;
+      } else if (_samplesSinceNoteOn < attackSamples + decaySamples) {
+        // Decay phase: ramp from 1 to sustain level
+        final decayProgress = (_samplesSinceNoteOn - attackSamples) / decaySamples;
+        _envelopeLevel = 1.0 - (1.0 - sustainLevel) * decayProgress;
       } else {
-        _envelopeLevel = 1.0; // Sustain at full level
+        // Sustain phase: hold at sustain level
+        _envelopeLevel = sustainLevel;
       }
       _samplesSinceNoteOn++;
     } else {
-      // Release phase
-      _envelopeLevel *= math.exp(-4.5 / releaseSamples); // Exponential decay
+      // Release phase: exponential decay from current level
+      _envelopeLevel *= math.exp(-4.5 / releaseSamples);
     }
 
     return _envelopeLevel;
@@ -386,12 +614,20 @@ class SynthesisBranchManager {
       sample *= _currentSoundFamily.waveformMix[0]; // Sine component
       sample += _currentSoundFamily.waveformMix[1] * _square(_phase1) * 0.3; // Square (quieter)
       sample += _currentSoundFamily.waveformMix[2] * _triangle(_phase1) * 0.4; // Triangle
+      sample += _currentSoundFamily.waveformMix[3] * _sawtooth(_phase1) * 0.35; // Sawtooth (for holographic)
 
-      // Add minimal musical noise for warmth
-      sample += (_random.nextDouble() * 2.0 - 1.0) * _currentSoundFamily.noiseLevel;
+      // Add noise: base level from sound family + chaos-controlled amount
+      final totalNoise = _currentSoundFamily.noiseLevel + (_noiseAmount * 0.3);
+      sample += (_random.nextDouble() * 2.0 - 1.0) * totalNoise;
 
       // Apply envelope
       sample *= envelope;
+
+      // Apply drive/saturation (soft clipping for warmth)
+      if (_drive > 0.01) {
+        final driveGain = 1.0 + _drive * 3.0;
+        sample = math.atan(sample * driveGain) / math.atan(driveGain);
+      }
 
       // Apply brightness filter (simple high-shelf)
       sample = sample * (1.0 - _currentSoundFamily.brightness * 0.3);
@@ -409,9 +645,12 @@ class SynthesisBranchManager {
   Float32List _generateFM(int frames, double frequency) {
     final buffer = Float32List(frames);
 
+    // Apply osc2 detune to modulator frequency
+    final osc2DetuneRatio = math.pow(2.0, _osc2Detune / 1200.0);
+
     // Musical FM ratios (2:1 = octave, produces musical overtones)
     final carrierIncrement = frequency / sampleRate * 2.0 * math.pi;
-    final modulatorIncrement = carrierIncrement * 2.0; // Perfect octave
+    final modulatorIncrement = carrierIncrement * 2.0 * osc2DetuneRatio; // Perfect octave with detune
 
     // FM index based on harmonic richness
     final fmIndex = 1.5 + (_currentVoiceCharacter.harmonicCount * 0.3);
@@ -436,6 +675,12 @@ class SynthesisBranchManager {
 
       // Apply envelope
       sample *= envelope;
+
+      // Apply drive/saturation (soft clipping for warmth)
+      if (_drive > 0.01) {
+        final driveGain = 1.0 + _drive * 3.0;
+        sample = math.atan(sample * driveGain) / math.atan(driveGain);
+      }
 
       buffer[i] = sample.clamp(-1.0, 1.0) * 0.5;
 
@@ -483,6 +728,12 @@ class SynthesisBranchManager {
 
       // Apply envelope
       sample *= envelope;
+
+      // Apply drive/saturation (soft clipping for warmth)
+      if (_drive > 0.01) {
+        final driveGain = 1.0 + _drive * 3.0;
+        sample = math.atan(sample * driveGain) / math.atan(driveGain);
+      }
 
       buffer[i] = sample.clamp(-1.0, 1.0) * 0.6;
 

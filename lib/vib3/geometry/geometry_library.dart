@@ -9,8 +9,6 @@
  * A Paul Phillips Manifestation
  */
 
-import 'dart:math' as math;
-
 /// Base geometry types (8 variants)
 enum BaseGeometry {
   tetrahedron,    // 0

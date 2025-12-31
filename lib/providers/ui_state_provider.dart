@@ -58,11 +58,10 @@ class ParameterRange {
 }
 
 class UIStateProvider with ChangeNotifier {
-  // Panel visibility states
+  // Panel visibility states (synthesis removed - redundant with geometry)
   final Map<String, bool> _panelStates = {
-    'synthesis': false,
-    'effects': false,
     'geometry': false,
+    'effects': false,
     'mapping': false,
   };
 

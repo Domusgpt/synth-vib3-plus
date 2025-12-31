@@ -2,9 +2,18 @@
  * Visual → Audio Modulation System
  *
  * Maps visual parameter state to audio synthesis parameters:
- * - 4D Rotation XW Plane → Oscillator 1 Frequency (±2 semitones)
- * - 4D Rotation YW Plane → Oscillator 2 Frequency (±2 semitones)
- * - 4D Rotation ZW Plane → Filter Cutoff Frequency (±40%)
+ *
+ * 3D ROTATIONS (newly added):
+ * - XY Rotation → Oscillator 1 detune (±12 cents)
+ * - XZ Rotation → Oscillator 2 detune (±12 cents)
+ * - YZ Rotation → Combined detuning (±7 cents)
+ *
+ * 4D ROTATIONS:
+ * - XW Rotation → FM depth / Osc1 Frequency (±2 semitones) - Hypersphere only
+ * - YW Rotation → Ring mod depth / Osc2 Frequency (±2 semitones) - Hypertetrahedron only
+ * - ZW Rotation → Filter Cutoff Frequency (±40%)
+ *
+ * OTHER MAPPINGS:
  * - Polytope Vertex Count → Voice Count
  * - Geometry Morph Parameter → Wavetable Position
  * - Projection Distance → Reverb Wet/Dry Mix
@@ -35,6 +44,34 @@ class VisualToAudioModulator {
 
   void _initializeDefaultMappings() {
     _mappings = {
+      // ========== 3D ROTATIONS → AUDIO (NEW!) ==========
+      // XY rotation → Oscillator 1 detune (±12 cents)
+      'rotationXY_to_osc1Detune': ParameterMapping(
+        sourceParam: 'rotationXY',
+        targetParam: 'oscillator1Detune',
+        minRange: -12.0, // -12 cents
+        maxRange: 12.0,  // +12 cents
+        curve: MappingCurve.sinusoidal,
+      ),
+      // XZ rotation → Oscillator 2 detune (±12 cents)
+      'rotationXZ_to_osc2Detune': ParameterMapping(
+        sourceParam: 'rotationXZ',
+        targetParam: 'oscillator2Detune',
+        minRange: -12.0,
+        maxRange: 12.0,
+        curve: MappingCurve.sinusoidal,
+      ),
+      // YZ rotation → Combined detuning (±7 cents) - creates stereo width
+      'rotationYZ_to_combinedDetune': ParameterMapping(
+        sourceParam: 'rotationYZ',
+        targetParam: 'combinedDetune',
+        minRange: -7.0,
+        maxRange: 7.0,
+        curve: MappingCurve.sinusoidal,
+      ),
+
+      // ========== 4D ROTATIONS → AUDIO ==========
+      // XW rotation → Osc1 frequency / FM depth (for Hypersphere synthesis)
       'rotationXW_to_osc1Freq': ParameterMapping(
         sourceParam: 'rotationXW',
         targetParam: 'oscillator1Frequency',
@@ -42,6 +79,7 @@ class VisualToAudioModulator {
         maxRange: 2.0,  // +2 semitones
         curve: MappingCurve.sinusoidal,
       ),
+      // YW rotation → Osc2 frequency / Ring mod depth (for Hypertetrahedron synthesis)
       'rotationYW_to_osc2Freq': ParameterMapping(
         sourceParam: 'rotationYW',
         targetParam: 'oscillator2Frequency',
@@ -49,6 +87,7 @@ class VisualToAudioModulator {
         maxRange: 2.0,
         curve: MappingCurve.sinusoidal,
       ),
+      // ZW rotation → Filter cutoff modulation (±40%)
       'rotationZW_to_filterCutoff': ParameterMapping(
         sourceParam: 'rotationZW',
         targetParam: 'filterCutoff',
@@ -56,6 +95,8 @@ class VisualToAudioModulator {
         maxRange: 0.8,  // 80% modulation (±40%)
         curve: MappingCurve.sinusoidal,
       ),
+
+      // ========== OTHER MAPPINGS ==========
       'morphParameter_to_wavetable': ParameterMapping(
         sourceParam: 'morphParameter',
         targetParam: 'wavetablePosition',
@@ -75,6 +116,30 @@ class VisualToAudioModulator {
         targetParam: 'delayTime',
         minRange: 0.0,    // 0ms
         maxRange: 500.0,  // 500ms
+        curve: MappingCurve.linear,
+      ),
+      // Chaos (RGB split) → Noise injection (0-30%)
+      'chaos_to_noise': ParameterMapping(
+        sourceParam: 'chaos',
+        targetParam: 'noiseAmount',
+        minRange: 0.0,
+        maxRange: 0.3,  // 30% max noise
+        curve: MappingCurve.exponential,
+      ),
+      // Speed → LFO rate (0.1 - 10 Hz)
+      'speed_to_lfoRate': ParameterMapping(
+        sourceParam: 'rotationSpeed',
+        targetParam: 'lfoRate',
+        minRange: 0.1,
+        maxRange: 10.0,
+        curve: MappingCurve.linear,
+      ),
+      // Saturation → Drive/distortion (0-1)
+      'saturation_to_drive': ParameterMapping(
+        sourceParam: 'saturation',
+        targetParam: 'drive',
+        minRange: 0.0,
+        maxRange: 1.0,
         curve: MappingCurve.linear,
       ),
     };
@@ -127,9 +192,15 @@ class VisualToAudioModulator {
   /// Extract current visual state as normalized values (0-1)
   Map<String, double> _getVisualState() {
     return {
+      // 3D rotations (NEW!)
+      'rotationXY': _normalizeRotation(visualProvider.getRotationAngle('XY')),
+      'rotationXZ': _normalizeRotation(visualProvider.getRotationAngle('XZ')),
+      'rotationYZ': _normalizeRotation(visualProvider.getRotationAngle('YZ')),
+      // 4D rotations
       'rotationXW': _normalizeRotation(visualProvider.getRotationAngle('XW')),
       'rotationYW': _normalizeRotation(visualProvider.getRotationAngle('YW')),
       'rotationZW': _normalizeRotation(visualProvider.getRotationAngle('ZW')),
+      // Other parameters
       'morphParameter': visualProvider.getMorphParameter(),
       'projectionDistance': _normalizeProjectionDistance(
         visualProvider.getProjectionDistance(),
@@ -137,6 +208,12 @@ class VisualToAudioModulator {
       'layerDepth': _normalizeLayerDepth(
         visualProvider.getLayerSeparation(),
       ),
+      // Chaos (RGB split) - 0-10 normalized to 0-1
+      'chaos': (visualProvider.rgbSplitAmount / 10.0).clamp(0.0, 1.0),
+      // Speed (rotation speed) - already 0-3, normalize to 0-1
+      'rotationSpeed': (visualProvider.rotationSpeed / 3.0).clamp(0.0, 1.0),
+      // Saturation - already 0-1
+      'saturation': visualProvider.saturation,
     };
   }
 
@@ -171,6 +248,19 @@ class VisualToAudioModulator {
     final synth = audioProvider.synthesizerEngine;
 
     switch (paramName) {
+      // 3D rotation targets (NEW!)
+      case 'oscillator1Detune':
+        synth.oscillator1.detune = value;
+        break;
+      case 'oscillator2Detune':
+        synth.oscillator2.detune = value;
+        break;
+      case 'combinedDetune':
+        // Apply to both oscillators for stereo width effect
+        synth.oscillator1.detune += value * 0.5;
+        synth.oscillator2.detune -= value * 0.5;
+        break;
+      // 4D rotation targets
       case 'oscillator1Frequency':
         synth.modulateOscillator1Frequency(value);
         break;
@@ -180,6 +270,7 @@ class VisualToAudioModulator {
       case 'filterCutoff':
         synth.modulateFilterCutoff(value);
         break;
+      // Other targets
       case 'wavetablePosition':
         synth.setWavetablePosition(value);
         break;
@@ -188,6 +279,19 @@ class VisualToAudioModulator {
         break;
       case 'delayTime':
         synth.setDelayTime(value);
+        audioProvider.synthesisBranchManager.setDelayTime(value); // SYNC
+        break;
+      // NEW: Chaos → Noise injection
+      case 'noiseAmount':
+        audioProvider.synthesisBranchManager.setNoiseAmount(value);
+        break;
+      // NEW: Speed → LFO rate
+      case 'lfoRate':
+        audioProvider.synthesisBranchManager.setLFORate(value);
+        break;
+      // NEW: Saturation → Drive/distortion
+      case 'drive':
+        audioProvider.synthesisBranchManager.setDrive(value);
         break;
     }
   }
@@ -223,14 +327,23 @@ class VisualToAudioModulator {
   /// Get current modulation state for debugging/UI display
   Map<String, dynamic> getModulationState() {
     return {
+      // 3D rotations (NEW!)
+      'rotationXY': visualProvider.getRotationAngle('XY'),
+      'rotationXZ': visualProvider.getRotationAngle('XZ'),
+      'rotationYZ': visualProvider.getRotationAngle('YZ'),
+      // 4D rotations
       'rotationXW': visualProvider.getRotationAngle('XW'),
       'rotationYW': visualProvider.getRotationAngle('YW'),
       'rotationZW': visualProvider.getRotationAngle('ZW'),
+      // Other params
       'morphParameter': visualProvider.getMorphParameter(),
       'projectionDistance': visualProvider.getProjectionDistance(),
       'layerDepth': visualProvider.getLayerSeparation(),
       'vertexCount': visualProvider.getActiveVertexCount(),
       'voiceCount': audioProvider.getVoiceCount(),
+      // Audio modulation state
+      'osc1Detune': audioProvider.synthesizerEngine.oscillator1.detune,
+      'osc2Detune': audioProvider.synthesizerEngine.oscillator2.detune,
       'osc1FreqMod': audioProvider.synthesizerEngine.oscillator1.frequencyModulation,
       'osc2FreqMod': audioProvider.synthesizerEngine.oscillator2.frequencyModulation,
       'filterCutoffMod': audioProvider.synthesizerEngine.filter.cutoffModulation,

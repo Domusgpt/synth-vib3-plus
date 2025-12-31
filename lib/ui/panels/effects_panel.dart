@@ -1,7 +1,9 @@
 /**
  * Effects Panel
  *
- * Controls for reverb, delay, filter, and other audio effects.
+ * Advanced audio+visual effects controls.
+ * Note: Reverb and Delay are in Geometry panel (with visual parity).
+ * This panel handles filter and master controls.
  *
  * A Paul Phillips Manifestation
  */
@@ -11,6 +13,7 @@ import 'package:provider/provider.dart';
 import '../theme/synth_theme.dart';
 import '../components/holographic_slider.dart';
 import '../../providers/audio_provider.dart';
+import '../../providers/visual_provider.dart';
 
 class EffectsPanelContent extends StatelessWidget {
   const EffectsPanelContent({Key? key}) : super(key: key);
@@ -18,128 +21,109 @@ class EffectsPanelContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final audioProvider = Provider.of<AudioProvider>(context);
-    final systemColors = audioProvider.systemColors;
+    final visualProvider = Provider.of<VisualProvider>(context);
+    final systemColors = visualProvider.systemColors;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Section: Filter
+        // Section: Filter (Audio: filter, Visual: brightness/spectral)
         Text(
-          'FILTER',
+          'FILTER (SPECTRAL)',
           style: SynthTheme.textStyleHeading.copyWith(
             color: systemColors.primary,
           ),
         ),
         const SizedBox(height: SynthTheme.spacingSmall),
+        Text(
+          'Audio: filter cutoff • Visual: brightness tint',
+          style: SynthTheme.textStyleCaption.copyWith(
+            color: systemColors.accent,
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+        const SizedBox(height: SynthTheme.spacingSmall),
         HolographicSlider(
-          label: 'Cutoff',
+          label: 'Cutoff / Brightness',
           value: audioProvider.filterCutoff,
           min: 20.0,
           max: 20000.0,
           unit: 'Hz',
-          onChanged: (value) => audioProvider.setFilterCutoff(value),
+          onChanged: (value) {
+            audioProvider.setFilterCutoff(value);
+            // Map filter cutoff to vertex brightness (higher cutoff = brighter)
+            final brightness = ((value - 20.0) / 20000.0).clamp(0.3, 1.0);
+            visualProvider.setVertexBrightness(brightness);
+          },
           systemColors: systemColors,
           icon: Icons.waves,
         ),
         HolographicSlider(
-          label: 'Resonance',
+          label: 'Resonance / Glow',
           value: audioProvider.filterResonance,
           min: 0.0,
           max: 1.0,
           unit: '%',
-          onChanged: (value) => audioProvider.setFilterResonance(value),
+          onChanged: (value) {
+            audioProvider.setFilterResonance(value);
+            // Map resonance to glow intensity (higher resonance = more glow)
+            visualProvider.setGlowIntensity(0.5 + value * 2.5);
+          },
           systemColors: systemColors,
           icon: Icons.graphic_eq,
         ),
-        HolographicSlider(
-          label: 'Filter Env',
-          value: audioProvider.filterEnvelopeAmount,
-          min: -1.0,
-          max: 1.0,
-          unit: '%',
-          onChanged: (value) => audioProvider.setFilterEnvelopeAmount(value),
-          systemColors: systemColors,
-          icon: Icons.insights,
-        ),
         const SizedBox(height: SynthTheme.spacingLarge),
 
-        // Section: Reverb
+        // Section: Master Controls
         Text(
-          'REVERB',
+          'MASTER',
           style: SynthTheme.textStyleHeading.copyWith(
             color: systemColors.primary,
           ),
         ),
         const SizedBox(height: SynthTheme.spacingSmall),
         HolographicSlider(
-          label: 'Mix',
-          value: audioProvider.reverbMix,
+          label: 'Volume',
+          value: audioProvider.masterVolume,
           min: 0.0,
           max: 1.0,
           unit: '%',
-          onChanged: (value) => audioProvider.setReverbMix(value),
-          systemColors: systemColors,
-          icon: Icons.water_drop,
-        ),
-        HolographicSlider(
-          label: 'Room Size',
-          value: audioProvider.reverbRoomSize,
-          min: 0.0,
-          max: 1.0,
-          unit: '%',
-          onChanged: (value) => audioProvider.setReverbRoomSize(value),
-          systemColors: systemColors,
-          icon: Icons.format_size,
-        ),
-        HolographicSlider(
-          label: 'Damping',
-          value: audioProvider.reverbDamping,
-          min: 0.0,
-          max: 1.0,
-          unit: '%',
-          onChanged: (value) => audioProvider.setReverbDamping(value),
-          systemColors: systemColors,
-          icon: Icons.blur_on,
-        ),
-        const SizedBox(height: SynthTheme.spacingLarge),
-
-        // Section: Delay
-        Text(
-          'DELAY',
-          style: SynthTheme.textStyleHeading.copyWith(
-            color: systemColors.primary,
-          ),
-        ),
-        const SizedBox(height: SynthTheme.spacingSmall),
-        HolographicSlider(
-          label: 'Time',
-          value: audioProvider.delayTime,
-          min: 0.0,
-          max: 2000.0,
-          unit: 'ms',
-          onChanged: (value) => audioProvider.setDelayTime(value),
-          systemColors: systemColors,
-          icon: Icons.access_time,
-        ),
-        HolographicSlider(
-          label: 'Feedback',
-          value: audioProvider.delayFeedback,
-          min: 0.0,
-          max: 0.95,
-          unit: '%',
-          onChanged: (value) => audioProvider.setDelayFeedback(value),
-          systemColors: systemColors,
-          icon: Icons.repeat,
-        ),
-        HolographicSlider(
-          label: 'Mix',
-          value: audioProvider.delayMix,
-          min: 0.0,
-          max: 1.0,
-          unit: '%',
-          onChanged: (value) => audioProvider.setDelayMix(value),
+          onChanged: (value) => audioProvider.setMasterVolume(value),
           systemColors: systemColors,
           icon: Icons.volume_up,
+        ),
+        const SizedBox(height: SynthTheme.spacingLarge),
+
+        // Info section about visual parity
+        Container(
+          padding: const EdgeInsets.all(SynthTheme.spacingSmall),
+          decoration: BoxDecoration(
+            color: SynthTheme.cardBackground,
+            borderRadius: BorderRadius.circular(SynthTheme.radiusSmall),
+            border: Border.all(color: systemColors.primary.withValues(alpha: 0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Visual Parity',
+                style: SynthTheme.textStyleCaption.copyWith(
+                  color: systemColors.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '• Reverb → Geometry > Reverb Amount\n'
+                '• Delay → Geometry > Delay/Echo\n'
+                '• See Geometry panel for spatial effects',
+                style: SynthTheme.textStyleCaption.copyWith(
+                  color: systemColors.accent,
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );

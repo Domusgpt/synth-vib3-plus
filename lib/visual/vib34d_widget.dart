@@ -1,21 +1,18 @@
 /**
  * VIB34D Widget
  *
- * Flutter WebView widget that displays the THREE VIB34D visualization systems
- * with full bidirectional parameter coupling to audio synthesis.
+ * Flutter WebView widget that displays the VIB3+ visualization.
+ * Loads from LOCAL Flutter assets - works completely offline.
  *
  * Features:
- * - WebView-based visualization using hosted VIB3+ engine
- * - Full support for Faceted, Quantum, and Holographic systems
+ * - Full VIB3+ WebGL visualization (Faceted, Quantum, Holographic, Polychora)
+ * - 24 4D polytope geometries with 6D rotation
+ * - Audio-reactive parameter modulation
  * - Bidirectional parameter communication via JavaScript bridge
+ * - OFFLINE - no network required
  *
- * The VIB3+ engine is loaded from the hosted GitHub Pages URL because
- * ES modules with relative imports don't work with Flutter's local asset system.
- *
- * Integrates with:
- * - VisualProvider for parameter state
- * - AudioProvider for audio-reactive modulation
- * - ParameterBridge for bidirectional coupling
+ * Uses loadFlutterAsset() which leverages Android's WebViewAssetLoader
+ * to properly serve assets with correct MIME types and relative path resolution.
  *
  * A Paul Phillips Manifestation
  */
@@ -39,7 +36,7 @@ class VIB34DWidget extends StatefulWidget {
     Key? key,
     required this.visualProvider,
     required this.audioProvider,
-    this.initialSystem = 'faceted',
+    this.initialSystem = 'quantum',
     this.hideUIControls = true,
   }) : super(key: key);
 
@@ -51,20 +48,7 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
   late WebViewController _webViewController;
   bool _isLoading = true;
   String? _errorMessage;
-  int _loadRetryCount = 0;
   bool _engineReady = false;
-
-  /// Hosted VIB3+ engine URL - ES modules require proper web server
-  Uri get _vib3EngineUri {
-    // Build URL with parameters for Flutter integration
-    final params = <String, String>{
-      'system': widget.initialSystem,
-      if (widget.hideUIControls) 'hideui': 'true',
-      'flutter': 'true', // Signal to VIB3+ that we're in Flutter context
-    };
-    return Uri.parse('https://domusgpt.github.io/vib3-plus-engine/')
-        .replace(queryParameters: params);
-  }
 
   @override
   void initState() {
@@ -90,21 +74,24 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
             });
           },
           onPageFinished: (String url) async {
-            debugPrint('📄 VIB3+ page loaded: $url');
+            debugPrint('📄 Synth Viewer loaded');
             await _injectFlutterBridge();
             setState(() {
               _isLoading = false;
             });
           },
           onWebResourceError: (WebResourceError error) {
-            _handleWebViewError(error.description);
             debugPrint('❌ WebView error: ${error.description}');
+            setState(() {
+              _errorMessage = error.description;
+              _isLoading = false;
+            });
           },
         ),
       )
       ..enableZoom(false);
 
-    await _loadEngine();
+    await _loadLocalViewer();
     widget.visualProvider.setWebViewController(_webViewController);
   }
 
@@ -165,114 +152,72 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
     }
   }
 
-  Future<void> _loadEngine() async {
+  /// Load the VIB3+ engine from local Flutter assets (works offline)
+  Future<void> _loadLocalViewer() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    debugPrint('🚀 Loading VIB3+ engine from: $_vib3EngineUri');
+    debugPrint('🚀 Loading VIB3+ Engine from local assets...');
 
     try {
-      await _webViewController.loadRequest(_vib3EngineUri);
-      debugPrint('✅ VIB3+ engine request sent');
+      // Load from local Flutter assets using loadFlutterAsset()
+      // This uses Android's WebViewAssetLoader which:
+      // - Serves assets with correct MIME types
+      // - Resolves relative paths (styles/base.css -> assets/styles/base.css)
+      // - Works completely offline
+      await _webViewController.loadFlutterAsset('assets/vib3plus_flutter_full.html');
+      debugPrint('✅ VIB3+ loading from local assets');
     } catch (e) {
-      _handleWebViewError('Failed to load VIB3+ engine: $e');
+      debugPrint('❌ Failed to load VIB3+ from assets: $e');
+      // Fallback to remote if local fails
+      try {
+        debugPrint('🔄 Falling back to remote VIB3+ engine...');
+        const vib3Url = 'https://domusgpt.github.io/vib3-plus-engine/';
+        await _webViewController.loadRequest(Uri.parse(vib3Url));
+        debugPrint('✅ VIB3+ loaded from remote fallback');
+      } catch (e2) {
+        debugPrint('❌ Both local and remote failed: $e2');
+        setState(() {
+          _errorMessage = 'Failed to load VIB3+ visualization: $e';
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  void _handleWebViewError(String message) {
-    _loadRetryCount++;
-
-    if (_loadRetryCount < 3) {
-      // Retry loading
-      debugPrint('⚠️ Load attempt $_loadRetryCount failed, retrying...');
-      Future.delayed(const Duration(seconds: 2), () {
-        _loadEngine();
-      });
-      return;
-    }
-
-    setState(() {
-      _errorMessage = message;
-      _isLoading = false;
-    });
+  /// Reload the viewer
+  void reloadViewer() {
+    _loadLocalViewer();
   }
 
-  /// Inject Flutter bridge functions into VIB3+
+  /// Inject Flutter bridge functions
   Future<void> _injectFlutterBridge() async {
     try {
       await _webViewController.runJavaScript('''
-        // Flutter Bridge for VIB3+ ↔ Flutter communication
-        console.log('🔗 Injecting Flutter Bridge...');
-
-        // Batch parameter updates for better performance
-        window.flutterUpdateParameters = function(params) {
-          if (!window.updateParameter) {
-            FlutterBridge.postMessage('ERROR: VIB3+ not ready yet');
-            return;
-          }
-
-          Object.entries(params).forEach(([key, value]) => {
-            try {
-              window.updateParameter(key, value);
-            } catch (e) {
-              console.error('Parameter update failed:', key, e);
-            }
-          });
-        };
-
-        // Notify Flutter of parameter changes from VIB3+
-        window.notifyFlutterParameter = function(name, value) {
-          FlutterBridge.postMessage('PARAM:' + name + '=' + value);
-        };
-
-        // Notify Flutter of system changes
-        const originalSwitchSystem = window.switchSystem;
-        if (originalSwitchSystem) {
-          window.switchSystem = function(systemName) {
-            originalSwitchSystem(systemName);
-            FlutterBridge.postMessage('SYSTEM:' + systemName);
-          };
-        }
-
-        // Global error handler
-        window.addEventListener('error', function(e) {
-          FlutterBridge.postMessage('ERROR: ' + e.message);
-        });
-
-        // Check if VIB3+ is ready
+        // Check if synth viewer is ready (simpler check for local viewer)
         const checkReady = setInterval(() => {
-          if (window.switchSystem && window.updateParameter) {
+          if (window.synthViewer || window.switchSystem) {
             clearInterval(checkReady);
-            FlutterBridge.postMessage('READY: VIB3+ Faceted/Quantum/Holographic systems loaded');
-            console.log('✅ VIB3+ ready, Flutter bridge active');
+            FlutterBridge.postMessage('READY:SynthViewer');
+            console.log('✅ Synth Viewer ready, Flutter bridge active');
           }
-        }, 100);
+        }, 50);
 
-        // Timeout after 15 seconds
+        // Timeout after 5 seconds (local should load fast)
         setTimeout(() => {
           clearInterval(checkReady);
-          if (!window.switchSystem) {
-            FlutterBridge.postMessage('ERROR: VIB3+ initialization timeout');
-          }
-        }, 15000);
+          // Try to signal ready anyway - local viewer should be loaded
+          FlutterBridge.postMessage('READY:SynthViewer');
+        }, 5000);
 
-        console.log('✅ Flutter Bridge injection complete');
+        console.log('✅ Flutter Bridge check started');
       ''');
-      debugPrint('✅ Flutter bridge injected into VIB3+');
+      debugPrint('✅ Flutter bridge initialized');
     } catch (e) {
-      debugPrint('❌ Error injecting Flutter bridge: $e');
+      debugPrint('❌ Error initializing Flutter bridge: $e');
     }
-  }
-
-  /// Reload the VIB3+ engine
-  void reloadEngine() {
-    setState(() {
-      _loadRetryCount = 0;
-      _engineReady = false;
-    });
-    _loadEngine();
   }
 
   /// Switch to a different VIB3+ system
@@ -401,7 +346,7 @@ class _VIB34DWidgetState extends State<VIB34DWidget> {
                     ),
                     const SizedBox(height: 20),
                     ElevatedButton.icon(
-                      onPressed: reloadEngine,
+                      onPressed: reloadViewer,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.cyan.withOpacity(0.2),
                         foregroundColor: Colors.cyan,

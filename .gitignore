@@ -28,3 +28,4 @@ pubspec.lock
 *.pyc
 *.swp
 *.DS_Store
+test_output/

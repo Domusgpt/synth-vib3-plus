@@ -28,7 +28,7 @@ import '../../providers/ui_state_provider.dart';
 import '../../providers/visual_provider.dart';
 import '../../providers/audio_provider.dart';
 import '../../providers/tilt_sensor_provider.dart';
-import '../../visual/vib34d_widget.dart';
+import '../../vib3/rendering/vib3_shader_widget.dart';
 import '../../mapping/parameter_bridge.dart';
 
 class SynthMainScreen extends StatefulWidget {
@@ -97,11 +97,24 @@ class _SynthMainContent extends StatefulWidget {
 }
 
 class _SynthMainContentState extends State<_SynthMainContent> {
+  bool _audioInitialized = false;
+
   @override
   void initState() {
     super.initState();
-    // DON'T auto-start audio - let user trigger via XY pad touch
-    // Audio will start when they touch the performance pad
+    // Wait for audio to initialize before enabling interaction
+    _initializeAudio();
+  }
+
+  Future<void> _initializeAudio() async {
+    final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+    await audioProvider.ensureInitialized();
+    if (mounted) {
+      setState(() {
+        _audioInitialized = true;
+      });
+      debugPrint('✅ Audio system ready - PCM initialized: ${audioProvider.isPcmAvailable}');
+    }
   }
 
   @override
@@ -109,6 +122,26 @@ class _SynthMainContentState extends State<_SynthMainContent> {
     final uiState = Provider.of<UIStateProvider>(context);
     final visualProvider = Provider.of<VisualProvider>(context);
     final systemColors = visualProvider.systemColors;
+
+    // Show loading indicator until audio is ready
+    if (!_audioInitialized) {
+      return Scaffold(
+        backgroundColor: SynthTheme.backgroundColor,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: systemColors.primary),
+              const SizedBox(height: 16),
+              Text(
+                'Initializing Audio...',
+                style: SynthTheme.textStyleBody.copyWith(color: systemColors.primary),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: SynthTheme.backgroundColor,
@@ -161,14 +194,11 @@ class _SynthMainContentState extends State<_SynthMainContent> {
   }
 
   Widget _buildVisualizationLayer(BuildContext context) {
-    final visualProvider = Provider.of<VisualProvider>(context, listen: false);
-    final audioProvider = Provider.of<AudioProvider>(context, listen: false);
-
-    return Positioned.fill(
-      child: VIB34DWidget(
-        visualProvider: visualProvider,
-        audioProvider: audioProvider,
-      ),
+    // Use native Flutter FragmentProgram shader renderer
+    // TRUE port of VIB3+ WebGL shaders - GPU accelerated, same visual quality
+    // Works completely offline with zero network dependencies
+    return const Positioned.fill(
+      child: VIB3ShaderWidget(),
     );
   }
 

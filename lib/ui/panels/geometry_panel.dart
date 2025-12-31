@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import '../theme/synth_theme.dart';
 import '../components/holographic_slider.dart';
 import '../../providers/visual_provider.dart';
+import '../../providers/audio_provider.dart';
 
 class GeometryPanelContent extends StatelessWidget {
   const GeometryPanelContent({Key? key}) : super(key: key);
@@ -19,6 +20,7 @@ class GeometryPanelContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visualProvider = Provider.of<VisualProvider>(context);
+    final audioProvider = Provider.of<AudioProvider>(context, listen: false);
     final systemColors = visualProvider.systemColors;
 
     return Column(
@@ -32,12 +34,52 @@ class GeometryPanelContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: SynthTheme.spacingSmall),
-        _buildGeometryGrid(visualProvider, systemColors),
+        _buildGeometryGrid(visualProvider, audioProvider, systemColors),
         const SizedBox(height: SynthTheme.spacingLarge),
 
-        // Section: Synthesis Modulation (4D Rotation controls sonic parameters)
+        // Section: 3D Rotation (XY, XZ, YZ planes)
         Text(
-          'SYNTHESIS MODULATION',
+          '3D ROTATION',
+          style: SynthTheme.textStyleHeading.copyWith(
+            color: systemColors.primary,
+          ),
+        ),
+        const SizedBox(height: SynthTheme.spacingSmall),
+        HolographicSlider(
+          label: 'XY Rotation',
+          value: visualProvider.rotationXY,
+          min: 0.0,
+          max: 6.28,
+          unit: 'rad',
+          onChanged: (value) => visualProvider.setRotationXY(value),
+          systemColors: systemColors,
+          icon: Icons.rotate_left,
+        ),
+        HolographicSlider(
+          label: 'XZ Rotation',
+          value: visualProvider.rotationXZ,
+          min: 0.0,
+          max: 6.28,
+          unit: 'rad',
+          onChanged: (value) => visualProvider.setRotationXZ(value),
+          systemColors: systemColors,
+          icon: Icons.rotate_right,
+        ),
+        HolographicSlider(
+          label: 'YZ Rotation',
+          value: visualProvider.rotationYZ,
+          min: 0.0,
+          max: 6.28,
+          unit: 'rad',
+          onChanged: (value) => visualProvider.setRotationYZ(value),
+          systemColors: systemColors,
+          icon: Icons.threesixty,
+        ),
+        const SizedBox(height: SynthTheme.spacingLarge),
+
+        // Section: 4D Rotation (XW, YW, ZW) - Synthesis Modulation
+        Text(
+          '4D ROTATION (SYNTHESIS)',
           style: SynthTheme.textStyleHeading.copyWith(
             color: systemColors.primary,
           ),
@@ -47,8 +89,8 @@ class GeometryPanelContent extends StatelessWidget {
           label: 'XW: FM Depth / Detune 1',
           value: visualProvider.rotationXW,
           min: 0.0,
-          max: 6.28, // 2π
-          unit: '',
+          max: 6.28,
+          unit: 'rad',
           onChanged: (value) => visualProvider.setRotationXW(value),
           systemColors: systemColors,
           icon: Icons.tune,
@@ -58,7 +100,7 @@ class GeometryPanelContent extends StatelessWidget {
           value: visualProvider.rotationYW,
           min: 0.0,
           max: 6.28,
-          unit: '',
+          unit: 'rad',
           onChanged: (value) => visualProvider.setRotationYW(value),
           systemColors: systemColors,
           icon: Icons.grain,
@@ -68,20 +110,90 @@ class GeometryPanelContent extends StatelessWidget {
           value: visualProvider.rotationZW,
           min: 0.0,
           max: 6.28,
-          unit: '',
+          unit: 'rad',
           onChanged: (value) => visualProvider.setRotationZW(value),
           systemColors: systemColors,
           icon: Icons.filter_alt,
         ),
         HolographicSlider(
-          label: 'Modulation Rate (LFO)',
+          label: 'Speed (LFO Rate)',
           value: visualProvider.rotationSpeed,
-          min: 0.0,
-          max: 2.0,
-          unit: '',
+          min: 0.1,
+          max: 3.0,
+          unit: 'x',
           onChanged: (value) => visualProvider.setRotationSpeed(value),
           systemColors: systemColors,
-          icon: Icons.waves,
+          icon: Icons.speed,
+        ),
+        const SizedBox(height: SynthTheme.spacingLarge),
+
+        // Section: Visual Appearance
+        Text(
+          'VISUAL APPEARANCE',
+          style: SynthTheme.textStyleHeading.copyWith(
+            color: systemColors.primary,
+          ),
+        ),
+        const SizedBox(height: SynthTheme.spacingSmall),
+        HolographicSlider(
+          label: 'Hue',
+          value: visualProvider.hueShift,
+          min: 0.0,
+          max: 360.0,
+          unit: '°',
+          onChanged: (value) => visualProvider.setHueShift(value),
+          systemColors: systemColors,
+          icon: Icons.palette,
+        ),
+        HolographicSlider(
+          label: 'Brightness',
+          value: visualProvider.vertexBrightness,
+          min: 0.0,
+          max: 1.0,
+          unit: '',
+          onChanged: (value) => visualProvider.setVertexBrightness(value),
+          systemColors: systemColors,
+          icon: Icons.brightness_6,
+        ),
+        HolographicSlider(
+          label: 'Glow Intensity',
+          value: visualProvider.glowIntensity,
+          min: 0.0,
+          max: 3.0,
+          unit: '',
+          onChanged: (value) => visualProvider.setGlowIntensity(value),
+          systemColors: systemColors,
+          icon: Icons.flare,
+        ),
+        HolographicSlider(
+          label: 'Saturation (Drive)',
+          value: visualProvider.saturation,
+          min: 0.0,
+          max: 1.0,
+          unit: '',
+          onChanged: (value) => visualProvider.setSaturation(value),
+          systemColors: systemColors,
+          icon: Icons.tonality,
+        ),
+        HolographicSlider(
+          label: 'Chaos',
+          value: visualProvider.rgbSplitAmount,
+          min: 0.0,
+          max: 10.0,
+          unit: '',
+          onChanged: (value) => visualProvider.setRGBSplitAmount(value),
+          systemColors: systemColors,
+          icon: Icons.blur_on,
+        ),
+        HolographicSlider(
+          label: 'Grid Density',
+          value: visualProvider.tessellationDensity.toDouble(),
+          min: 3.0,
+          max: 10.0,
+          unit: '',
+          onChanged: (value) => visualProvider.setTessellationDensity(value.round()),
+          systemColors: systemColors,
+          icon: Icons.grid_on,
         ),
         const SizedBox(height: SynthTheme.spacingLarge),
 
@@ -94,6 +206,16 @@ class GeometryPanelContent extends StatelessWidget {
         ),
         const SizedBox(height: SynthTheme.spacingSmall),
         HolographicSlider(
+          label: 'Morph Factor',
+          value: visualProvider.morphParameter,
+          min: 0.0,
+          max: 1.0,
+          unit: '',
+          onChanged: (value) => visualProvider.setMorphParameter(value),
+          systemColors: systemColors,
+          icon: Icons.timeline,
+        ),
+        HolographicSlider(
           label: 'Reverb Amount',
           value: visualProvider.projectionDistance,
           min: 5.0,
@@ -104,7 +226,7 @@ class GeometryPanelContent extends StatelessWidget {
           icon: Icons.surround_sound,
         ),
         HolographicSlider(
-          label: 'Delay / Echo Depth',
+          label: 'Delay / Echo',
           value: visualProvider.layerSeparation,
           min: 0.0,
           max: 5.0,
@@ -113,22 +235,13 @@ class GeometryPanelContent extends StatelessWidget {
           systemColors: systemColors,
           icon: Icons.graphic_eq,
         ),
-        HolographicSlider(
-          label: 'Waveform Crossfade',
-          value: visualProvider.morphParameter,
-          min: 0.0,
-          max: 1.0,
-          unit: '%',
-          onChanged: (value) => visualProvider.setMorphParameter(value),
-          systemColors: systemColors,
-          icon: Icons.timeline,
-        ),
       ],
     );
   }
 
   Widget _buildGeometryGrid(
     VisualProvider visualProvider,
+    AudioProvider audioProvider,
     SystemColors systemColors,
   ) {
     final theme = SynthTheme(systemColors: systemColors);
@@ -187,6 +300,7 @@ class GeometryPanelContent extends StatelessWidget {
                     // Change core but keep current base geometry
                     final newIndex = (index * 8) + currentBaseIndex;
                     visualProvider.setGeometry(newIndex);
+                    audioProvider.setGeometry(newIndex); // Sync audio synthesis branch
                   },
                   child: AnimatedContainer(
                     duration: SynthTheme.transitionQuick,
@@ -245,6 +359,7 @@ class GeometryPanelContent extends StatelessWidget {
                 // Change base geometry but keep current core
                 final newIndex = (currentCoreIndex * 8) + baseIndex;
                 visualProvider.setGeometry(newIndex);
+                audioProvider.setGeometry(newIndex); // Sync audio synthesis branch
               },
               child: AnimatedContainer(
                 duration: SynthTheme.transitionQuick,
