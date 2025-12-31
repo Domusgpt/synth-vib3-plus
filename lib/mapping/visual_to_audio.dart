@@ -134,6 +134,14 @@ class VisualToAudioModulator {
         maxRange: 10.0,
         curve: MappingCurve.linear,
       ),
+      // Saturation → Drive/distortion (0-1)
+      'saturation_to_drive': ParameterMapping(
+        sourceParam: 'saturation',
+        targetParam: 'drive',
+        minRange: 0.0,
+        maxRange: 1.0,
+        curve: MappingCurve.linear,
+      ),
     };
   }
 
@@ -204,6 +212,8 @@ class VisualToAudioModulator {
       'chaos': (visualProvider.rgbSplitAmount / 10.0).clamp(0.0, 1.0),
       // Speed (rotation speed) - already 0-3, normalize to 0-1
       'rotationSpeed': (visualProvider.rotationSpeed / 3.0).clamp(0.0, 1.0),
+      // Saturation - already 0-1
+      'saturation': visualProvider.saturation,
     };
   }
 
@@ -278,6 +288,10 @@ class VisualToAudioModulator {
       // NEW: Speed → LFO rate
       case 'lfoRate':
         audioProvider.synthesisBranchManager.setLFORate(value);
+        break;
+      // NEW: Saturation → Drive/distortion
+      case 'drive':
+        audioProvider.synthesisBranchManager.setDrive(value);
         break;
     }
   }

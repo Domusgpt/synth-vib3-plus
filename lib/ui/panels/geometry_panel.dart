@@ -166,6 +166,16 @@ class GeometryPanelContent extends StatelessWidget {
           icon: Icons.flare,
         ),
         HolographicSlider(
+          label: 'Saturation (Drive)',
+          value: visualProvider.saturation,
+          min: 0.0,
+          max: 1.0,
+          unit: '',
+          onChanged: (value) => visualProvider.setSaturation(value),
+          systemColors: systemColors,
+          icon: Icons.tonality,
+        ),
+        HolographicSlider(
           label: 'Chaos',
           value: visualProvider.rgbSplitAmount,
           min: 0.0,

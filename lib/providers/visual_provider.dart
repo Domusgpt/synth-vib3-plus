@@ -52,6 +52,7 @@ class VisualProvider with ChangeNotifier {
   double _hueShift = 180.0;          // Color hue offset (0-360°)
   double _glowIntensity = 1.0;       // Bloom/glow amount (0-3)
   double _rgbSplitAmount = 0.0;      // Chromatic aberration (0-10)
+  double _saturation = 0.8;          // Color saturation (0-1) → audio drive
 
   // Geometry state
   int _activeVertexCount = 120;      // Current vertex count
@@ -97,6 +98,7 @@ class VisualProvider with ChangeNotifier {
   double get hueShift => _hueShift;
   double get glowIntensity => _glowIntensity;
   double get rgbSplitAmount => _rgbSplitAmount;
+  double get saturation => _saturation;
   int get activeVertexCount => _activeVertexCount;
   double get morphParameter => _morphParameter;
   int get currentGeometry => _currentGeometry;
@@ -239,6 +241,14 @@ class VisualProvider with ChangeNotifier {
     final chaosValue = (amount / 10.0).clamp(0.0, 1.0);
     _updateJavaScriptParameter('chaos', chaosValue);
 
+    notifyListeners();
+  }
+
+  /// Set color saturation (visual) → audio drive/distortion
+  /// VIB3+ parameter: 'saturation'
+  void setSaturation(double value) {
+    _saturation = value.clamp(0.0, 1.0);
+    _updateJavaScriptParameter('saturation', _saturation);
     notifyListeners();
   }
 

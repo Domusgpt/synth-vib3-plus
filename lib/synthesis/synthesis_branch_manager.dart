@@ -278,6 +278,9 @@ class SynthesisBranchManager {
   // LFO rate (from visual Speed parameter)
   double _lfoRate = 1.0;      // Hz (modulation speed)
 
+  // Drive/saturation (from visual Saturation parameter)
+  double _drive = 0.0;        // 0-1 (maps to harmonic distortion)
+
   // Delay buffer for delay effect
   late List<double> _delayBuffer;
   int _delayWritePos = 0;
@@ -364,6 +367,12 @@ class SynthesisBranchManager {
     _lfoRate = rate.clamp(0.1, 20.0);
     // Also update vibrato rate for consistent modulation speed
     _vibratoRate = _lfoRate;
+  }
+
+  /// Set drive amount (0-1, from visual Saturation parameter)
+  /// Higher drive adds harmonic distortion/warmth
+  void setDrive(double amount) {
+    _drive = amount.clamp(0.0, 1.0);
   }
 
   // Getters for external access
@@ -614,6 +623,12 @@ class SynthesisBranchManager {
       // Apply envelope
       sample *= envelope;
 
+      // Apply drive/saturation (soft clipping for warmth)
+      if (_drive > 0.01) {
+        final driveGain = 1.0 + _drive * 3.0;
+        sample = math.atan(sample * driveGain) / math.atan(driveGain);
+      }
+
       // Apply brightness filter (simple high-shelf)
       sample = sample * (1.0 - _currentSoundFamily.brightness * 0.3);
 
@@ -661,6 +676,12 @@ class SynthesisBranchManager {
       // Apply envelope
       sample *= envelope;
 
+      // Apply drive/saturation (soft clipping for warmth)
+      if (_drive > 0.01) {
+        final driveGain = 1.0 + _drive * 3.0;
+        sample = math.atan(sample * driveGain) / math.atan(driveGain);
+      }
+
       buffer[i] = sample.clamp(-1.0, 1.0) * 0.5;
 
       _phase1 += carrierIncrement;
@@ -707,6 +728,12 @@ class SynthesisBranchManager {
 
       // Apply envelope
       sample *= envelope;
+
+      // Apply drive/saturation (soft clipping for warmth)
+      if (_drive > 0.01) {
+        final driveGain = 1.0 + _drive * 3.0;
+        sample = math.atan(sample * driveGain) / math.atan(driveGain);
+      }
 
       buffer[i] = sample.clamp(-1.0, 1.0) * 0.6;
 
