@@ -17,6 +17,7 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:fftea/fftea.dart';
+import '../vib3/core/vib3_engine.dart' show AudioReactivityData;
 
 class AudioAnalyzer {
   // FFT Configuration
@@ -194,6 +195,17 @@ class AudioFeatures {
   /// Compute overall energy (weighted average)
   double get totalEnergy =>
     (bassEnergy * 0.4) + (midEnergy * 0.35) + (highEnergy * 0.25);
+
+  /// Convert to VIB3+ AudioReactivityData format for native visualizer
+  AudioReactivityData toAudioReactivityData() {
+    return AudioReactivityData(
+      bassEnergy: bassEnergy,
+      midEnergy: midEnergy,
+      highEnergy: highEnergy,
+      rmsAmplitude: rms,
+      spectralCentroid: spectralCentroid,
+    );
+  }
 
   /// Normalize all features to 0-1 range
   AudioFeatures normalize({

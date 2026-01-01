@@ -7,6 +7,7 @@
  */
 
 import 'lib/synthesis/synthesis_branch_manager.dart';
+import 'lib/vib3/core/vib3_engine.dart' show VisualSystem;
 
 void main() {
   print('🎵 Synth-VIB3+ MUSICALLY TUNED Synthesis Branch Manager Test\n');

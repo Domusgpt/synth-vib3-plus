@@ -28,7 +28,8 @@ import '../../providers/ui_state_provider.dart';
 import '../../providers/visual_provider.dart';
 import '../../providers/audio_provider.dart';
 import '../../providers/tilt_sensor_provider.dart';
-import '../../visual/vib34d_widget.dart';
+import '../../vib3/widget/vib3_widget.dart';
+import '../../vib3/core/vib3_engine.dart' show VisualSystem;
 import '../../mapping/parameter_bridge.dart';
 
 class SynthMainScreen extends StatefulWidget {
@@ -161,13 +162,38 @@ class _SynthMainContentState extends State<_SynthMainContent> {
   }
 
   Widget _buildVisualizationLayer(BuildContext context) {
-    final visualProvider = Provider.of<VisualProvider>(context, listen: false);
-    final audioProvider = Provider.of<AudioProvider>(context, listen: false);
-
     return Positioned.fill(
-      child: VIB34DWidget(
-        visualProvider: visualProvider,
-        audioProvider: audioProvider,
+      child: Consumer2<VisualProvider, AudioProvider>(
+        builder: (context, visualProvider, audioProvider, child) {
+          // Use the shared VisualSystem enum directly
+          final visualSystem = visualProvider.currentSystemEnum;
+
+          // Get audio reactivity data using the clean conversion method
+          final audioData = audioProvider.currentFeatures?.toAudioReactivityData();
+
+          return VIB3Widget(
+            system: visualSystem,
+            geometryIndex: visualProvider.geometryIndex,
+            audioData: audioData,
+            audioReactivityStrength: 0.7,
+            demoMode: !audioProvider.isPlaying, // Demo when not playing
+            hueShift: visualProvider.hueShift,
+            glowIntensity: visualProvider.glowIntensity,
+            autoRotateSpeed: visualProvider.rotationSpeed * 0.3,
+            enableInteraction: true,
+            onStateChanged: (state) {
+              // Sync ALL 6 rotation planes back to provider for audio coupling
+              // 3D-like rotations → oscillator detuning
+              visualProvider.setRotationXY(state.rotationXY);
+              visualProvider.setRotationXZ(state.rotationXZ);
+              visualProvider.setRotationYZ(state.rotationYZ);
+              // 4D rotations → FM/RingMod depth, filter cutoff
+              visualProvider.setRotationXW(state.rotationXW);
+              visualProvider.setRotationYW(state.rotationYW);
+              visualProvider.setRotationZW(state.rotationZW);
+            },
+          );
+        },
       ),
     );
   }

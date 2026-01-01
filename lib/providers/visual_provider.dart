@@ -20,15 +20,22 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../ui/theme/synth_theme.dart';
+import '../vib3/core/vib3_engine.dart' show VisualSystem;
 
 class VisualProvider with ChangeNotifier {
-  // Current VIB34D system - default to 'faceted' (VIB3+ engine default)
-  String _currentSystem = 'faceted'; // 'faceted', 'quantum', 'holographic'
+  // Current VIB34D system - using shared enum for type safety
+  VisualSystem _currentSystemEnum = VisualSystem.faceted;
 
-  // 4D Rotation angles (radians, 0-2π)
-  double _rotationXW = 0.0;
-  double _rotationYW = 0.0;
-  double _rotationZW = 0.0;
+  // Full 6D Rotation angles (radians, 0-2π)
+  // 3D-like rotations (map to oscillator detuning per CLAUDE.md)
+  double _rotationXY = 0.0;  // → Oscillator 1 detune (±12 cents)
+  double _rotationXZ = 0.0;  // → Oscillator 2 detune (±12 cents)
+  double _rotationYZ = 0.0;  // → Combined detuning (±7 cents)
+
+  // 4D rotations (into 4th dimension)
+  double _rotationXW = 0.0;  // → FM depth (Hypersphere) / filter mod
+  double _rotationYW = 0.0;  // → Ring mod depth (Hypertetrahedron)
+  double _rotationZW = 0.0;  // → Filter cutoff modulation (±40%)
 
   // Rotation velocity (for advanced modulation)
   double _rotationVelocityXW = 0.0;
@@ -72,8 +79,14 @@ class VisualProvider with ChangeNotifier {
   }
 
   // Getters
-  String get currentSystem => _currentSystem;
-  String get currentSystemName => _currentSystem; // Alias for clarity
+  VisualSystem get currentSystemEnum => _currentSystemEnum;
+  String get currentSystem => _currentSystemEnum.name;  // For backward compat
+  String get currentSystemName => _currentSystemEnum.name;
+
+  // 6D Rotation getters
+  double get rotationXY => _rotationXY;
+  double get rotationXZ => _rotationXZ;
+  double get rotationYZ => _rotationYZ;
   double get rotationXW => _rotationXW;
   double get rotationYW => _rotationYW;
   double get rotationZW => _rotationZW;
@@ -97,12 +110,26 @@ class VisualProvider with ChangeNotifier {
     debugPrint('✅ WebView controller attached to VisualProvider');
   }
 
-  /// Switch between VIB34D systems
-  Future<void> switchSystem(String systemName) async {
-    if (_currentSystem == systemName) return;
+  /// Switch between VIB34D systems (accepts enum or string)
+  Future<void> switchSystem(dynamic system) async {
+    VisualSystem newSystem;
+    if (system is VisualSystem) {
+      newSystem = system;
+    } else if (system is String) {
+      newSystem = switch (system.toLowerCase()) {
+        'quantum' => VisualSystem.quantum,
+        'holographic' => VisualSystem.holographic,
+        _ => VisualSystem.faceted,
+      };
+    } else {
+      return;
+    }
 
-    debugPrint('🔄 Switching from $_currentSystem to $systemName...');
-    _currentSystem = systemName;
+    if (_currentSystemEnum == newSystem) return;
+
+    debugPrint('🔄 Switching from ${_currentSystemEnum.name} to ${newSystem.name}...');
+    _currentSystemEnum = newSystem;
+    final systemName = newSystem.name;
 
     // Update JavaScript system via WebView with proper canvas management
     // VIB3+ uses window.switchSystem(), but we need to ensure canvas is properly reset
@@ -258,6 +285,12 @@ class VisualProvider with ChangeNotifier {
   /// Get rotation angle for specific plane (for visual→audio modulation)
   double getRotationAngle(String plane) {
     switch (plane.toUpperCase()) {
+      case 'XY':
+        return _rotationXY;
+      case 'XZ':
+        return _rotationXZ;
+      case 'YZ':
+        return _rotationYZ;
       case 'XW':
         return _rotationXW;
       case 'YW':
@@ -267,6 +300,24 @@ class VisualProvider with ChangeNotifier {
       default:
         return 0.0;
     }
+  }
+
+  /// Set rotation XY (affects oscillator 1 detune)
+  void setRotationXY(double angle) {
+    _rotationXY = angle % (2.0 * math.pi);
+    notifyListeners();
+  }
+
+  /// Set rotation XZ (affects oscillator 2 detune)
+  void setRotationXZ(double angle) {
+    _rotationXZ = angle % (2.0 * math.pi);
+    notifyListeners();
+  }
+
+  /// Set rotation YZ (affects combined detuning)
+  void setRotationYZ(double angle) {
+    _rotationYZ = angle % (2.0 * math.pi);
+    notifyListeners();
   }
 
   /// Get rotation velocity (for advanced modulation)
@@ -438,7 +489,10 @@ class VisualProvider with ChangeNotifier {
   /// Get visual state for debugging/UI
   Map<String, dynamic> getVisualState() {
     return {
-      'system': _currentSystem,
+      'system': _currentSystemEnum.name,
+      'rotationXY': _rotationXY,
+      'rotationXZ': _rotationXZ,
+      'rotationYZ': _rotationYZ,
       'rotationXW': _rotationXW,
       'rotationYW': _rotationYW,
       'rotationZW': _rotationZW,
@@ -460,7 +514,7 @@ class VisualProvider with ChangeNotifier {
 
   /// Get system colors based on current system
   SystemColors get systemColors {
-    return SystemColors.fromName(_currentSystem);
+    return SystemColors.fromName(_currentSystemEnum.name);
   }
 
   /// Get current FPS

@@ -17,6 +17,7 @@ import 'dart:math' as math;
 import '../providers/audio_provider.dart';
 import '../providers/visual_provider.dart';
 import '../models/mapping_preset.dart';
+import '../synthesis/synthesis_branch_manager.dart' show PolytopeCor;
 import 'audio_to_visual.dart'; // For ParameterMapping and MappingCurve
 
 class VisualToAudioModulator {
@@ -35,46 +36,109 @@ class VisualToAudioModulator {
 
   void _initializeDefaultMappings() {
     _mappings = {
-      'rotationXW_to_osc1Freq': ParameterMapping(
-        sourceParam: 'rotationXW',
-        targetParam: 'oscillator1Frequency',
-        minRange: -2.0, // -2 semitones
-        maxRange: 2.0,  // +2 semitones
+      // === 3D-like rotations → Oscillator detuning (CLAUDE.md spec) ===
+      'rotationXY_to_osc1Detune': ParameterMapping(
+        sourceParam: 'rotationXY',
+        targetParam: 'oscillator1Detune',
+        minRange: -12.0, // -12 cents
+        maxRange: 12.0,  // +12 cents
         curve: MappingCurve.sinusoidal,
       ),
-      'rotationYW_to_osc2Freq': ParameterMapping(
+      'rotationXZ_to_osc2Detune': ParameterMapping(
+        sourceParam: 'rotationXZ',
+        targetParam: 'oscillator2Detune',
+        minRange: -12.0, // -12 cents
+        maxRange: 12.0,  // +12 cents
+        curve: MappingCurve.sinusoidal,
+      ),
+      'rotationYZ_to_combinedDetune': ParameterMapping(
+        sourceParam: 'rotationYZ',
+        targetParam: 'combinedDetune',
+        minRange: -7.0,  // -7 cents
+        maxRange: 7.0,   // +7 cents
+        curve: MappingCurve.sinusoidal,
+      ),
+
+      // === 4D rotations → Synthesis branch modulation ===
+      'rotationXW_to_fmDepth': ParameterMapping(
+        sourceParam: 'rotationXW',
+        targetParam: 'fmDepth',  // FM depth for Hypersphere core
+        minRange: 0.0,
+        maxRange: 2.0,  // 0-2 semitones
+        curve: MappingCurve.sinusoidal,
+      ),
+      'rotationYW_to_ringModDepth': ParameterMapping(
         sourceParam: 'rotationYW',
-        targetParam: 'oscillator2Frequency',
-        minRange: -2.0,
-        maxRange: 2.0,
+        targetParam: 'ringModDepth',  // Ring mod for Hypertetrahedron core
+        minRange: 0.0,
+        maxRange: 1.0,  // 0-100%
         curve: MappingCurve.sinusoidal,
       ),
       'rotationZW_to_filterCutoff': ParameterMapping(
         sourceParam: 'rotationZW',
         targetParam: 'filterCutoff',
-        minRange: 0.0,  // 0% modulation
-        maxRange: 0.8,  // 80% modulation (±40%)
+        minRange: -0.4,  // -40% modulation
+        maxRange: 0.4,   // +40% modulation
         curve: MappingCurve.sinusoidal,
       ),
-      'morphParameter_to_wavetable': ParameterMapping(
+
+      // === Visual parameters → Audio effects ===
+      'morphParameter_to_waveformCrossfade': ParameterMapping(
         sourceParam: 'morphParameter',
-        targetParam: 'wavetablePosition',
+        targetParam: 'waveformCrossfade',
         minRange: 0.0,
         maxRange: 1.0,
         curve: MappingCurve.linear,
       ),
-      'projectionDistance_to_reverb': ParameterMapping(
-        sourceParam: 'projectionDistance',
-        targetParam: 'reverbMix',
+      'chaosAmount_to_noiseInjection': ParameterMapping(
+        sourceParam: 'chaosAmount',
+        targetParam: 'noiseInjection',
         minRange: 0.0,
-        maxRange: 1.0,
+        maxRange: 0.3,  // 0-30%
         curve: MappingCurve.exponential,
       ),
+      'rotationSpeed_to_lfoRate': ParameterMapping(
+        sourceParam: 'rotationSpeed',
+        targetParam: 'lfoRate',
+        minRange: 0.1,   // 0.1 Hz
+        maxRange: 10.0,  // 10 Hz
+        curve: MappingCurve.logarithmic,
+      ),
+      'hueShift_to_spectralTilt': ParameterMapping(
+        sourceParam: 'hueShift',
+        targetParam: 'spectralTilt',
+        minRange: 0.0,
+        maxRange: 1.0,
+        curve: MappingCurve.linear,
+      ),
+      'glowIntensity_to_reverbMix': ParameterMapping(
+        sourceParam: 'glowIntensity',
+        targetParam: 'reverbMix',
+        minRange: 0.05,  // 5%
+        maxRange: 0.60,  // 60%
+        curve: MappingCurve.exponential,
+      ),
+      'glowIntensity_to_attackTime': ParameterMapping(
+        sourceParam: 'glowIntensity',
+        targetParam: 'attackTime',
+        minRange: 0.001, // 1ms
+        maxRange: 0.100, // 100ms
+        curve: MappingCurve.linear,
+      ),
+      'tessellationDensity_to_voiceCount': ParameterMapping(
+        sourceParam: 'tessellationDensity',
+        targetParam: 'voiceCount',
+        minRange: 1.0,
+        maxRange: 8.0,
+        curve: MappingCurve.linear,
+      ),
+
+      // === Legacy mappings (kept for backward compat) ===
       'layerDepth_to_delay': ParameterMapping(
         sourceParam: 'layerDepth',
         targetParam: 'delayTime',
-        minRange: 0.0,    // 0ms
-        maxRange: 500.0,  // 500ms
+        minRange: 0.0,     // 0ms
+        maxRange: 500.0,   // 500ms
         curve: MappingCurve.linear,
       ),
     };
@@ -127,10 +191,23 @@ class VisualToAudioModulator {
   /// Extract current visual state as normalized values (0-1)
   Map<String, double> _getVisualState() {
     return {
+      // All 6 rotation planes (normalized 0-1)
+      'rotationXY': _normalizeRotation(visualProvider.getRotationAngle('XY')),
+      'rotationXZ': _normalizeRotation(visualProvider.getRotationAngle('XZ')),
+      'rotationYZ': _normalizeRotation(visualProvider.getRotationAngle('YZ')),
       'rotationXW': _normalizeRotation(visualProvider.getRotationAngle('XW')),
       'rotationYW': _normalizeRotation(visualProvider.getRotationAngle('YW')),
       'rotationZW': _normalizeRotation(visualProvider.getRotationAngle('ZW')),
+
+      // Visual effect parameters
       'morphParameter': visualProvider.getMorphParameter(),
+      'chaosAmount': visualProvider.rgbSplitAmount / 10.0,  // Normalize 0-10 to 0-1
+      'rotationSpeed': visualProvider.rotationSpeed / 5.0,  // Normalize 0-5 to 0-1
+      'hueShift': visualProvider.hueShift / 360.0,          // Normalize 0-360 to 0-1
+      'glowIntensity': visualProvider.glowIntensity / 3.0,  // Normalize 0-3 to 0-1
+      'tessellationDensity': (visualProvider.tessellationDensity - 3) / 5.0,  // Normalize 3-8 to 0-1
+
+      // Holographic layer params
       'projectionDistance': _normalizeProjectionDistance(
         visualProvider.getProjectionDistance(),
       ),
@@ -169,25 +246,71 @@ class VisualToAudioModulator {
 
   void _updateAudioParameter(String paramName, double value) {
     final synth = audioProvider.synthesizerEngine;
+    final branchManager = audioProvider.synthesisBranchManager;
 
     switch (paramName) {
-      case 'oscillator1Frequency':
-        synth.modulateOscillator1Frequency(value);
+      // === Oscillator detuning (from 3D-like rotations) ===
+      case 'oscillator1Detune':
+        audioProvider.setOscillator1Detune(value);
         break;
-      case 'oscillator2Frequency':
-        synth.modulateOscillator2Frequency(value);
+      case 'oscillator2Detune':
+        audioProvider.setOscillator2Detune(value);
         break;
+      case 'combinedDetune':
+        // Apply to both oscillators at half the value
+        audioProvider.setOscillator1Detune(value * 0.5);
+        audioProvider.setOscillator2Detune(value * 0.5);
+        break;
+
+      // === Synthesis branch-specific modulation ===
+      case 'fmDepth':
+        // Only applies to Hypersphere core (geometries 8-15)
+        if (branchManager.currentCore == PolytopeCor.hypersphere) {
+          audioProvider.setFMDepth(value);
+        }
+        break;
+      case 'ringModDepth':
+        // Only applies to Hypertetrahedron core (geometries 16-23)
+        if (branchManager.currentCore == PolytopeCor.hypertetrahedron) {
+          audioProvider.setRingModMix(value);
+        }
+        break;
+
+      // === Filter modulation ===
       case 'filterCutoff':
         synth.modulateFilterCutoff(value);
         break;
-      case 'wavetablePosition':
-        synth.setWavetablePosition(value);
+
+      // === Waveform and envelope ===
+      case 'waveformCrossfade':
+        audioProvider.setMixBalance(value);  // Crossfade between oscillators
+        break;
+      case 'attackTime':
+        audioProvider.setEnvelopeAttack(value);
+        break;
+
+      // === Effects ===
+      case 'noiseInjection':
+        // Add noise to the synth output (TODO: implement in synth engine)
+        break;
+      case 'lfoRate':
+        // TODO: implement LFO rate in synth engine
+        break;
+      case 'spectralTilt':
+        // Map hue to filter brightness - high value = brighter
+        final brightness = 500 + value * 4000;  // 500-4500 Hz range
+        synth.filter.baseCutoff = brightness;
         break;
       case 'reverbMix':
         synth.setReverbMix(value);
         break;
       case 'delayTime':
         synth.setDelayTime(value);
+        break;
+
+      // === Voice management ===
+      case 'voiceCount':
+        audioProvider.setVoiceCount(value.round().clamp(1, 8));
         break;
     }
   }
