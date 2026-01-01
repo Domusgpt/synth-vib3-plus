@@ -44,11 +44,12 @@ class VisualProvider with ChangeNotifier {
 
   // Visual parameters
   double _rotationSpeed = 1.0;       // Base rotation speed multiplier
-  double _tessellationDensity = 8.0;   // Grid density (0.5-35)
+  double _tessellationDensity = 8.0;   // Grid density (2-30)
   double _vertexBrightness = 0.8;    // Vertex intensity (0-1)
   double _hueShift = 180.0;          // Color hue offset (0-360°)
   double _glowIntensity = 1.0;       // Bloom/glow amount (0-3)
   double _rgbSplitAmount = 0.0;      // Chromatic aberration (0-10)
+  double _saturation = 0.7;          // Color saturation (0-1)
 
   // Geometry state
   int _activeVertexCount = 120;      // Current vertex count
@@ -96,6 +97,7 @@ class VisualProvider with ChangeNotifier {
   double get hueShift => _hueShift;
   double get glowIntensity => _glowIntensity;
   double get rgbSplitAmount => _rgbSplitAmount;
+  double get saturation => _saturation;
   int get activeVertexCount => _activeVertexCount;
   double get morphParameter => _morphParameter;
   int get currentGeometry => _currentGeometry;
@@ -252,6 +254,14 @@ class VisualProvider with ChangeNotifier {
     final chaosValue = (amount / 10.0).clamp(0.0, 1.0);
     _updateJavaScriptParameter('chaos', chaosValue);
 
+    notifyListeners();
+  }
+
+  /// Set saturation (color intensity)
+  /// VIB3+ parameter: 'saturation'
+  void setSaturation(double sat) {
+    _saturation = sat.clamp(0.0, 1.0);
+    _updateJavaScriptParameter('saturation', _saturation);
     notifyListeners();
   }
 
@@ -502,6 +512,7 @@ class VisualProvider with ChangeNotifier {
       'hueShift': _hueShift,
       'glowIntensity': _glowIntensity,
       'rgbSplitAmount': _rgbSplitAmount,
+      'saturation': _saturation,
       'activeVertexCount': _activeVertexCount,
       'morphParameter': _morphParameter,
       'projectionDistance': _projectionDistance,

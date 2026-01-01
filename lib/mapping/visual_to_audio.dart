@@ -229,7 +229,7 @@ class VisualToAudioModulator {
       'hueShift': visualProvider.hueShift / 360.0,            // Normalize 0-360 to 0-1 (hue)
       'glowIntensity': visualProvider.glowIntensity / 3.0,    // Normalize 0-3 to 0-1 (intensity)
       'tessellationDensity': (visualProvider.tessellationDensity - 2.0) / 28.0,  // Normalize 2-30 to 0-1 (density)
-      'saturation': 0.7,  // TODO: Add saturation to VisualProvider (default 0.7)
+      'saturation': visualProvider.saturation,  // Now using VisualProvider.saturation
       'vertexBrightness': visualProvider.vertexBrightness,    // Already 0-1
       'rgbSplitAmount': visualProvider.rgbSplitAmount / 10.0, // Normalize 0-10 to 0-1
 
@@ -317,10 +317,10 @@ class VisualToAudioModulator {
 
       // === Effects ===
       case 'noiseInjection':
-        // Add noise to the synth output (TODO: implement in synth engine)
+        synth.setNoiseLevel(value);
         break;
       case 'lfoRate':
-        // TODO: implement LFO rate in synth engine
+        synth.setLFORate(value);
         break;
       case 'spectralTilt':
         // Map hue to filter brightness - high value = brighter
@@ -348,10 +348,7 @@ class VisualToAudioModulator {
         synth.mixBalance = value;
         break;
       case 'stereoWidth':
-        // TODO: Add stereoWidth to SynthesizerEngine
-        // For now, modulate detune to create pseudo-stereo width
-        audioProvider.setOscillator1Detune(value * 5.0);
-        audioProvider.setOscillator2Detune(-value * 5.0);
+        synth.setStereoWidth(value);
         break;
     }
   }
