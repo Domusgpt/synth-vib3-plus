@@ -168,8 +168,8 @@ class _SynthMainContentState extends State<_SynthMainContent> {
           // Use the shared VisualSystem enum directly
           final visualSystem = visualProvider.currentSystemEnum;
 
-          // Get audio reactivity data using the clean conversion method
-          final audioData = audioProvider.currentFeatures?.toAudioReactivityData();
+          // Audio features already in native VIB3 format (no conversion needed)
+          final audioData = audioProvider.currentFeatures;
 
           return VIB3Widget(
             system: visualSystem,

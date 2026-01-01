@@ -87,7 +87,6 @@ export 'effects/post_processing.dart';
 export 'audio/audio_reactive_modulator.dart';
 
 // Widgets
-export 'vib3_native_widget.dart';
 export 'widget/vib3_widget.dart';
 
 // Examples

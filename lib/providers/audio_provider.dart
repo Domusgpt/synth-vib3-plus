@@ -23,7 +23,7 @@ import 'package:flutter_pcm_sound/flutter_pcm_sound.dart';
 import '../audio/audio_analyzer.dart';
 import '../audio/synthesizer_engine.dart';
 import '../synthesis/synthesis_branch_manager.dart';
-import '../vib3/core/vib3_engine.dart' show VisualSystem;
+import '../vib3/core/vib3_engine.dart' show VisualSystem, AudioReactivityData;
 
 class AudioProvider with ChangeNotifier {
   // Core audio systems
@@ -43,8 +43,8 @@ class AudioProvider with ChangeNotifier {
   final int bufferSize = 512;
   final double sampleRate = 44100.0;
 
-  // Current audio features (from analysis)
-  AudioFeatures? _currentFeatures;
+  // Current audio features (native VIB3 format)
+  AudioReactivityData? _currentFeatures;
 
   // Synthesizer state
   int _currentNote = 60; // Middle C
@@ -135,7 +135,7 @@ class AudioProvider with ChangeNotifier {
   SynthesizerEngine get synth => synthesizerEngine;
   AudioAnalyzer get analyzer => audioAnalyzer;
   Float32List? get currentBuffer => _currentBuffer;
-  AudioFeatures? get currentFeatures => _currentFeatures;
+  AudioReactivityData? get currentFeatures => _currentFeatures;
   int get currentNote => _currentNote;
   bool get isPlaying => _isPlaying;
   double get masterVolume => _masterVolume;
@@ -409,8 +409,8 @@ class AudioProvider with ChangeNotifier {
   double getMidEnergy() => _currentFeatures?.midEnergy ?? 0.0;
   double getHighEnergy() => _currentFeatures?.highEnergy ?? 0.0;
   double getSpectralCentroid() => _currentFeatures?.spectralCentroid ?? 0.0;
-  double getRMS() => _currentFeatures?.rms ?? 0.0;
-  double getStereoWidth() => _currentFeatures?.stereoWidth ?? 0.0;
+  double getRMS() => _currentFeatures?.rmsAmplitude ?? 0.0;
+  double getStereoWidth() => 0.5; // Stereo width not in native format
 
   /// Get performance metrics
   Map<String, dynamic> getMetrics() {

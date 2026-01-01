@@ -22,11 +22,15 @@ enum BaseGeometry {
 }
 
 /// Core variants (3 types) - determines synthesis branch
+/// Also known as PolytopeCor (Polytope Core) in synthesis system
 enum CoreVariant {
   base,             // 0: Direct synthesis (geometries 0-7)
   hypersphere,      // 1: FM synthesis (geometries 8-15)
   hypertetrahedron, // 2: Ring modulation (geometries 16-23)
 }
+
+/// Alias for synthesis_branch_manager compatibility
+typedef PolytopeCor = CoreVariant;
 
 /// Complete geometry metadata
 class GeometryMetadata {

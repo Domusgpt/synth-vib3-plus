@@ -22,25 +22,11 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 import '../vib3/core/vib3_engine.dart' show VisualSystem;
+import '../vib3/geometry/geometry_library.dart' show PolytopeCor, BaseGeometry;
 
-/// Polytope core types (determines synthesis branch)
-enum PolytopeCor {
-  base,              // Direct synthesis (geometries 0-7)
-  hypersphere,       // FM synthesis (geometries 8-15)
-  hypertetrahedron,  // Ring modulation (geometries 16-23)
-}
-
-/// Base geometry types (determines voice character)
-enum BaseGeometry {
-  tetrahedron,  // 0: Fundamental - pure tone, minimal complexity
-  hypercube,    // 1: Complex - rich harmonics, detuned chorusing
-  sphere,       // 2: Smooth - filtered warm tones
-  torus,        // 3: Cyclic - rhythmic modulation
-  kleinBottle,  // 4: Twisted - stereo movement, spatial
-  fractal,      // 5: Recursive - evolving complexity
-  wave,         // 6: Flowing - sweeping evolving timbres
-  crystal,      // 7: Crystalline - bright percussive attacks
-}
+// PolytopeCor and BaseGeometry imported from geometry_library.dart (shared types)
+// PolytopeCor: base, hypersphere, hypertetrahedron (synthesis branches)
+// BaseGeometry: tetrahedron, hypercube, sphere, torus, kleinBottle, fractal, wave, crystal
 
 /// Sound family characteristics (from visual system) - MUSICALLY TUNED
 class SoundFamily {

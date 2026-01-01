@@ -17,7 +17,7 @@ import 'dart:math' as math;
 import '../providers/audio_provider.dart';
 import '../providers/visual_provider.dart';
 import '../models/mapping_preset.dart';
-import '../synthesis/synthesis_branch_manager.dart' show PolytopeCor;
+import '../vib3/geometry/geometry_library.dart' show PolytopeCor;
 import 'audio_to_visual.dart'; // For ParameterMapping and MappingCurve
 
 class VisualToAudioModulator {

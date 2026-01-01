@@ -100,17 +100,16 @@ class AudioAnalyzer {
     return count > 0 ? energy / count : 0.0;
   }
 
-  /// Extract all frequency band energies at once
-  AudioFeatures extractFeatures(Float32List audioBuffer) {
+  /// Extract audio features directly as AudioReactivityData (native VIB3 format)
+  AudioReactivityData extractFeatures(Float32List audioBuffer) {
     final magnitudes = computeFFT(audioBuffer);
 
-    return AudioFeatures(
+    return AudioReactivityData(
       bassEnergy: getBandEnergy(magnitudes, bassMin, bassMax),
       midEnergy: getBandEnergy(magnitudes, midMin, midMax),
       highEnergy: getBandEnergy(magnitudes, highMin, highMax),
       spectralCentroid: computeSpectralCentroid(magnitudes),
-      rms: computeRMS(audioBuffer),
-      stereoWidth: 0.5, // Placeholder - requires stereo buffer
+      rmsAmplitude: computeRMS(audioBuffer),
     );
   }
 
@@ -174,64 +173,4 @@ class AudioAnalyzer {
   }
 }
 
-/// Audio features extracted from analysis
-class AudioFeatures {
-  final double bassEnergy;      // 20-250 Hz
-  final double midEnergy;       // 250-2000 Hz
-  final double highEnergy;      // 2000-8000 Hz
-  final double spectralCentroid; // Brightness (Hz)
-  final double rms;             // Amplitude
-  final double stereoWidth;     // Stereo spread (0-1)
-
-  const AudioFeatures({
-    required this.bassEnergy,
-    required this.midEnergy,
-    required this.highEnergy,
-    required this.spectralCentroid,
-    required this.rms,
-    required this.stereoWidth,
-  });
-
-  /// Compute overall energy (weighted average)
-  double get totalEnergy =>
-    (bassEnergy * 0.4) + (midEnergy * 0.35) + (highEnergy * 0.25);
-
-  /// Convert to VIB3+ AudioReactivityData format for native visualizer
-  AudioReactivityData toAudioReactivityData() {
-    return AudioReactivityData(
-      bassEnergy: bassEnergy,
-      midEnergy: midEnergy,
-      highEnergy: highEnergy,
-      rmsAmplitude: rms,
-      spectralCentroid: spectralCentroid,
-    );
-  }
-
-  /// Normalize all features to 0-1 range
-  AudioFeatures normalize({
-    double bassMax = 2.0,
-    double midMax = 1.5,
-    double highMax = 1.0,
-    double centroidMax = 8000.0,
-    double rmsMax = 0.5,
-  }) {
-    return AudioFeatures(
-      bassEnergy: (bassEnergy / bassMax).clamp(0.0, 1.0),
-      midEnergy: (midEnergy / midMax).clamp(0.0, 1.0),
-      highEnergy: (highEnergy / highMax).clamp(0.0, 1.0),
-      spectralCentroid: (spectralCentroid / centroidMax).clamp(0.0, 1.0),
-      rms: (rms / rmsMax).clamp(0.0, 1.0),
-      stereoWidth: stereoWidth.clamp(0.0, 1.0),
-    );
-  }
-
-  @override
-  String toString() {
-    return 'AudioFeatures(bass: ${bassEnergy.toStringAsFixed(3)}, '
-           'mid: ${midEnergy.toStringAsFixed(3)}, '
-           'high: ${highEnergy.toStringAsFixed(3)}, '
-           'centroid: ${spectralCentroid.toStringAsFixed(1)} Hz, '
-           'rms: ${rms.toStringAsFixed(3)}, '
-           'width: ${stereoWidth.toStringAsFixed(3)})';
-  }
-}
+// AudioFeatures class removed - using native AudioReactivityData directly
