@@ -133,6 +133,29 @@ class VisualToAudioModulator {
         curve: MappingCurve.linear,
       ),
 
+      // === Additional visual parameters ===
+      'saturation_to_filterResonance': ParameterMapping(
+        sourceParam: 'saturation',
+        targetParam: 'filterResonance',
+        minRange: 0.1,   // Low resonance
+        maxRange: 0.9,   // High resonance (not self-oscillating)
+        curve: MappingCurve.exponential,
+      ),
+      'vertexBrightness_to_harmonicIntensity': ParameterMapping(
+        sourceParam: 'vertexBrightness',
+        targetParam: 'harmonicIntensity',
+        minRange: 0.3,   // Subdued harmonics
+        maxRange: 1.0,   // Full harmonic content
+        curve: MappingCurve.linear,
+      ),
+      'rgbSplit_to_stereoWidth': ParameterMapping(
+        sourceParam: 'rgbSplitAmount',
+        targetParam: 'stereoWidth',
+        minRange: 0.0,   // Mono
+        maxRange: 1.0,   // Full stereo spread
+        curve: MappingCurve.linear,
+      ),
+
       // === Legacy mappings (kept for backward compat) ===
       'layerDepth_to_delay': ParameterMapping(
         sourceParam: 'layerDepth',
@@ -191,7 +214,7 @@ class VisualToAudioModulator {
   /// Extract current visual state as normalized values (0-1)
   Map<String, double> _getVisualState() {
     return {
-      // All 6 rotation planes (normalized 0-1)
+      // === All 6 rotation planes (normalized 0-1) ===
       'rotationXY': _normalizeRotation(visualProvider.getRotationAngle('XY')),
       'rotationXZ': _normalizeRotation(visualProvider.getRotationAngle('XZ')),
       'rotationYZ': _normalizeRotation(visualProvider.getRotationAngle('YZ')),
@@ -199,15 +222,18 @@ class VisualToAudioModulator {
       'rotationYW': _normalizeRotation(visualProvider.getRotationAngle('YW')),
       'rotationZW': _normalizeRotation(visualProvider.getRotationAngle('ZW')),
 
-      // Visual effect parameters
+      // === Visual slider parameters ===
       'morphParameter': visualProvider.getMorphParameter(),
-      'chaosAmount': visualProvider.rgbSplitAmount / 10.0,  // Normalize 0-10 to 0-1
-      'rotationSpeed': visualProvider.rotationSpeed / 5.0,  // Normalize 0-5 to 0-1
-      'hueShift': visualProvider.hueShift / 360.0,          // Normalize 0-360 to 0-1
-      'glowIntensity': visualProvider.glowIntensity / 3.0,  // Normalize 0-3 to 0-1
-      'tessellationDensity': (visualProvider.tessellationDensity - 3) / 5.0,  // Normalize 3-8 to 0-1
+      'chaosAmount': visualProvider.rgbSplitAmount / 10.0,    // Normalize 0-10 to 0-1 (chaos)
+      'rotationSpeed': visualProvider.rotationSpeed / 5.0,    // Normalize 0-5 to 0-1 (speed)
+      'hueShift': visualProvider.hueShift / 360.0,            // Normalize 0-360 to 0-1 (hue)
+      'glowIntensity': visualProvider.glowIntensity / 3.0,    // Normalize 0-3 to 0-1 (intensity)
+      'tessellationDensity': (visualProvider.tessellationDensity - 3) / 5.0,  // Normalize 3-8 to 0-1 (density)
+      'saturation': 0.7,  // TODO: Add saturation to VisualProvider (default 0.7)
+      'vertexBrightness': visualProvider.vertexBrightness,    // Already 0-1
+      'rgbSplitAmount': visualProvider.rgbSplitAmount / 10.0, // Normalize 0-10 to 0-1
 
-      // Holographic layer params
+      // === Holographic layer params ===
       'projectionDistance': _normalizeProjectionDistance(
         visualProvider.getProjectionDistance(),
       ),
@@ -311,6 +337,21 @@ class VisualToAudioModulator {
       // === Voice management ===
       case 'voiceCount':
         audioProvider.setVoiceCount(value.round().clamp(1, 8));
+        break;
+
+      // === Additional parameters ===
+      case 'filterResonance':
+        synth.filter.resonance = value.clamp(0.1, 0.9);
+        break;
+      case 'harmonicIntensity':
+        // Modulate via mix balance (higher = more complex oscillator)
+        synth.mixBalance = value;
+        break;
+      case 'stereoWidth':
+        // TODO: Add stereoWidth to SynthesizerEngine
+        // For now, modulate detune to create pseudo-stereo width
+        audioProvider.setOscillator1Detune(value * 5.0);
+        audioProvider.setOscillator2Detune(-value * 5.0);
         break;
     }
   }
