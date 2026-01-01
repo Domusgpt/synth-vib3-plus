@@ -228,7 +228,7 @@ class VisualToAudioModulator {
       'rotationSpeed': visualProvider.rotationSpeed / 5.0,    // Normalize 0-5 to 0-1 (speed)
       'hueShift': visualProvider.hueShift / 360.0,            // Normalize 0-360 to 0-1 (hue)
       'glowIntensity': visualProvider.glowIntensity / 3.0,    // Normalize 0-3 to 0-1 (intensity)
-      'tessellationDensity': (visualProvider.tessellationDensity - 3) / 5.0,  // Normalize 3-8 to 0-1 (density)
+      'tessellationDensity': (visualProvider.tessellationDensity - 2.0) / 28.0,  // Normalize 2-30 to 0-1 (density)
       'saturation': 0.7,  // TODO: Add saturation to VisualProvider (default 0.7)
       'vertexBrightness': visualProvider.vertexBrightness,    // Already 0-1
       'rgbSplitAmount': visualProvider.rgbSplitAmount / 10.0, // Normalize 0-10 to 0-1

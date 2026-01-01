@@ -44,7 +44,7 @@ class VisualProvider with ChangeNotifier {
 
   // Visual parameters
   double _rotationSpeed = 1.0;       // Base rotation speed multiplier
-  int _tessellationDensity = 5;      // Subdivision level (3-8)
+  double _tessellationDensity = 8.0;   // Grid density (0.5-35)
   double _vertexBrightness = 0.8;    // Vertex intensity (0-1)
   double _hueShift = 180.0;          // Color hue offset (0-360°)
   double _glowIntensity = 1.0;       // Bloom/glow amount (0-3)
@@ -91,7 +91,7 @@ class VisualProvider with ChangeNotifier {
   double get rotationYW => _rotationYW;
   double get rotationZW => _rotationZW;
   double get rotationSpeed => _rotationSpeed;
-  int get tessellationDensity => _tessellationDensity;
+  double get tessellationDensity => _tessellationDensity;
   double get vertexBrightness => _vertexBrightness;
   double get hueShift => _hueShift;
   double get glowIntensity => _glowIntensity;
@@ -198,10 +198,10 @@ class VisualProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Set tessellation density (from audio modulation)
-  /// VIB3+ parameter: 'gridDensity'
-  void setTessellationDensity(int density) {
-    _tessellationDensity = density.clamp(3, 10);
+  /// Set tessellation/grid density (from audio modulation)
+  /// VIB3+ parameter: 'gridDensity' - Range: 2-30
+  void setTessellationDensity(double density) {
+    _tessellationDensity = density.clamp(2.0, 30.0);
 
     // Update JavaScript - VIB3+ uses 'gridDensity' not 'tessellationDensity'
     _updateJavaScriptParameter('gridDensity', _tessellationDensity);

@@ -107,7 +107,7 @@ class AudioToVisualModulator {
         visualProvider.setRotationSpeed(value);
         break;
       case 'tessellationDensity':
-        visualProvider.setTessellationDensity(value.round());
+        visualProvider.setTessellationDensity(value);
         break;
       case 'vertexBrightness':
         visualProvider.setVertexBrightness(value);
