@@ -236,35 +236,34 @@ class _VIB3WidgetState extends State<VIB3Widget>
     widget.onStateChanged?.call(_state);
   }
 
-  void _handlePanStart(DragStartDetails details) {
-    _lastPanPosition = details.localPosition;
+  void _handleScaleStart(ScaleStartDetails details) {
+    _lastPanPosition = details.localFocalPoint;
   }
 
-  void _handlePanUpdate(DragUpdateDetails details) {
-    if (_lastPanPosition == null) return;
+  void _handleScaleUpdate(ScaleUpdateDetails details) {
+    // Single-finger drag: map to XY/XZ rotation
+    if (_lastPanPosition != null) {
+      final delta = details.localFocalPoint - _lastPanPosition!;
+      _lastPanPosition = details.localFocalPoint;
 
-    final delta = details.localPosition - _lastPanPosition!;
-    _lastPanPosition = details.localPosition;
+      // Map horizontal drag to XY rotation, vertical to XZ rotation
+      _interactionRotationXY += delta.dx * 0.01;
+      _interactionRotationXZ += delta.dy * 0.01;
+    }
 
-    // Map horizontal drag to XY rotation, vertical to XZ rotation
-    _interactionRotationXY += delta.dx * 0.01;
-    _interactionRotationXZ += delta.dy * 0.01;
+    // Two-finger rotation for 4D rotations
+    if (details.pointerCount >= 2) {
+      _interactionRotationXW += details.rotation * 0.1;
+    }
   }
 
-  void _handlePanEnd(DragEndDetails details) {
+  void _handleScaleEnd(ScaleEndDetails details) {
     _lastPanPosition = null;
 
     // Add momentum from velocity
     final velocity = details.velocity.pixelsPerSecond;
     _interactionRotationXY += velocity.dx * 0.0001;
     _interactionRotationXZ += velocity.dy * 0.0001;
-  }
-
-  void _handleScaleUpdate(ScaleUpdateDetails details) {
-    // Two-finger rotation for 4D rotations
-    if (details.pointerCount >= 2) {
-      _interactionRotationXW += details.rotation * 0.1;
-    }
   }
 
   @override
@@ -284,13 +283,12 @@ class _VIB3WidgetState extends State<VIB3Widget>
       size: Size.infinite,
     );
 
-    // Add interaction gestures
+    // Add interaction gestures (scale handles both single-finger drag and pinch)
     if (widget.enableInteraction) {
       painter = GestureDetector(
-        onPanStart: _handlePanStart,
-        onPanUpdate: _handlePanUpdate,
-        onPanEnd: _handlePanEnd,
+        onScaleStart: _handleScaleStart,
         onScaleUpdate: _handleScaleUpdate,
+        onScaleEnd: _handleScaleEnd,
         child: painter,
       );
     }
