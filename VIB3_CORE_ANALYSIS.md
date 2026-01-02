@@ -338,14 +338,24 @@ The 3 visual systems define the sonic character - when user selects a visual sys
 | Morph gesture | Waveform Blend |
 | Shake | Noise Level |
 
-**Audio Reactivity (FFT-based, visual responds to sound output):**
-| Audio Feature | Visual Response (internal) |
-|--------------|---------------------------|
-| Bass (20-250 Hz) | Rotation speed boost |
-| Mid (250-2k Hz) | Grid density pulse |
-| High (2k-8k Hz) | Vertex brightness |
-| Spectral centroid | Hue shift |
-| RMS amplitude | Glow intensity |
+**Audio Reactivity (FFT-based, modulates +/- from base state):**
+
+> **Key concept:** Synth settings define the BASE visual state. Audio reactivity then modulates +/- around that base in real-time.
+
+| Audio Feature | Modulation Effect | Range |
+|--------------|-------------------|-------|
+| Bass (20-250 Hz) | Rotation speed +/- | ±0.5x base |
+| Mid (250-2k Hz) | Grid density +/- | ±20 from base |
+| High (2k-8k Hz) | Vertex brightness +/- | ±0.3 from base |
+| Spectral centroid | Hue shift +/- | ±30° from base |
+| RMS amplitude | Glow intensity +/- | ±0.5 from base |
+
+```
+Example:
+  User sets Filter Cutoff = 60%  →  Base ZW Rotation = 0.3
+  Audio bass spike              →  ZW Rotation = 0.3 + 0.15 = 0.45
+  Audio bass drops              →  ZW Rotation returns to 0.3
+```
 
 ---
 
