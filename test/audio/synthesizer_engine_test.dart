@@ -310,7 +310,7 @@ void main() {
       for (final sample in buffer) {
         expect(sample, inInclusiveRange(-1.0, 1.0));
         expect(sample, isNotNaN);
-        expect(sample, isFinite);
+        expect(sample.isFinite, isTrue);
       }
     });
 

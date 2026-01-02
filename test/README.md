@@ -299,7 +299,7 @@ test('All 72 system+geometry combinations produce valid modulation', () async {
       // Each of 3 × 24 = 72 combinations tested
       await visualProvider.switchSystem(system);
       await visualProvider.setGeometry(geom);
-      modulator.updateFromVisualState();
+      modulator.updateFromVisuals();
 
       expect(visualProvider.currentSystemEnum, equals(system));
       expect(visualProvider.geometryIndex, equals(geom));
@@ -485,7 +485,7 @@ test('New feature works correctly', () {
 // In test/integration/parameter_bridge_test.dart
 test('Visual parameter X affects audio feature Y', () {
   visualProvider.setParameterX(0.5);
-  modulator.updateFromVisualState();
+  modulator.updateFromVisuals();
   // Verify audio state changed
 });
 ```

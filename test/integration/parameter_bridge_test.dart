@@ -173,7 +173,7 @@ void main() {
     test('XY rotation modulates oscillator 1 detune', () {
       visualProvider.setRotationXY(3.14159); // π radians
 
-      modulator.updateFromVisualState();
+      modulator.updateFromVisuals();
 
       // Verify update occurred without error
       expect(audioProvider, isNotNull);
@@ -182,7 +182,7 @@ void main() {
     test('Morph parameter affects waveform crossfade', () {
       visualProvider.setMorphParameter(0.5);
 
-      modulator.updateFromVisualState();
+      modulator.updateFromVisuals();
 
       // Just verify no errors
       expect(visualProvider.morphParameter, equals(0.5));
@@ -191,7 +191,7 @@ void main() {
     test('Chaos affects noise injection', () {
       visualProvider.setRGBSplitAmount(5.0); // Maps to chaos
 
-      modulator.updateFromVisualState();
+      modulator.updateFromVisuals();
 
       // Verify update processed
       expect(visualProvider.rgbSplitAmount, equals(5.0));
@@ -200,7 +200,7 @@ void main() {
     test('Rotation speed affects LFO rate', () {
       visualProvider.setRotationSpeed(3.0);
 
-      modulator.updateFromVisualState();
+      modulator.updateFromVisuals();
 
       expect(visualProvider.rotationSpeed, equals(3.0));
     });
@@ -213,7 +213,7 @@ void main() {
       visualProvider.setRotationYW(0.5);
       visualProvider.setRotationZW(0.6);
 
-      modulator.updateFromVisualState();
+      modulator.updateFromVisuals();
 
       // Verify all rotations are read
       expect(visualProvider.getRotationAngle('XY'), closeTo(0.1, 0.001));
@@ -369,7 +369,7 @@ void main() {
           await visualProvider.setGeometry(geom);
 
           // Apply modulation
-          modulator.updateFromVisualState();
+          modulator.updateFromVisuals();
 
           // Verify no errors and valid state
           expect(visualProvider.currentSystemEnum, equals(system));
