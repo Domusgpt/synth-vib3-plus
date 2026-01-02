@@ -8,14 +8,15 @@ This document provides a comprehensive analysis of the VIB3-CORE visualization s
 
 ## 1. SYSTEM OVERVIEW
 
-VIB3-CORE is a browser-based WebGL visualization platform with 4 distinct rendering systems:
+VIB3-CORE is a browser-based WebGL visualization platform with **3 core visual systems**:
 
 | System | Primary Effect | Key Characteristic |
 |--------|---------------|-------------------|
-| **Faceted** | Geometric edges | Dual-layer edge/fill, sharp facets |
 | **Quantum** | Extreme color layers | 5 canvas layers, RGB separation |
+| **Faceted** | Geometric edges | Dual-layer edge/fill, sharp facets |
 | **Holographic** | Multi-layer depth | Chromatic aberration, interference patterns |
-| **Polychora** | 4D polytopes | Glassmorphic rendering, 6 regular polytopes |
+
+> **Note:** Polychora exists as a placeholder/experimental mode in the codebase but is not a production system. Implementation focuses on the 3 core systems above.
 
 ---
 
@@ -213,23 +214,13 @@ float edge = 1.0 - smoothstep(0.0, edgeWidth, abs(dist));
 float fill = smoothstep(0.1, 0.0, dist) * 0.3;  // Interior fill
 ```
 
-### 5.4 Polychora System
+### 5.4 Polychora System (PLACEHOLDER - NOT FOR IMPLEMENTATION)
 
-**6 Regular 4D Polytopes:**
-| Polytope | Cells | Description |
-|----------|-------|-------------|
-| 5-Cell | 5 tetrahedra | 4D simplex |
-| Tesseract | 8 cubes | 4D hypercube |
-| 16-Cell | 16 tetrahedra | 4D orthoplex |
-| 24-Cell | 24 octahedra | Unique to 4D |
-| 600-Cell | 600 tetrahedra | Icosahedral symmetry |
-| 120-Cell | 120 dodecahedra | Largest regular |
+> **Status:** Polychora is a placeholder/experimental mode. Do NOT implement.
+> Focus implementation on the 3 core systems: Quantum, Faceted, Holographic.
 
-**Glassmorphic Rendering:**
-- 5-layer compositing (background→accent)
-- Refraction index modulation
-- Procedural noise amplitude
-- Flow direction vector field
+The Polychora code in VIB3-CORE contains experimental 4D polytope rendering
+but is not part of the production visualization system.
 
 ---
 
@@ -362,11 +353,12 @@ lib/
 │   └── parameter_controller.dart    # Parameter updates
 │
 shaders/
-├── vib3_polychora.frag              # Polychora system shader
 ├── vib3_quantum.frag                # Quantum system shader
-├── vib3_holographic.frag            # Holographic system shader
-└── vib3_faceted.frag                # Faceted system shader
+├── vib3_faceted.frag                # Faceted system shader
+└── vib3_holographic.frag            # Holographic system shader
 ```
+
+> **Note:** Only 3 shaders needed - one per visual system (Quantum, Faceted, Holographic).
 
 ---
 
@@ -377,24 +369,24 @@ shaders/
 2. Port base 4D rotation matrices to GLSL
 3. Port 8 base SDF geometry functions
 4. Implement 4D→2D projection
+5. Set up shader uniform passing from Dart
 
-### Phase 2: Visual Systems
-1. Port Faceted system (simplest - edge/fill only)
-2. Port Polychora system (6 polytopes)
-3. Port Quantum system (5-layer compositing)
-4. Port Holographic system (chromatic effects)
+### Phase 2: Visual Systems (3 Systems)
+1. **Quantum** - 5-layer compositing, extreme RGB separation
+2. **Faceted** - Dual-layer edge/fill rendering
+3. **Holographic** - Chromatic aberration, depth layers, interference
 
 ### Phase 3: Parameter Integration
 1. Connect VIB3EngineState to shader uniforms
-2. Implement audio reactivity mapping
-3. Add gesture controls for rotation
-4. Sync with existing AudioProvider
+2. Implement audio reactivity mapping (bass→grid, mid→morph, high→hue)
+3. Add gesture controls for 6D rotation
+4. Sync with existing AudioProvider/VisualProvider
 
 ### Phase 4: Polish
-1. Performance optimization (mobile)
-2. Smooth system transitions
+1. Performance optimization (mobile GPU)
+2. Smooth system transitions with crossfade
 3. Preset saving/loading
-4. UI integration
+4. UI integration with existing controls
 
 ---
 
