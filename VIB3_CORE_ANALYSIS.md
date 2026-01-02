@@ -224,9 +224,134 @@ but is not part of the production visualization system.
 
 ---
 
-## 6. PARAMETER SYSTEM
+## 6. AUDIO-VISUAL SONIC PARITY
 
-### 6.1 Complete Parameter Reference
+**CRITICAL:** Every visual control is PAIRED to an audio parameter. User can directly manipulate the visualizer, and those changes affect the synthesizer. Additionally, audio output drives visual reactivity via FFT analysis.
+
+### Two-Way Coupling:
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                      BIDIRECTIONAL FLOW                           │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│   1. VISUAL CONTROL → AUDIO (User touches/gestures visualizer)   │
+│      ───────────────────────────────────────────────────────     │
+│      Rotate geometry → Changes oscillator detune                  │
+│      Pinch/zoom → Changes filter cutoff                          │
+│      Swipe → Changes FM/Ring mod depth                           │
+│      Morph gesture → Changes waveform blend                      │
+│                                                                   │
+│   2. AUDIO OUTPUT → VISUAL REACTIVITY (FFT-based, separate)      │
+│      ───────────────────────────────────────────────────────     │
+│      Bass energy → Rotation speed boost                          │
+│      Mid energy → Grid density modulation                        │
+│      High energy → Vertex brightness                             │
+│      Spectral centroid → Hue shift                               │
+│      RMS amplitude → Glow intensity                              │
+│                                                                   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+The 3 visual systems define the sonic character - when user selects a visual system, they're selecting a synthesis preset.
+
+### 6.1 Visual System → Sound Family Mapping
+
+| Visual System | Synthesis Type | Waveform | Filter Q | Reverb |
+|--------------|----------------|----------|----------|--------|
+| **Quantum** | Pure harmonic | Sine waves | High (8-12) | Low |
+| **Faceted** | Geometric hybrid | Square/Triangle | Moderate (4-8) | Medium |
+| **Holographic** | Spectral rich | Sawtooth/Wavetable | Low (2-4) | High |
+
+### 6.2 Geometry → Synthesis Branch Mapping
+
+| Core (geom ÷ 8) | Synthesis Branch | Audio Effect |
+|-----------------|------------------|--------------|
+| 0 (geom 0-7) | Direct synthesis | Filtering only |
+| 1 (geom 8-15) | FM synthesis | Frequency modulation |
+| 2 (geom 16-23) | Ring modulation | Amplitude modulation |
+
+### 6.3 Visual Parameter → Audio Parameter Coupling
+
+**Rotation → Oscillator/Modulation:**
+| Visual Rotation | Audio Effect |
+|-----------------|--------------|
+| XY Rotation | Oscillator 1 detune (±12 cents) |
+| XZ Rotation | Oscillator 2 detune (±12 cents) |
+| YZ Rotation | Combined detuning (±7 cents) |
+| XW Rotation | FM depth (0-2 semitones) - Hypersphere core only |
+| YW Rotation | Ring mod depth (0-100%) - Hypertetrahedron core only |
+| ZW Rotation | Filter cutoff modulation (±40%) |
+
+**Other Visual → Audio:**
+| Visual Parameter | Audio Effect |
+|------------------|--------------|
+| Morph | Waveform crossfade (between base shapes) |
+| Chaos | Noise injection (0-30%) + filter randomization |
+| Speed | LFO rate for all modulations (0.1-10 Hz) |
+| Hue Shift | Spectral tilt (brightness filter) |
+| Glow Intensity | Reverb mix (5-60%) + attack time (1-100ms) |
+| Grid Density | Voice count/polyphony (1-8 voices) |
+
+### 6.4 Bidirectional Flow (60 FPS)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    PARAMETER BRIDGE                          │
+│                      (60 FPS loop)                           │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│   SYNTH STATE → VISUAL              AUDIO ANALYSIS → VISUAL  │
+│   ────────────────────              ──────────────────────   │
+│   Filter cutoff → ZW Rotation       Bass energy → Speed      │
+│   FM depth → XW Rotation            Mid energy → Grid        │
+│   Detune → XY/XZ Rotation           High energy → Brightness │
+│   Waveform → Morph parameter        Centroid → Hue shift     │
+│   Noise mix → Chaos                 RMS → Glow intensity     │
+│   Reverb → Glow intensity                                    │
+│                                                              │
+│   USER CONTROLS SYNTH → SYNTH DRIVES VISUALS                 │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### UI Control Names (User-Facing) vs Internal Visual Parameters (Behind Scenes)
+
+| UI Label (Synth) | Internal Visual Parameter |
+|-----------------|--------------------------|
+| Filter Cutoff | ZW Rotation |
+| Filter Resonance | Edge thickness |
+| Oscillator Detune | XY/XZ Rotation |
+| FM Depth | XW Rotation |
+| Ring Mod Depth | YW Rotation |
+| Waveform Blend | Morph factor |
+| Noise Level | Chaos amount |
+| Reverb Mix | Glow intensity |
+| Voice Count | Grid density |
+
+**Gesture → Synth Parameter (UI shows synth name, visual responds):**
+| Gesture on Visualizer | Changes Synth Control |
+|----------------------|----------------------|
+| Rotate (drag) | Oscillator Detune |
+| Pinch/zoom | Filter Cutoff |
+| Two-finger twist | FM Depth / Ring Mod |
+| Morph gesture | Waveform Blend |
+| Shake | Noise Level |
+
+**Audio Reactivity (FFT-based, visual responds to sound output):**
+| Audio Feature | Visual Response (internal) |
+|--------------|---------------------------|
+| Bass (20-250 Hz) | Rotation speed boost |
+| Mid (250-2k Hz) | Grid density pulse |
+| High (2k-8k Hz) | Vertex brightness |
+| Spectral centroid | Hue shift |
+| RMS amplitude | Glow intensity |
+
+---
+
+## 7. PARAMETER SYSTEM
+
+### 7.1 Complete Parameter Reference
 
 | Parameter | Type | Range | Default | Description |
 |-----------|------|-------|---------|-------------|
@@ -246,7 +371,7 @@ but is not part of the production visualization system.
 | intensity | float | 0-1 | 0.5 | Brightness |
 | dimension | float | 3.0-4.5 | 3.5 | 4D projection level |
 
-### 6.2 Audio Reactivity Mapping
+### 7.2 Audio Reactivity Mapping
 
 | Frequency Band | Parameter Effect |
 |----------------|------------------|
@@ -257,9 +382,9 @@ but is not part of the production visualization system.
 
 ---
 
-## 7. PORTING TO FLUTTER/DART
+## 8. PORTING TO FLUTTER/DART
 
-### 7.1 Technology Mapping
+### 8.1 Technology Mapping
 
 | VIB3-CORE (Web) | Flutter Equivalent |
 |-----------------|-------------------|
@@ -270,7 +395,7 @@ but is not part of the production visualization system.
 | localStorage | SharedPreferences |
 | Touch events | GestureDetector |
 
-### 7.2 Flutter FragmentShader Approach
+### 8.2 Flutter FragmentShader Approach
 
 Flutter supports custom GLSL shaders via the FragmentShader API:
 
@@ -315,7 +440,7 @@ class _VIB3ShaderWidgetState extends State<VIB3ShaderWidget> {
 }
 ```
 
-### 7.3 Shader Uniform Passing
+### 8.3 Shader Uniform Passing
 
 ```dart
 class VIB3ShaderPainter extends CustomPainter {
@@ -342,7 +467,7 @@ class VIB3ShaderPainter extends CustomPainter {
 }
 ```
 
-### 7.4 Required Files for Porting
+### 8.4 Required Files for Porting
 
 ```
 lib/
@@ -362,7 +487,7 @@ shaders/
 
 ---
 
-## 8. IMPLEMENTATION PLAN
+## 9. IMPLEMENTATION PLAN
 
 ### Phase 1: Core Shader Infrastructure
 1. Create Flutter FragmentShader wrapper widget
@@ -390,7 +515,7 @@ shaders/
 
 ---
 
-## 9. KEY DIFFERENCES FROM CURRENT IMPLEMENTATION
+## 10. KEY DIFFERENCES FROM CURRENT IMPLEMENTATION
 
 | Aspect | Current (Broken) | VIB3-CORE (Correct) |
 |--------|------------------|---------------------|
@@ -402,7 +527,7 @@ shaders/
 
 ---
 
-## 10. REFERENCES
+## 11. REFERENCES
 
 - VIB3-CORE Repository: https://github.com/Domusgpt/Vib3-CORE-Documented01-
 - Flutter FragmentShader: https://api.flutter.dev/flutter/dart-ui/FragmentShader-class.html
