@@ -272,6 +272,7 @@ class _TopBezelState extends State<TopBezel> with SingleTickerProviderStateMixin
         ),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             Icons.category,
@@ -279,10 +280,14 @@ class _TopBezelState extends State<TopBezel> with SingleTickerProviderStateMixin
             size: 14,
           ),
           const SizedBox(width: 4),
-          Text(
-            currentGeometry,
-            style: SynthTheme.textStyleCaption.copyWith(
-              color: widget.systemColors.primary,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 120),
+            child: Text(
+              currentGeometry,
+              style: SynthTheme.textStyleCaption.copyWith(
+                color: widget.systemColors.primary,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

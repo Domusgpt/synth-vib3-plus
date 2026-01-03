@@ -22,7 +22,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_pcm_sound/flutter_pcm_sound.dart';
 import '../audio/audio_analyzer.dart';
 import '../audio/synthesizer_engine.dart';
-import '../synthesis/synthesis_branch_manager.dart'; // Includes VisualSystem enum
+import '../synthesis/synthesis_branch_manager.dart';
+import '../vib3/core/vib3_engine.dart' show VisualSystem, AudioReactivityData;
+import '../debug/debug_console.dart';
 
 class AudioProvider with ChangeNotifier {
   // Core audio systems
@@ -42,8 +44,8 @@ class AudioProvider with ChangeNotifier {
   final int bufferSize = 512;
   final double sampleRate = 44100.0;
 
-  // Current audio features (from analysis)
-  AudioFeatures? _currentFeatures;
+  // Current audio features (native VIB3 format)
+  AudioReactivityData? _currentFeatures;
 
   // Synthesizer state
   int _currentNote = 60; // Middle C
@@ -104,23 +106,98 @@ class AudioProvider with ChangeNotifier {
 
   /// Asynchronous initialization (PCM setup)
   Future<void> _initializeAsync() async {
+    DebugConsole.info('AudioProvider: Starting PCM initialization...');
+
     try {
-      // Initialize PCM player (static API)
+      // Step 1: Setup PCM player
+      DebugConsole.audio('PCM: Calling setup(sampleRate: ${sampleRate.toInt()}, channels: 1)');
       await FlutterPcmSound.setup(
         sampleRate: sampleRate.toInt(),
         channelCount: 1, // Mono
       );
+      DebugConsole.success('PCM: setup() completed');
+
+      // Step 2: Set feed threshold (when to request more audio)
+      // Lower threshold = more responsive but more CPU
+      const feedThreshold = 8000; // ~180ms of audio at 44100Hz
+      DebugConsole.audio('PCM: Setting feed threshold to $feedThreshold samples');
+      await FlutterPcmSound.setFeedThreshold(feedThreshold);
+      DebugConsole.success('PCM: Feed threshold set');
+
+      // Step 3: Set the feed callback (called when buffer needs more data)
+      DebugConsole.audio('PCM: Registering feed callback');
+      FlutterPcmSound.setFeedCallback(_onPcmFeedCallback);
+      DebugConsole.success('PCM: Feed callback registered');
+
       _pcmInitialized = true;
+      DebugConsole.success('PCM: Initialization complete! Ready to play.');
       debugPrint('✅ PCM audio output initialized');
-    } catch (e) {
+    } catch (e, stackTrace) {
       _pcmInitialized = false;
-      debugPrint('⚠️ PCM audio unavailable (software synthesis still works): $e');
+      DebugConsole.error('PCM: Initialization FAILED: $e');
+      DebugConsole.error('Stack: ${stackTrace.toString().split('\n').take(3).join(' | ')}');
+      debugPrint('⚠️ PCM audio unavailable: $e');
     }
 
     _isInitialized = true;
     _initCompleter.complete();
     notifyListeners();
+    DebugConsole.info('AudioProvider: Fully initialized (PCM=${_pcmInitialized ? "OK" : "FAILED"})');
     debugPrint('✅ AudioProvider fully initialized with SynthesisBranchManager');
+  }
+
+  /// PCM feed callback - called by flutter_pcm_sound when it needs more audio
+  void _onPcmFeedCallback(int remainingFrames) {
+    // Generate and feed audio when the buffer is running low
+    if (_isPlaying && _pcmInitialized) {
+      _generateAndFeedAudio();
+    }
+  }
+
+  /// Generate audio and feed to PCM player
+  void _generateAndFeedAudio() {
+    try {
+      // Update visual→audio parameters
+      if (parameterBridge != null && parameterBridge.visualToAudio != null) {
+        parameterBridge.visualToAudio.updateFromVisuals();
+      }
+
+      // Calculate frequency from MIDI note
+      final frequency = _midiNoteToFrequency(_currentNote);
+
+      // Generate buffer from synthesis branch manager
+      _currentBuffer = synthesisBranchManager.generateBuffer(bufferSize, frequency);
+
+      if (_currentBuffer != null && _currentBuffer!.isNotEmpty) {
+        // Analyze the buffer for visual feedback
+        _currentFeatures = audioAnalyzer.extractFeatures(_currentBuffer!);
+
+        // Update debug status with audio levels
+        if (_currentFeatures != null) {
+          DebugStatus().update(
+            bassEnergy: _currentFeatures!.bassEnergy,
+            midEnergy: _currentFeatures!.midEnergy,
+            highEnergy: _currentFeatures!.highEnergy,
+            rmsAmplitude: _currentFeatures!.rmsAmplitude,
+          );
+        }
+
+        // Convert Float32List to Int16List (PCM16) and feed
+        final int16Buffer = Int16List(bufferSize);
+        for (int i = 0; i < bufferSize; i++) {
+          final sample = (_currentBuffer![i] * _masterVolume).clamp(-1.0, 1.0);
+          int16Buffer[i] = (sample * 32767).round();
+        }
+
+        // Feed to PCM player
+        FlutterPcmSound.feed(PcmArrayInt16.fromList(int16Buffer.toList()));
+        _buffersGenerated++;
+      }
+    } catch (e) {
+      if (_buffersGenerated % 100 == 0) {
+        DebugConsole.error('Audio generation error: $e');
+      }
+    }
   }
 
   /// Ensure initialization is complete before performing operations
@@ -134,7 +211,7 @@ class AudioProvider with ChangeNotifier {
   SynthesizerEngine get synth => synthesizerEngine;
   AudioAnalyzer get analyzer => audioAnalyzer;
   Float32List? get currentBuffer => _currentBuffer;
-  AudioFeatures? get currentFeatures => _currentFeatures;
+  AudioReactivityData? get currentFeatures => _currentFeatures;
   int get currentNote => _currentNote;
   bool get isPlaying => _isPlaying;
   double get masterVolume => _masterVolume;
@@ -154,14 +231,46 @@ class AudioProvider with ChangeNotifier {
   Future<void> startAudio() async {
     if (_isPlaying) return;
 
+    DebugConsole.audio('Starting audio playback...');
+
     _isPlaying = true;
     _lastMetricsCheck = DateTime.now();
     _buffersGenerated = 0;
 
-    // Generate audio buffers at regular intervals
+    // Update debug status
+    DebugStatus().update(
+      audioPlaying: true,
+      sampleRate: sampleRate.toInt(),
+    );
+
+    if (_pcmInitialized) {
+      try {
+        // CRITICAL: Start the PCM player!
+        DebugConsole.audio('PCM: Calling FlutterPcmSound.start()');
+        await FlutterPcmSound.start();
+        DebugConsole.success('PCM: Playback started!');
+
+        // Pre-fill buffer with some audio
+        for (int i = 0; i < 4; i++) {
+          _generateAndFeedAudio();
+        }
+        DebugConsole.audio('PCM: Pre-filled ${4 * bufferSize} samples');
+      } catch (e) {
+        DebugConsole.error('PCM: start() failed: $e');
+      }
+    } else {
+      DebugConsole.warn('PCM not initialized - no audio output!');
+    }
+
+    // Also run timer-based generation as backup
     _audioGenerationTimer = Timer.periodic(
       Duration(milliseconds: (bufferSize * 1000 / sampleRate).round()),
-      (_) => _generateAudioBuffer(),
+      (_) {
+        if (_pcmInitialized && _isPlaying) {
+          _generateAndFeedAudio();
+        }
+        notifyListeners(); // Update UI with audio features
+      },
     );
 
     notifyListeners();
@@ -169,90 +278,29 @@ class AudioProvider with ChangeNotifier {
   }
 
   /// Stop audio generation and playback
-  Future<void> stopAudio() async {
+  void stopAudio() {
+    DebugConsole.audio('Stopping audio playback...');
+
     _audioGenerationTimer?.cancel();
     _isPlaying = false;
+    // No FlutterPcmSound.stop() exists - stopping feed() stops audio
+
+    // Update debug status
+    DebugStatus().update(
+      audioPlaying: false,
+      bassEnergy: 0.0,
+      midEnergy: 0.0,
+      highEnergy: 0.0,
+      rmsAmplitude: 0.0,
+    );
+
     notifyListeners();
+    DebugConsole.audio('PCM: Playback stopped (feed halted)');
     debugPrint('⏸️  Audio stopped');
   }
 
   // Reference to parameter bridge (set externally)
   dynamic parameterBridge;
-
-  /// Generate next audio buffer
-  void _generateAudioBuffer() async {
-    try {
-      // ELEGANT: Update visual→audio parameters HERE (not on separate timer)
-      // This syncs parameter updates with audio buffer generation
-      if (parameterBridge != null && parameterBridge.visualToAudio != null) {
-        parameterBridge.visualToAudio.updateFromVisuals();
-      }
-
-      // Calculate frequency from MIDI note
-      final frequency = _midiNoteToFrequency(_currentNote);
-
-      // Apply parameter smoothing before generating buffer
-      _smoothedFilterCutoff = _smoothedFilterCutoff * _smoothingFactor +
-                               synthesizerEngine.filter.baseCutoff * (1 - _smoothingFactor);
-      _smoothedResonance = _smoothedResonance * _smoothingFactor +
-                            synthesizerEngine.filter.resonance * (1 - _smoothingFactor);
-      _smoothedOsc1Detune = _smoothedOsc1Detune * _smoothingFactor +
-                             synthesizerEngine.oscillator1.detune * (1 - _smoothingFactor);
-      _smoothedOsc2Detune = _smoothedOsc2Detune * _smoothingFactor +
-                             synthesizerEngine.oscillator2.detune * (1 - _smoothingFactor);
-
-      // Apply smoothed values to engine (temporarily for buffer generation)
-      final originalCutoff = synthesizerEngine.filter.baseCutoff;
-      final originalOsc1Detune = synthesizerEngine.oscillator1.detune;
-      final originalOsc2Detune = synthesizerEngine.oscillator2.detune;
-
-      synthesizerEngine.filter.baseCutoff = _smoothedFilterCutoff;
-      synthesizerEngine.oscillator1.detune = _smoothedOsc1Detune;
-      synthesizerEngine.oscillator2.detune = _smoothedOsc2Detune;
-
-      // Generate buffer from synthesis branch manager (uses current geometry/system)
-      _currentBuffer = synthesisBranchManager.generateBuffer(bufferSize, frequency);
-
-      // Restore original values
-      synthesizerEngine.filter.baseCutoff = originalCutoff;
-      synthesizerEngine.oscillator1.detune = originalOsc1Detune;
-      synthesizerEngine.oscillator2.detune = originalOsc2Detune;
-
-      // Analyze the buffer
-      if (_currentBuffer != null && _currentBuffer!.isNotEmpty) {
-        _currentFeatures = audioAnalyzer.extractFeatures(_currentBuffer!);
-
-        // Play audio buffer via PCM output (if initialized)
-        if (_pcmInitialized) {
-          try {
-            // Convert Float32List to Int16List (PCM16)
-            final int16Buffer = Int16List(bufferSize);
-            for (int i = 0; i < bufferSize; i++) {
-              // Clamp to [-1, 1] and convert to 16-bit PCM
-              final sample = _currentBuffer![i].clamp(-1.0, 1.0);
-              int16Buffer[i] = (sample * 32767).round();
-            }
-
-            // Feed to PCM player (static method)
-            await FlutterPcmSound.feed(
-              PcmArrayInt16.fromList(int16Buffer.toList()),
-            );
-          } catch (e) {
-            // Silently ignore PCM playback errors to avoid spam
-            if (_buffersGenerated % 100 == 0) {
-              debugPrint('⚠️ PCM playback error: $e');
-            }
-          }
-        }
-      }
-
-      _buffersGenerated++;
-
-      notifyListeners();
-    } catch (e) {
-      debugPrint('❌ Error generating audio buffer: $e');
-    }
-  }
 
   /// Convert MIDI note to frequency (Hz)
   double _midiNoteToFrequency(int midiNote) {
@@ -263,11 +311,14 @@ class AudioProvider with ChangeNotifier {
 
   /// Play a note (MIDI note number)
   void playNote(int midiNote) {
+    DebugConsole.audio('playNote($midiNote) - freq: ${_midiNoteToFrequency(midiNote).toStringAsFixed(1)}Hz');
+
     _currentNote = midiNote;
     synthesizerEngine.setNote(midiNote);
     synthesisBranchManager.noteOn(); // Trigger envelope in branch manager
 
     if (!_isPlaying) {
+      DebugConsole.audio('First note - starting audio system...');
       startAudio();
     }
 
@@ -276,6 +327,7 @@ class AudioProvider with ChangeNotifier {
 
   /// Stop current note
   void stopNote() {
+    DebugConsole.audio('stopNote() - releasing envelope');
     synthesisBranchManager.noteOff(); // Start release phase
     stopAudio();
   }
@@ -408,8 +460,8 @@ class AudioProvider with ChangeNotifier {
   double getMidEnergy() => _currentFeatures?.midEnergy ?? 0.0;
   double getHighEnergy() => _currentFeatures?.highEnergy ?? 0.0;
   double getSpectralCentroid() => _currentFeatures?.spectralCentroid ?? 0.0;
-  double getRMS() => _currentFeatures?.rms ?? 0.0;
-  double getStereoWidth() => _currentFeatures?.stereoWidth ?? 0.0;
+  double getRMS() => _currentFeatures?.rmsAmplitude ?? 0.0;
+  double getStereoWidth() => 0.5; // Stereo width not in native format
 
   /// Get performance metrics
   Map<String, dynamic> getMetrics() {

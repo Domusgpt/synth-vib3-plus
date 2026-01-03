@@ -1,0 +1,80 @@
+# Quick APK Build
+#
+# Builds APK on every push - downloadable from GitHub Actions
+# No secrets required - just builds and uploads artifact
+#
+# Download from: GitHub repo → Actions → Latest run → Artifacts
+#
+# A Paul Phillips Manifestation
+
+name: Build APK
+
+on:
+  push:
+    branches: [ '**' ]  # All branches
+  pull_request:
+  workflow_dispatch:  # Manual trigger button
+
+jobs:
+  build-apk:
+    name: Build APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Debug APK
+        run: flutter build apk --debug
+
+      - name: Build Release APK
+        run: flutter build apk --release
+
+      # Debug APK - for testing
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: synth-vib3-debug-${{ github.sha }}
+          path: build/app/outputs/apk/debug/app-debug.apk
+          retention-days: 90
+
+      # Release APK - for distribution
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: synth-vib3-release-${{ github.sha }}
+          path: build/app/outputs/apk/release/app-release.apk
+          retention-days: 90
+
+      # Summary with download info
+      - name: Build Summary
+        run: |
+          echo "## 📱 APK Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Downloads" >> $GITHUB_STEP_SUMMARY
+          echo "- **Debug APK**: \`synth-vib3-debug-${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release APK**: \`synth-vib3-release-${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### How to Download" >> $GITHUB_STEP_SUMMARY
+          echo "1. Scroll down to **Artifacts** section below" >> $GITHUB_STEP_SUMMARY
+          echo "2. Click the APK you want to download" >> $GITHUB_STEP_SUMMARY
+          echo "3. Install on your Android device" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### APK Sizes" >> $GITHUB_STEP_SUMMARY
+          echo "- Debug: $(du -h build/app/outputs/apk/debug/app-debug.apk | cut -f1)" >> $GITHUB_STEP_SUMMARY
+          echo "- Release: $(du -h build/app/outputs/apk/release/app-release.apk | cut -f1)" >> $GITHUB_STEP_SUMMARY
