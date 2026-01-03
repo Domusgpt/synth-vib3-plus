@@ -96,7 +96,7 @@ class _VIB3WidgetState extends State<VIB3Widget>
       visualSystem: widget.system.name.toUpperCase(),
       geometryIndex: widget.geometryIndex,
       morphParameter: _state.morphParameter,
-      gridDensity: _state.tessellationDensity,
+      gridDensity: _state.tessellationDensity.toDouble(),
     );
   }
 

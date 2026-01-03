@@ -259,9 +259,10 @@ void main() {
 
   group('Glow Intensity Tests', () {
     test('GlowIntensity enum values exist', () {
+      // Three intensity levels: inactive, active, engaged
       expect(GlowIntensity.inactive, isNotNull);
       expect(GlowIntensity.active, isNotNull);
-      expect(GlowIntensity.intense, isNotNull);
+      expect(GlowIntensity.engaged, isNotNull);
     });
 
     test('SynthTheme returns glow for each intensity', () {
@@ -270,11 +271,11 @@ void main() {
 
       final inactiveGlow = theme.getGlow(GlowIntensity.inactive);
       final activeGlow = theme.getGlow(GlowIntensity.active);
-      final intenseGlow = theme.getGlow(GlowIntensity.intense);
+      final engagedGlow = theme.getGlow(GlowIntensity.engaged);
 
       expect(inactiveGlow, isNotNull);
       expect(activeGlow, isNotNull);
-      expect(intenseGlow, isNotNull);
+      expect(engagedGlow, isNotNull);
     });
   });
 
