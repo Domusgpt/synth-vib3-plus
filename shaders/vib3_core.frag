@@ -313,7 +313,8 @@ float geometryFunction(vec4 p) {
     value = mix(value, crystalLattice(warped, gridSize),
                 step(6.5, baseGeom));
 
-    return value * u_morphFactor;
+    // morphFactor 0-1 scales intensity, but always show something
+    return value * (0.5 + u_morphFactor * 0.5);
 }
 
 // ============================================================

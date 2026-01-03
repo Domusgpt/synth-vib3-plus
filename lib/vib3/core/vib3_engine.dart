@@ -165,7 +165,7 @@ class VIB3EngineState {
     this.saturation = 0.8,
     this.glowIntensity = 1.0,
     this.rgbSplitAmount = 0.0,
-    this.morphParameter = 0.0,
+    this.morphParameter = 1.0,
     this.chaosAmount = 0.2,
     this.projectionDistance = 8.0,
     this.fieldOfView = 60.0,
