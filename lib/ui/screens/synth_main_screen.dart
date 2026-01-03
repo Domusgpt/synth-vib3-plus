@@ -24,6 +24,7 @@ import '../components/top_bezel.dart';
 import '../components/xy_performance_pad.dart';
 import '../components/orb_controller.dart';
 import '../components/collapsible_bezel.dart';
+import '../components/side_bezel.dart';
 import '../../providers/ui_state_provider.dart';
 import '../../providers/visual_provider.dart';
 import '../../providers/audio_provider.dart';
@@ -147,11 +148,11 @@ class _SynthMainContentState extends State<_SynthMainContent> {
               ),
             ),
 
-          // Layer 6: Side bezels (portrait mode only)
-          if (_isPortrait(context)) ...[
-            _buildLeftBezel(context, systemColors),
-            _buildRightBezel(context, systemColors),
-          ],
+          // Layer 6: Side bezels - swipe from edge to reveal
+          // Left: Harmony intervals (play notes relative to XY pad)
+          // Right: Modulation triggers (effects, percussion)
+          SideBezel(side: BezelSide.left, systemColors: systemColors),
+          SideBezel(side: BezelSide.right, systemColors: systemColors),
 
           // Layer 7: Debug overlay (development only)
           if (_shouldShowDebugOverlay(context))
@@ -208,106 +209,6 @@ class _SynthMainContentState extends State<_SynthMainContent> {
       // Portrait: Bottom-center
       return const Offset(0.5, 0.8);
     }
-  }
-
-  bool _isPortrait(BuildContext context) {
-    return MediaQuery.of(context).orientation == Orientation.portrait;
-  }
-
-  Widget _buildLeftBezel(BuildContext context, SystemColors systemColors) {
-    final uiState = Provider.of<UIStateProvider>(context);
-
-    return Positioned(
-      left: 0,
-      top: SynthTheme.topBezelHeight + SynthTheme.spacingLarge,
-      bottom: SynthTheme.panelCollapsedHeight + SynthTheme.spacingLarge,
-      child: Container(
-        width: SynthTheme.sideBezelWidth,
-        decoration: BoxDecoration(
-          color: SynthTheme.panelBackground.withOpacity(0.8),
-          borderRadius: const BorderRadius.only(
-            topRight: Radius.circular(SynthTheme.radiusLarge),
-            bottomRight: Radius.circular(SynthTheme.radiusLarge),
-          ),
-          border: Border.all(color: SynthTheme.borderSubtle),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildThumbPad('Octave -', systemColors, () {
-              final current = uiState.pitchRangeStart;
-              uiState.setPitchRangeStart((current - 12).clamp(0, 127));
-              uiState.setPitchRangeEnd((uiState.pitchRangeEnd - 12).clamp(0, 127));
-            }),
-            _buildThumbPad('Octave +', systemColors, () {
-              final current = uiState.pitchRangeStart;
-              uiState.setPitchRangeStart((current + 12).clamp(0, 127));
-              uiState.setPitchRangeEnd((uiState.pitchRangeEnd + 12).clamp(0, 127));
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRightBezel(BuildContext context, SystemColors systemColors) {
-    final audioProvider = Provider.of<AudioProvider>(context);
-
-    return Positioned(
-      right: 0,
-      top: SynthTheme.topBezelHeight + SynthTheme.spacingLarge,
-      bottom: SynthTheme.panelCollapsedHeight + SynthTheme.spacingLarge,
-      child: Container(
-        width: SynthTheme.sideBezelWidth,
-        decoration: BoxDecoration(
-          color: SynthTheme.panelBackground.withOpacity(0.8),
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(SynthTheme.radiusLarge),
-            bottomLeft: Radius.circular(SynthTheme.radiusLarge),
-          ),
-          border: Border.all(color: SynthTheme.borderSubtle),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildThumbPad('Filter+', systemColors, () {
-              final current = audioProvider.filterCutoff;
-              audioProvider.setFilterCutoff((current * 1.2).clamp(20.0, 20000.0));
-            }),
-            _buildThumbPad('Filter-', systemColors, () {
-              final current = audioProvider.filterCutoff;
-              audioProvider.setFilterCutoff((current / 1.2).clamp(20.0, 20000.0));
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildThumbPad(String label, SystemColors systemColors, VoidCallback onPressed) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        width: 40,
-        height: 60,
-        decoration: BoxDecoration(
-          color: SynthTheme.cardBackground,
-          borderRadius: BorderRadius.circular(SynthTheme.radiusMedium),
-          border: Border.all(color: systemColors.primary.withOpacity(0.5)),
-          boxShadow: SynthTheme(systemColors: systemColors).getGlow(GlowIntensity.inactive),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: SynthTheme.textStyleCaption.copyWith(
-              color: systemColors.primary,
-              fontSize: 10,
-            ),
-          ),
-        ),
-      ),
-    );
   }
 
   bool _shouldShowDebugOverlay(BuildContext context) {
