@@ -41,32 +41,44 @@ class SynthesisPanelContent extends StatelessWidget {
         ),
         const SizedBox(height: SynthTheme.spacingSmall),
         HolographicSlider(
-          label: 'OSC 1 Tune',
+          label: 'OSC 1 Tune → XY Rotation',
           value: audioProvider.oscillator1Detune,
           min: -12.0,
           max: 12.0,
           unit: 'cents',
-          onChanged: (value) => audioProvider.setOscillator1Detune(value),
+          onChanged: (value) {
+            audioProvider.setOscillator1Detune(value);
+            // Bidirectional: Also update visual rotation XY
+            visualProvider.setRotationXY((value + 12.0) / 24.0);
+          },
           systemColors: systemColors,
           icon: Icons.music_note,
         ),
         HolographicSlider(
-          label: 'OSC 2 Tune',
+          label: 'OSC 2 Tune → XZ Rotation',
           value: audioProvider.oscillator2Detune,
           min: -12.0,
           max: 12.0,
           unit: 'cents',
-          onChanged: (value) => audioProvider.setOscillator2Detune(value),
+          onChanged: (value) {
+            audioProvider.setOscillator2Detune(value);
+            // Bidirectional: Also update visual rotation XZ
+            visualProvider.setRotationXZ((value + 12.0) / 24.0);
+          },
           systemColors: systemColors,
           icon: Icons.music_note,
         ),
         HolographicSlider(
-          label: 'Mix Balance',
+          label: 'Mix Balance → Brightness',
           value: audioProvider.mixBalance,
           min: 0.0,
           max: 1.0,
           unit: '%',
-          onChanged: (value) => audioProvider.setMixBalance(value),
+          onChanged: (value) {
+            audioProvider.setMixBalance(value);
+            // Bidirectional: Also update visual brightness
+            visualProvider.setVertexBrightness(value);
+          },
           systemColors: systemColors,
           icon: Icons.tune,
         ),
@@ -81,22 +93,31 @@ class SynthesisPanelContent extends StatelessWidget {
         ),
         const SizedBox(height: SynthTheme.spacingSmall),
         HolographicSlider(
-          label: 'Cutoff',
+          label: 'Cutoff → Hue Shift',
           value: audioProvider.filterCutoff,
           min: 20.0,
           max: 20000.0,
           unit: 'Hz',
-          onChanged: (value) => audioProvider.setFilterCutoff(value),
+          onChanged: (value) {
+            audioProvider.setFilterCutoff(value);
+            // Bidirectional: Map cutoff to hue (spectral → color)
+            final normalizedCutoff = (value - 20.0) / 19980.0;
+            visualProvider.setHueShift(normalizedCutoff * 360.0);
+          },
           systemColors: systemColors,
           icon: Icons.waves,
         ),
         HolographicSlider(
-          label: 'Resonance',
+          label: 'Resonance → Saturation',
           value: audioProvider.filterResonance,
           min: 0.0,
           max: 1.0,
           unit: '%',
-          onChanged: (value) => audioProvider.setFilterResonance(value),
+          onChanged: (value) {
+            audioProvider.setFilterResonance(value);
+            // Bidirectional: Also update visual saturation
+            visualProvider.setSaturation(value);
+          },
           systemColors: systemColors,
           icon: Icons.graphic_eq,
         ),
@@ -111,22 +132,30 @@ class SynthesisPanelContent extends StatelessWidget {
         ),
         const SizedBox(height: SynthTheme.spacingSmall),
         HolographicSlider(
-          label: 'Reverb Mix',
+          label: 'Reverb Mix → Glow',
           value: audioProvider.reverbMix,
           min: 0.0,
           max: 1.0,
           unit: '%',
-          onChanged: (value) => audioProvider.setReverbMix(value),
+          onChanged: (value) {
+            audioProvider.setReverbMix(value);
+            // Bidirectional: Also update visual glow intensity
+            visualProvider.setGlowIntensity(value * 3.0);
+          },
           systemColors: systemColors,
           icon: Icons.water_drop,
         ),
         HolographicSlider(
-          label: 'Delay Mix',
+          label: 'Delay Mix → Distance',
           value: audioProvider.delayMix,
           min: 0.0,
           max: 1.0,
           unit: '%',
-          onChanged: (value) => audioProvider.setDelayMix(value),
+          onChanged: (value) {
+            audioProvider.setDelayMix(value);
+            // Bidirectional: Also update visual projection distance
+            visualProvider.setProjectionDistance(5.0 + value * 10.0);
+          },
           systemColors: systemColors,
           icon: Icons.repeat,
         ),
