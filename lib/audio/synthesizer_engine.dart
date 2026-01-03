@@ -201,6 +201,11 @@ class SynthesizerEngine {
     delay.delayTime = milliseconds.clamp(0.0, 1000.0);
   }
 
+  /// Set delay mix/wet level (from visual projection distance)
+  void setDelayMix(double mix) {
+    delay.mix = mix.clamp(0.0, 1.0);
+  }
+
   /// Set stereo width (from visual rgbSplit parameter)
   void setStereoWidth(double width) {
     stereoWidth = width.clamp(0.0, 1.0);

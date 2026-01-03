@@ -164,6 +164,13 @@ class VisualToAudioModulator {
         maxRange: 500.0,   // 500ms
         curve: MappingCurve.linear,
       ),
+      'projectionDistance_to_delayMix': ParameterMapping(
+        sourceParam: 'projectionDistance',
+        targetParam: 'delayMix',
+        minRange: 0.0,     // Dry
+        maxRange: 0.6,     // 60% wet
+        curve: MappingCurve.exponential,
+      ),
     };
   }
 
@@ -332,6 +339,9 @@ class VisualToAudioModulator {
         break;
       case 'delayTime':
         synth.setDelayTime(value);
+        break;
+      case 'delayMix':
+        synth.setDelayMix(value);
         break;
 
       // === Voice management ===
