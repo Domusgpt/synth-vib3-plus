@@ -9,8 +9,11 @@
 
 import 'package:flutter/material.dart';
 import 'ui/screens/synth_main_screen.dart';
+import 'debug/debug_console.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  DebugConsole.info('Synth-VIB3+ starting...');
   runApp(const SynthVIB3App());
 }
 
@@ -31,7 +34,10 @@ class SynthVIB3App extends StatelessWidget {
           surface: Color(0xFF1A1A2E),
         ),
       ),
-      home: const SynthMainScreen(),
+      home: const DebugConsoleOverlay(
+        enabled: true, // Set to false to disable debug console
+        child: SynthMainScreen(),
+      ),
     );
   }
 }
