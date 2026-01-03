@@ -529,18 +529,26 @@ class AudioProvider with ChangeNotifier {
   double get mixBalance => _mixBalance;
 
   /// Set FM depth (for FM synthesis)
+  /// Modulates FM index in Hypersphere core (geometries 8-15)
+  /// Controlled by XW rotation via visual→audio mapping
   void setFMDepth(double depth) {
-    // FM depth is handled by synthesis branch manager
-    // Store for future use or pass to synthesizer
+    synthesisBranchManager.setFMDepth(depth);
     notifyListeners();
   }
 
+  /// Get FM depth
+  double get fmDepth => synthesisBranchManager.fmDepth;
+
   /// Set ring modulation mix (for ring mod synthesis)
+  /// Controls dry/wet balance in Hypertetrahedron core (geometries 16-23)
+  /// Controlled by YW rotation via visual→audio mapping
   void setRingModMix(double mix) {
-    // Ring mod mix is handled by synthesis branch manager
-    // Store for future use or pass to synthesizer
+    synthesisBranchManager.setRingModMix(mix);
     notifyListeners();
   }
+
+  /// Get ring mod mix
+  double get ringModMix => synthesisBranchManager.ringModMix;
 
   /// Get system colors (placeholder - will be populated from VisualProvider)
   dynamic get systemColors {
