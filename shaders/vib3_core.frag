@@ -1,15 +1,15 @@
 /*
  * VIB3+ Core Fragment Shader - Flutter Native
  *
- * Per-pixel SDF rendering matching VIB3-CORE WebGL quality.
+ * LATTICE-BASED rendering matching VIB3-CORE WebGL.
+ * Full-screen tiled patterns with domain repetition.
  * 3 visual systems: Quantum, Faceted, Holographic
  * 24 geometries (8 base x 3 cores) with full 6D rotation
  *
  * FLUTTER GLSL COMPLIANCE:
  * - Uses FlutterFragCoord() not gl_FragCoord
- * - No unsigned int or bool types
+ * - No int types - uses float + step()
  * - Handles GLES y-axis inversion
- * - Premultiplied alpha output
  *
  * A Paul Phillips Manifestation
  * (c) 2025 Paul Phillips - Clear Seas Solutions LLC
@@ -52,23 +52,273 @@ out vec4 fragColor;
 const float PI = 3.14159265359;
 
 // ============================================================
-// UTILITY FUNCTIONS
+// 4D ROTATION MATRICES
 // ============================================================
 
-float hash(vec2 p) {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+mat4 rotateXY(float theta) {
+    float c = cos(theta);
+    float s = sin(theta);
+    return mat4(c, -s, 0.0, 0.0, s, c, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
 }
 
-float noise(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    float a = hash(i);
-    float b = hash(i + vec2(1.0, 0.0));
-    float c = hash(i + vec2(0.0, 1.0));
-    float d = hash(i + vec2(1.0, 1.0));
-    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+mat4 rotateXZ(float theta) {
+    float c = cos(theta);
+    float s = sin(theta);
+    return mat4(c, 0.0, s, 0.0, 0.0, 1.0, 0.0, 0.0, -s, 0.0, c, 0.0, 0.0, 0.0, 0.0, 1.0);
 }
+
+mat4 rotateYZ(float theta) {
+    float c = cos(theta);
+    float s = sin(theta);
+    return mat4(1.0, 0.0, 0.0, 0.0, 0.0, c, -s, 0.0, 0.0, s, c, 0.0, 0.0, 0.0, 0.0, 1.0);
+}
+
+mat4 rotateXW(float theta) {
+    float c = cos(theta);
+    float s = sin(theta);
+    return mat4(c, 0.0, 0.0, -s, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, s, 0.0, 0.0, c);
+}
+
+mat4 rotateYW(float theta) {
+    float c = cos(theta);
+    float s = sin(theta);
+    return mat4(1.0, 0.0, 0.0, 0.0, 0.0, c, 0.0, -s, 0.0, 0.0, 1.0, 0.0, 0.0, s, 0.0, c);
+}
+
+mat4 rotateZW(float theta) {
+    float c = cos(theta);
+    float s = sin(theta);
+    return mat4(1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, c, -s, 0.0, 0.0, s, c);
+}
+
+vec3 project4Dto3D(vec4 p) {
+    float w = 2.5 / (2.5 + p.w);
+    return vec3(p.x * w, p.y * w, p.z * w);
+}
+
+// ============================================================
+// POLYTOPE CORE WARP FUNCTIONS (for geometries 8-23)
+// ============================================================
+
+vec3 warpHypersphereCore(vec3 p, float geometryIndex) {
+    float radius = length(p);
+    float morphBlend = clamp(u_morphFactor * 0.6, 0.0, 2.0);
+    float w = sin(radius * (1.3 + geometryIndex * 0.12) + u_time * 0.0008);
+    w *= (0.4 + morphBlend * 0.45);
+
+    vec4 p4d = vec4(p * (1.0 + morphBlend * 0.2), w);
+    p4d = rotateXY(u_rotXY) * p4d;
+    p4d = rotateXZ(u_rotXZ) * p4d;
+    p4d = rotateYZ(u_rotYZ) * p4d;
+    p4d = rotateXW(u_rotXW) * p4d;
+    p4d = rotateYW(u_rotYW) * p4d;
+    p4d = rotateZW(u_rotZW) * p4d;
+
+    vec3 projected = project4Dto3D(p4d);
+    return mix(p, projected, clamp(0.45 + morphBlend * 0.35, 0.0, 1.0));
+}
+
+vec3 warpHypertetraCore(vec3 p, float geometryIndex) {
+    vec3 c1 = normalize(vec3(1.0, 1.0, 1.0));
+    vec3 c2 = normalize(vec3(-1.0, -1.0, 1.0));
+    vec3 c3 = normalize(vec3(-1.0, 1.0, -1.0));
+    vec3 c4 = normalize(vec3(1.0, -1.0, -1.0));
+
+    float morphBlend = clamp(u_morphFactor * 0.8, 0.0, 2.0);
+    float basisMix = dot(p, c1) * 0.14 + dot(p, c2) * 0.1 + dot(p, c3) * 0.08;
+    float w = sin(basisMix * 5.5 + u_time * 0.0009);
+    w *= cos(dot(p, c4) * 4.2 - u_time * 0.0007);
+    w *= (0.5 + morphBlend * 0.4);
+
+    vec3 offset = vec3(dot(p, c1), dot(p, c2), dot(p, c3)) * 0.1 * morphBlend;
+    vec4 p4d = vec4(p + offset, w);
+    p4d = rotateXY(u_rotXY) * p4d;
+    p4d = rotateXZ(u_rotXZ) * p4d;
+    p4d = rotateYZ(u_rotYZ) * p4d;
+    p4d = rotateXW(u_rotXW) * p4d;
+    p4d = rotateYW(u_rotYW) * p4d;
+    p4d = rotateZW(u_rotZW) * p4d;
+
+    vec3 projected = project4Dto3D(p4d);
+    return mix(p, projected, clamp(0.45 + morphBlend * 0.35, 0.0, 1.0));
+}
+
+vec3 applyCoreWarp(vec3 p, float geometryType) {
+    float coreIndex = floor(geometryType / 8.0);
+    float baseGeom = mod(geometryType, 8.0);
+
+    // Core 1: Hypersphere (geometries 8-15)
+    float isHypersphere = step(0.5, coreIndex) * step(coreIndex, 1.5);
+    vec3 hypersphereP = warpHypersphereCore(p, baseGeom);
+
+    // Core 2: Hypertetra (geometries 16-23)
+    float isHypertetra = step(1.5, coreIndex);
+    vec3 hypertetraP = warpHypertetraCore(p, baseGeom);
+
+    return p * (1.0 - isHypersphere - isHypertetra) +
+           hypersphereP * isHypersphere +
+           hypertetraP * isHypertetra;
+}
+
+// ============================================================
+// LATTICE FUNCTIONS - Full screen tiled patterns
+// ============================================================
+
+float tetrahedronLattice(vec3 p, float gridSize) {
+    vec3 q = fract(p * gridSize) - 0.5;
+    float d1 = length(q);
+    float d2 = length(q - vec3(0.4, 0.0, 0.0));
+    float d3 = length(q - vec3(0.0, 0.4, 0.0));
+    float d4 = length(q - vec3(0.0, 0.0, 0.4));
+    float vertices = 1.0 - smoothstep(0.0, 0.04, min(min(d1, d2), min(d3, d4)));
+    float edges = 0.0;
+    edges = max(edges, 1.0 - smoothstep(0.0, 0.02, abs(length(q.xy) - 0.2)));
+    edges = max(edges, 1.0 - smoothstep(0.0, 0.02, abs(length(q.yz) - 0.2)));
+    edges = max(edges, 1.0 - smoothstep(0.0, 0.02, abs(length(q.xz) - 0.2)));
+    return max(vertices, edges * 0.5);
+}
+
+float hypercubeLattice(vec3 p, float gridSize) {
+    vec3 grid = fract(p * gridSize);
+    vec3 edges = min(grid, 1.0 - grid);
+    float minEdge = min(min(edges.x, edges.y), edges.z);
+    float lattice = 1.0 - smoothstep(0.0, 0.03, minEdge);
+
+    vec3 centers = abs(grid - 0.5);
+    float maxCenter = max(max(centers.x, centers.y), centers.z);
+    float vertices = 1.0 - smoothstep(0.45, 0.5, maxCenter);
+
+    return max(lattice * 0.7, vertices);
+}
+
+float sphereLattice(vec3 p, float gridSize) {
+    vec3 cell = fract(p * gridSize) - 0.5;
+    float sphere = 1.0 - smoothstep(0.15, 0.25, length(cell));
+
+    float rings = 0.0;
+    float ringRadius = length(cell.xy);
+    rings = max(rings, 1.0 - smoothstep(0.0, 0.02, abs(ringRadius - 0.3)));
+    rings = max(rings, 1.0 - smoothstep(0.0, 0.02, abs(ringRadius - 0.2)));
+
+    return max(sphere, rings * 0.6);
+}
+
+float torusLattice(vec3 p, float gridSize) {
+    vec3 cell = fract(p * gridSize) - 0.5;
+    float majorRadius = 0.3;
+    float minorRadius = 0.1;
+
+    float toroidalDist = length(vec2(length(cell.xy) - majorRadius, cell.z));
+    float torus = 1.0 - smoothstep(minorRadius - 0.02, minorRadius + 0.02, toroidalDist);
+
+    float angle = atan(cell.y, cell.x);
+    float rings = sin(angle * 8.0) * 0.02;
+
+    return max(torus, 0.0) + rings;
+}
+
+float kleinLattice(vec3 p, float gridSize) {
+    vec3 cell = fract(p * gridSize) - 0.5;
+    float u = atan(cell.y, cell.x) / PI + 1.0;
+    float v = cell.z + 0.5;
+
+    float x = (2.0 + cos(u * 0.5)) * cos(u);
+    float y = (2.0 + cos(u * 0.5)) * sin(u);
+    float z = sin(u * 0.5) + v;
+
+    vec3 kleinPoint = vec3(x, y, z) * 0.1;
+    float dist = length(cell - kleinPoint);
+
+    return 1.0 - smoothstep(0.1, 0.15, dist);
+}
+
+float fractalLattice(vec3 p, float gridSize) {
+    vec3 cell = fract(p * gridSize);
+    cell = abs(cell * 2.0 - 1.0);
+
+    float dist = length(max(abs(cell) - 0.3, 0.0));
+
+    // Recursive subdivision (unrolled for Flutter GLSL)
+    cell = abs(cell * 2.0 - 1.0);
+    float subdist1 = length(max(abs(cell) - 0.3, 0.0)) / 2.0;
+    dist = min(dist, subdist1);
+
+    cell = abs(cell * 2.0 - 1.0);
+    float subdist2 = length(max(abs(cell) - 0.3, 0.0)) / 4.0;
+    dist = min(dist, subdist2);
+
+    cell = abs(cell * 2.0 - 1.0);
+    float subdist3 = length(max(abs(cell) - 0.3, 0.0)) / 8.0;
+    dist = min(dist, subdist3);
+
+    return 1.0 - smoothstep(0.0, 0.05, dist);
+}
+
+float waveLattice(vec3 p, float gridSize) {
+    float time = u_time * 0.001;
+    vec3 cell = fract(p * gridSize) - 0.5;
+
+    float wave1 = sin(p.x * gridSize * 2.0 + time * 2.0);
+    float wave2 = sin(p.y * gridSize * 1.8 + time * 1.5);
+    float wave3 = sin(p.z * gridSize * 2.2 + time * 1.8);
+
+    float interference = (wave1 + wave2 + wave3) / 3.0;
+    float amplitude = 1.0 - length(cell) * 2.0;
+
+    return max(0.0, interference * amplitude);
+}
+
+float crystalLattice(vec3 p, float gridSize) {
+    vec3 cell = fract(p * gridSize) - 0.5;
+
+    // Octahedral crystal structure
+    float crystal = max(max(abs(cell.x) + abs(cell.y), abs(cell.y) + abs(cell.z)), abs(cell.x) + abs(cell.z));
+    crystal = 1.0 - smoothstep(0.3, 0.4, crystal);
+
+    // Crystalline faces
+    float faces = 0.0;
+    faces = max(faces, 1.0 - smoothstep(0.0, 0.02, abs(abs(cell.x) - 0.35)));
+    faces = max(faces, 1.0 - smoothstep(0.0, 0.02, abs(abs(cell.y) - 0.35)));
+    faces = max(faces, 1.0 - smoothstep(0.0, 0.02, abs(abs(cell.z) - 0.35)));
+
+    return max(crystal, faces * 0.5);
+}
+
+// Geometry function with lattice selection (using step functions for Flutter)
+float geometryFunction(vec4 p) {
+    float baseGeom = mod(u_geometry, 8.0);
+
+    vec3 p3d = project4Dto3D(p);
+    vec3 warped = applyCoreWarp(p3d, u_geometry);
+    float gridSize = u_gridDensity * 0.08 + 1.0;
+
+    // Audio-reactive grid modulation
+    gridSize *= 1.0 + u_bassEnergy * 0.3;
+
+    // Select lattice function using step (Flutter GLSL compatible)
+    float value = tetrahedronLattice(warped, gridSize);
+
+    value = mix(value, hypercubeLattice(warped, gridSize),
+                step(0.5, baseGeom) * step(baseGeom, 1.5));
+    value = mix(value, sphereLattice(warped, gridSize),
+                step(1.5, baseGeom) * step(baseGeom, 2.5));
+    value = mix(value, torusLattice(warped, gridSize),
+                step(2.5, baseGeom) * step(baseGeom, 3.5));
+    value = mix(value, kleinLattice(warped, gridSize),
+                step(3.5, baseGeom) * step(baseGeom, 4.5));
+    value = mix(value, fractalLattice(warped, gridSize),
+                step(4.5, baseGeom) * step(baseGeom, 5.5));
+    value = mix(value, waveLattice(warped, gridSize),
+                step(5.5, baseGeom) * step(baseGeom, 6.5));
+    value = mix(value, crystalLattice(warped, gridSize),
+                step(6.5, baseGeom));
+
+    return value * u_morphFactor;
+}
+
+// ============================================================
+// COLOR SYSTEMS - Quantum, Faceted, Holographic
+// ============================================================
 
 vec3 hsv2rgb(vec3 c) {
     vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
@@ -76,248 +326,109 @@ vec3 hsv2rgb(vec3 c) {
     return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 }
 
-// ============================================================
-// 4D ROTATION
-// ============================================================
+// QUANTUM: Multi-layer with extreme RGB separation
+vec3 renderQuantum(vec2 uv, float geometryValue, vec4 pos) {
+    float time = u_time * 0.001;
 
-vec4 rotateXY(vec4 p, float a) {
-    float c = cos(a), s = sin(a);
-    return vec4(p.x*c - p.y*s, p.x*s + p.y*c, p.z, p.w);
-}
+    // 5-layer color system
+    vec3 bgColor = vec3(0.05, 0.0, 0.15);  // Deep purple
+    vec3 shadowColor = vec3(0.0, 0.8, 0.3);  // Toxic green
+    vec3 contentColor = vec3(1.0, 0.3, 0.5);  // Hot pink/red
+    vec3 highlightColor = vec3(0.0, 1.0, 1.0);  // Electric cyan
+    vec3 accentColor = vec3(1.0, 0.0, 1.0);  // Magenta
 
-vec4 rotateXZ(vec4 p, float a) {
-    float c = cos(a), s = sin(a);
-    return vec4(p.x*c - p.z*s, p.y, p.x*s + p.z*c, p.w);
-}
+    // Hue shift from parameter
+    float hueShift = u_hue / 360.0;
+    bgColor = hsv2rgb(vec3(hueShift + 0.75, 0.8, 0.15));
+    contentColor = hsv2rgb(vec3(hueShift, 0.9, 0.9));
+    highlightColor = hsv2rgb(vec3(hueShift + 0.5, 0.8, 1.0));
 
-vec4 rotateYZ(vec4 p, float a) {
-    float c = cos(a), s = sin(a);
-    return vec4(p.x, p.y*c - p.z*s, p.y*s + p.z*c, p.w);
-}
+    // Geometry intensity with dramatic falloff
+    float intensity = pow(geometryValue, 1.5);
+    intensity += u_rmsAmplitude * 0.3;
 
-vec4 rotateXW(vec4 p, float a) {
-    float c = cos(a), s = sin(a);
-    return vec4(p.x*c - p.w*s, p.y, p.z, p.x*s + p.w*c);
-}
+    // Layer blending
+    vec3 color = bgColor * (0.3 + intensity * 0.2);
+    color += contentColor * intensity * 0.8;
+    color += highlightColor * pow(intensity, 3.0) * 0.5;
 
-vec4 rotateYW(vec4 p, float a) {
-    float c = cos(a), s = sin(a);
-    return vec4(p.x, p.y*c - p.w*s, p.z, p.y*s + p.w*c);
-}
+    // Extreme RGB separation
+    float sepIntensity = u_rgbSplit * 0.01 + u_highEnergy * 0.02;
+    color.r += sin(uv.y * 50.0 + time * 3.0) * sepIntensity;
+    color.g += sin((uv.y + 0.1) * 45.0 + time * 2.5) * sepIntensity * 0.8;
+    color.b += sin((uv.y - 0.1) * 55.0 + time * 3.5) * sepIntensity * 1.2;
 
-vec4 rotateZW(vec4 p, float a) {
-    float c = cos(a), s = sin(a);
-    return vec4(p.x, p.y, p.z*c - p.w*s, p.z*s + p.w*c);
-}
-
-vec4 apply6DRotation(vec4 p) {
-    p = rotateXY(p, u_rotXY);
-    p = rotateXZ(p, u_rotXZ);
-    p = rotateYZ(p, u_rotYZ);
-    p = rotateXW(p, u_rotXW);
-    p = rotateYW(p, u_rotYW);
-    p = rotateZW(p, u_rotZW);
-
-    float bassBoost = 1.0 + u_bassEnergy * 0.5;
-    float t = u_time * 0.5;
-    p = rotateXY(p, t * 0.08 * bassBoost);
-    p = rotateXZ(p, t * 0.09 * bassBoost);
-    p = rotateYZ(p, t * 0.07);
-    p = rotateXW(p, t * 0.10);
-    p = rotateYW(p, t * 0.11);
-    p = rotateZW(p, t * 0.12);
-    return p;
-}
-
-// ============================================================
-// SDF GEOMETRIES (using float comparisons, no int)
-// ============================================================
-
-float sdHypercube(vec4 p) {
-    vec4 q = abs(p) - 1.0;
-    return length(max(q, 0.0)) + min(max(max(max(q.x, q.y), q.z), q.w), 0.0);
-}
-
-float sdSphere(vec4 p) {
-    return length(p) - 1.0;
-}
-
-float sdTorus(vec4 p) {
-    float r1 = 0.8, r2 = 0.3;
-    vec2 q = vec2(length(p.xy) - r1, length(p.zw) - r1);
-    return length(q) - r2;
-}
-
-float sdCrystal(vec4 p) {
-    vec4 q = abs(p);
-    return max(max(q.x + q.y, q.z + q.w), max(q.x + q.z, q.y + q.w)) - 1.2;
-}
-
-float sdTetrahedron(vec4 p) {
-    float d = (p.x + p.y + p.z + p.w) * 0.5;
-    d = max(d, (-p.x - p.y + p.z + p.w) * 0.5);
-    d = max(d, (-p.x + p.y - p.z + p.w) * 0.5);
-    d = max(d, (p.x - p.y - p.z + p.w) * 0.5);
-    return d - 0.5;
-}
-
-float sdWave(vec4 p) {
-    float wave = sin(p.x * 3.0 + u_time) * 0.3;
-    wave += sin(p.y * 2.0 + u_time * 1.3) * 0.2;
-    wave += sin(p.z * 2.5 + u_time * 0.7) * 0.2;
-    return length(p) - 0.8 - wave * 0.3;
-}
-
-float sdFractal(vec4 p) {
-    float d = sdHypercube(p);
-    float scale = 1.0;
-    for (float i = 0.0; i < 3.0; i += 1.0) {
-        vec4 a = mod(p * scale, 2.0) - 1.0;
-        scale *= 3.0;
-        vec4 r = abs(1.0 - 3.0 * abs(a));
-        float c = (min(min(max(r.x, r.y), max(r.y, r.z)), max(r.z, r.w)) - 1.0) / scale;
-        d = max(d, c);
-    }
-    return d;
-}
-
-float sdKlein(vec4 p) {
-    float r = length(p.xy);
-    float theta = atan(p.y, p.x);
-    float phi = atan(p.w, p.z);
-    float target = 0.8 + 0.3 * sin(theta * 2.0 + phi);
-    return abs(r - target) - 0.15;
-}
-
-// Get base SDF using float comparison (no int)
-float getBaseSDF(vec4 p, float geomIndex) {
-    float baseIdx = mod(geomIndex, 8.0);
-
-    // Use step functions for selection (Flutter GLSL compatible)
-    float d = sdTetrahedron(p);
-    d = mix(d, sdHypercube(p), step(0.5, baseIdx) * step(baseIdx, 1.5));
-    d = mix(d, sdSphere(p), step(1.5, baseIdx) * step(baseIdx, 2.5));
-    d = mix(d, sdTorus(p), step(2.5, baseIdx) * step(baseIdx, 3.5));
-    d = mix(d, sdKlein(p), step(3.5, baseIdx) * step(baseIdx, 4.5));
-    d = mix(d, sdFractal(p), step(4.5, baseIdx) * step(baseIdx, 5.5));
-    d = mix(d, sdWave(p), step(5.5, baseIdx) * step(baseIdx, 6.5));
-    d = mix(d, sdCrystal(p), step(6.5, baseIdx));
-
-    return d;
-}
-
-// Apply core modification
-float getSDF(vec4 p) {
-    float d = getBaseSDF(p, u_geometry);
-    float coreIdx = floor(u_geometry / 8.0);
-    float len = length(p);
-
-    // FM core (index 1: geometries 8-15)
-    float fmMod = sin(d * 10.0 + u_time * 2.0) * 0.1 * (1.0 + u_midEnergy);
-    d += fmMod * step(0.5, coreIdx) * step(coreIdx, 1.5);
-
-    // Ring mod core (index 2: geometries 16-23)
-    float ringMod = sin(d * 15.0) * cos(len * 8.0) * 0.08 * (1.0 + u_highEnergy);
-    d += ringMod * step(1.5, coreIdx);
-
-    // Chaos noise
-    d += noise(p.xy * 5.0 + u_time) * u_chaos * 0.1;
-
-    return d;
-}
-
-// ============================================================
-// VISUAL SYSTEMS
-// ============================================================
-
-vec3 renderQuantum(vec2 uv, float d, vec4 p) {
-    vec3 color = vec3(0.0);
-
-    // 5 layer rendering with RGB separation
-    for (float i = 0.0; i < 5.0; i += 1.0) {
-        float layerD = d + i * 0.05;
-        float sep = (0.02 + i * 0.07) * (1.0 + u_rmsAmplitude * 0.5);
-
-        float edge = 1.0 - smoothstep(0.0, 0.05 + u_glowIntensity * 0.02, abs(layerD));
-
-        float hueOffset = i * 0.2;
-        vec3 layerCol = hsv2rgb(vec3(u_hue/360.0 + hueOffset, 0.85, 0.6 + i * 0.08));
-
-        float rOff = sin(uv.y * 10.0 + u_time + i) * sep;
-        float bOff = -sin(uv.y * 10.0 + u_time + i) * sep;
-
-        vec3 separated;
-        separated.r = edge * layerCol.r * (1.0 + rOff);
-        separated.g = edge * layerCol.g;
-        separated.b = edge * layerCol.b * (1.0 + bOff);
-
-        color += separated * (0.3 + i * 0.15);
-    }
-
-    float coreGlow = exp(-abs(d) * 3.0) * u_glowIntensity * 0.5;
-    color += hsv2rgb(vec3(u_hue/360.0, 0.9, 0.8)) * coreGlow;
+    // Particles on high intensity areas
+    vec2 particleUV = uv * 15.0;
+    vec2 particleID = floor(particleUV);
+    vec2 particlePos = fract(particleUV) - 0.5;
+    float particleDist = length(particlePos);
+    float particleTime = time * 3.0 + dot(particleID, vec2(127.1, 311.7));
+    float particleAlpha = sin(particleTime) * 0.5 + 0.5;
+    float particles = (1.0 - smoothstep(0.05, 0.15, particleDist)) * particleAlpha * intensity;
+    color += vec3(1.0) * particles * 0.3;
 
     return color * u_brightness;
 }
 
-vec3 renderFaceted(vec2 uv, float d, vec4 p) {
-    vec3 color = vec3(0.0);
+// FACETED: Clean geometric with sharp edges
+vec3 renderFaceted(vec2 uv, float geometryValue, vec4 pos) {
+    float time = u_time * 0.001;
 
-    // Structure layer
-    float structHue = (u_hue - 30.0) / 360.0;
-    vec3 structCol = hsv2rgb(vec3(structHue, 0.5, 0.25));
-    float structEdge = 1.0 - smoothstep(0.0, 0.08, abs(d + 0.02));
-    color += structCol * structEdge * 0.5;
+    // Cooler color palette for faceted
+    float hueShift = u_hue / 360.0;
+    vec3 edgeColor = hsv2rgb(vec3(hueShift + 0.6, 0.7, 0.8));  // Blue-ish
+    vec3 fillColor = hsv2rgb(vec3(hueShift + 0.55, 0.4, 0.2));  // Darker
+    vec3 glowColor = hsv2rgb(vec3(hueShift + 0.65, 0.9, 1.0));  // Bright
 
-    // Fill
-    float fill = smoothstep(0.1, 0.0, d) * 0.15;
-    color += structCol * fill;
+    // Sharp edge detection
+    float edge = smoothstep(0.3, 0.5, geometryValue) - smoothstep(0.5, 0.7, geometryValue);
+    float fill = smoothstep(0.0, 0.3, geometryValue) * 0.3;
 
-    // Highlight layer
-    float highHue = (u_hue + 30.0) / 360.0;
-    vec3 highCol = hsv2rgb(vec3(highHue, 0.8 + u_saturation * 0.1, 0.55 + u_brightness * 0.25));
-    float edgeW = 0.04 + u_midEnergy * 0.02;
-    float highEdge = 1.0 - smoothstep(0.0, edgeW, abs(d));
-    color += highCol * highEdge * (0.8 + u_glowIntensity * 0.2);
+    vec3 color = fillColor * fill;
+    color += edgeColor * edge * (0.8 + u_midEnergy * 0.4);
+    color += glowColor * pow(geometryValue, 4.0) * u_glowIntensity * 0.5;
 
-    // Vertex glow
-    float vertGlow = exp(-abs(d) * 8.0) * u_highEnergy * 0.5;
-    color += vec3(1.0) * vertGlow;
+    // Subtle vertex highlights
+    float vertGlow = pow(geometryValue, 6.0) * u_highEnergy;
+    color += vec3(1.0) * vertGlow * 0.3;
 
     return color * u_brightness;
 }
 
-vec3 renderHolographic(vec2 uv, float d, vec4 p) {
+// HOLOGRAPHIC: Multi-depth with chromatic aberration and moire
+vec3 renderHolographic(vec2 uv, float geometryValue, vec4 pos) {
+    float time = u_time * 0.001;
     vec3 color = vec3(0.0);
 
-    // Multi-layer depth
+    // Multi-layer depth effect
     for (float layer = 0.0; layer < 5.0; layer += 1.0) {
         float depth = layer / 4.0;
-        float layerOff = (layer - 2.0) * 0.08;
-        float layerD = d + layerOff + p.w * 0.1 * depth;
+        float layerOffset = (layer - 2.0) * 0.08;
+        float layerValue = geometryValue + layerOffset + pos.w * 0.1 * depth;
 
         float layerHue = (u_hue + layer * 25.0) / 360.0;
         float layerAlpha = 0.15 + depth * 0.25 + u_rmsAmplitude * 0.15;
         vec3 layerCol = hsv2rgb(vec3(layerHue, 0.7 + u_saturation * 0.2, 0.5 + depth * 0.2));
 
-        float edge = 1.0 - smoothstep(0.0, 0.06 + u_glowIntensity * 0.02, abs(layerD));
+        float edge = 1.0 - smoothstep(0.0, 0.06 + u_glowIntensity * 0.02, abs(layerValue - 0.5));
         color += layerCol * edge * layerAlpha;
     }
 
     // Chromatic aberration
-    float aberr = u_rgbSplit * 0.01;
     float dist = length(uv);
-    color.r *= 1.0 + sin(dist * 10.0 + u_time) * aberr;
-    color.g *= 1.0 + sin(dist * 10.0 + u_time + 2.09) * aberr;
-    color.b *= 1.0 + sin(dist * 10.0 + u_time + 4.18) * aberr;
+    float aberr = u_rgbSplit * 0.01;
+    color.r *= 1.0 + sin(dist * 10.0 + time) * aberr;
+    color.g *= 1.0 + sin(dist * 10.0 + time + 2.09) * aberr;
+    color.b *= 1.0 + sin(dist * 10.0 + time + 4.18) * aberr;
 
     // Holographic shimmer
-    float shimmer = sin(uv.x * 50.0 + u_time * 2.0) * sin(uv.y * 50.0 + u_time * 1.5);
+    float shimmer = sin(uv.x * 50.0 + time * 2.0) * sin(uv.y * 50.0 + time * 1.5);
     color += vec3(shimmer * 0.05 * u_glowIntensity);
 
-    // Moire
-    float moire = sin(dist * u_gridDensity + u_time) * 0.5 + 0.5;
-    moire *= sin(dist * u_gridDensity * 1.1 - u_time * 0.5) * 0.5 + 0.5;
+    // Moire interference pattern
+    float moire = sin(dist * u_gridDensity * 5.0 + time) * 0.5 + 0.5;
+    moire *= sin(dist * u_gridDensity * 5.5 - time * 0.5) * 0.5 + 0.5;
     color *= 0.9 + moire * 0.2;
 
     return color * u_brightness;
@@ -330,47 +441,50 @@ vec3 renderHolographic(vec2 uv, float d, vec4 p) {
 void main() {
     vec2 fragCoord = FlutterFragCoord();
 
-    // Handle OpenGL ES y-axis inversion
     #ifdef IMPELLER_TARGET_OPENGLES
     fragCoord.y = u_resolution.y - fragCoord.y;
     #endif
 
     vec2 uv = (fragCoord - u_resolution * 0.5) / min(u_resolution.x, u_resolution.y);
 
-    // Create 4D point
-    vec4 p = vec4(uv * 2.0, 0.0, 0.0);
-    p = apply6DRotation(p);
+    // Create 4D position with time-based depth
+    float timeSpeed = u_time * 0.0001;
+    vec4 pos = vec4(uv * 3.0, sin(timeSpeed * 3.0), cos(timeSpeed * 2.0));
 
-    // 4D to 3D projection
-    float projDist = 2.5;
-    float w = projDist / (projDist + p.w);
-    p.xyz *= w;
+    // Apply 6D rotations
+    pos = rotateXY(u_rotXY + timeSpeed * 0.5) * pos;
+    pos = rotateXZ(u_rotXZ + timeSpeed * 0.4) * pos;
+    pos = rotateYZ(u_rotYZ + timeSpeed * 0.3) * pos;
+    pos = rotateXW(u_rotXW + timeSpeed * 0.6) * pos;
+    pos = rotateYW(u_rotYW + timeSpeed * 0.5) * pos;
+    pos = rotateZW(u_rotZW + timeSpeed * 0.7) * pos;
 
-    // Get SDF
-    float d = getSDF(p);
+    // Audio modulation of rotation
+    pos = rotateXY(u_bassEnergy * 0.2) * pos;
+    pos = rotateYZ(u_midEnergy * 0.15) * pos;
 
-    // Background
-    float bgHue = u_hue / 360.0;
-    float bgBright = 0.03 + u_bassEnergy * 0.02;
-    vec3 bgColor = hsv2rgb(vec3(bgHue, 0.3, bgBright));
+    // Calculate geometry value
+    float value = geometryFunction(pos);
 
-    // Render based on system (using step functions, no int)
+    // Add chaos noise
+    float noise = sin(pos.x * 7.0) * cos(pos.y * 11.0) * sin(pos.z * 13.0);
+    value += noise * u_chaos * 0.3;
+
+    // Render based on visual system
     vec3 color;
     float isQuantum = step(u_system, 0.5);
     float isFaceted = step(0.5, u_system) * step(u_system, 1.5);
     float isHolo = step(1.5, u_system);
 
-    color = renderQuantum(uv, d, p) * isQuantum;
-    color += renderFaceted(uv, d, p) * isFaceted;
-    color += renderHolographic(uv, d, p) * isHolo;
-
-    // Combine with background
-    color = max(color, bgColor);
+    color = renderQuantum(uv, value, pos) * isQuantum;
+    color += renderFaceted(uv, value, pos) * isFaceted;
+    color += renderHolographic(uv, value, pos) * isHolo;
 
     // Vignette
-    color *= 1.0 - length(uv) * 0.4;
+    float vignette = 1.0 - length(uv) * 0.3;
+    color *= vignette;
 
-    // Clamp and premultiply alpha (Flutter requirement)
+    // Final output with premultiplied alpha
     color = clamp(color, 0.0, 1.0);
     fragColor = vec4(color, 1.0);
 }
