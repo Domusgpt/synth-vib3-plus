@@ -14,6 +14,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import '../core/vib3_engine.dart';
+import '../../debug/debug_console.dart';
 
 /// Shader uniform indices (must match shader uniform order)
 class _ShaderUniforms {
@@ -188,6 +189,8 @@ class _VIB3ShaderWidgetState extends State<VIB3ShaderWidget> {
         setState(() {
           _shader = program.fragmentShader();
         });
+        DebugConsole.success('VIB3+ shader loaded successfully');
+        DebugStatus().update(shaderLoaded: true, shaderError: null);
       }
     } catch (e) {
       if (mounted) {
@@ -195,6 +198,8 @@ class _VIB3ShaderWidgetState extends State<VIB3ShaderWidget> {
           _loadError = true;
           _errorMessage = e.toString();
         });
+        DebugConsole.error('Shader load failed: $e');
+        DebugStatus().update(shaderLoaded: false, shaderError: e.toString());
       }
     }
   }
@@ -318,6 +323,9 @@ class _VIB3AnimatedShaderWidgetState extends State<VIB3AnimatedShaderWidget>
   late Ticker _ticker;
   double _time = 0.0;
   double _lastTickTime = 0.0;
+  int _frameCount = 0;
+  double _lastFpsUpdateTime = 0.0;
+  double _fps = 0.0;
 
   late VIB3EngineState _state;
 
@@ -374,6 +382,25 @@ class _VIB3AnimatedShaderWidgetState extends State<VIB3AnimatedShaderWidget>
     final deltaTime = elapsedSeconds - _lastTickTime;
     _lastTickTime = elapsedSeconds;
     _time = elapsedSeconds;
+
+    // FPS calculation
+    _frameCount++;
+    if (elapsedSeconds - _lastFpsUpdateTime >= 1.0) {
+      _fps = _frameCount / (elapsedSeconds - _lastFpsUpdateTime);
+      _frameCount = 0;
+      _lastFpsUpdateTime = elapsedSeconds;
+
+      // Update debug status with visual state
+      final systemName = _state.system.toString().split('.').last;
+      DebugStatus().update(
+        visualSystem: systemName,
+        geometryIndex: _state.geometryIndex,
+        morphParameter: _state.morphParameter,
+        gridDensity: _state.tessellationDensity.toDouble(),
+        fps: _fps,
+        shaderTime: _time,
+      );
+    }
 
     _updateState(deltaTime);
 

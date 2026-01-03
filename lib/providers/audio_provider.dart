@@ -172,6 +172,16 @@ class AudioProvider with ChangeNotifier {
         // Analyze the buffer for visual feedback
         _currentFeatures = audioAnalyzer.extractFeatures(_currentBuffer!);
 
+        // Update debug status with audio levels
+        if (_currentFeatures != null) {
+          DebugStatus().update(
+            bassEnergy: _currentFeatures!.bassEnergy,
+            midEnergy: _currentFeatures!.midEnergy,
+            highEnergy: _currentFeatures!.highEnergy,
+            rmsAmplitude: _currentFeatures!.rmsAmplitude,
+          );
+        }
+
         // Convert Float32List to Int16List (PCM16) and feed
         final int16Buffer = Int16List(bufferSize);
         for (int i = 0; i < bufferSize; i++) {
@@ -227,6 +237,12 @@ class AudioProvider with ChangeNotifier {
     _lastMetricsCheck = DateTime.now();
     _buffersGenerated = 0;
 
+    // Update debug status
+    DebugStatus().update(
+      audioPlaying: true,
+      sampleRate: sampleRate.toInt(),
+    );
+
     if (_pcmInitialized) {
       try {
         // CRITICAL: Start the PCM player!
@@ -268,6 +284,15 @@ class AudioProvider with ChangeNotifier {
     _audioGenerationTimer?.cancel();
     _isPlaying = false;
     // No FlutterPcmSound.stop() exists - stopping feed() stops audio
+
+    // Update debug status
+    DebugStatus().update(
+      audioPlaying: false,
+      bassEnergy: 0.0,
+      midEnergy: 0.0,
+      highEnergy: 0.0,
+      rmsAmplitude: 0.0,
+    );
 
     notifyListeners();
     DebugConsole.audio('PCM: Playback stopped (feed halted)');

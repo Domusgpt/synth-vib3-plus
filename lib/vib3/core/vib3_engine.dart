@@ -159,7 +159,7 @@ class VIB3EngineState {
     this.rotationZW = 0.0,
     this.animationSpeed = 1.0,
     this.autoRotateSpeed = 0.3,
-    this.tessellationDensity = 5,
+    this.tessellationDensity = 15,  // Match original gridDensity default
     this.vertexBrightness = 0.8,
     this.hueShift = 200.0,
     this.saturation = 0.8,

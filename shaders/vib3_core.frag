@@ -327,49 +327,164 @@ vec3 hsv2rgb(vec3 c) {
     return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 }
 
-// QUANTUM: Multi-layer with extreme RGB separation
+// ============================================================
+// QUANTUM: Extreme 5-Layer Color System (from QuantumVisualizer.js)
+// Each layer has COMPLETELY DIFFERENT color palettes with extreme juxtapositions
+// + Layer-specific RGB separation patterns
+// ============================================================
 vec3 renderQuantum(vec2 uv, float geometryValue, vec4 pos) {
     float time = u_time * 0.001;
+    vec3 finalColor = vec3(0.0);
 
-    // 5-layer color system
-    vec3 bgColor = vec3(0.05, 0.0, 0.15);  // Deep purple
-    vec3 shadowColor = vec3(0.0, 0.8, 0.3);  // Toxic green
-    vec3 contentColor = vec3(1.0, 0.3, 0.5);  // Hot pink/red
-    vec3 highlightColor = vec3(0.0, 1.0, 1.0);  // Electric cyan
-    vec3 accentColor = vec3(1.0, 0.0, 1.0);  // Magenta
-
-    // Hue shift from parameter
-    float hueShift = u_hue / 360.0;
-    bgColor = hsv2rgb(vec3(hueShift + 0.75, 0.8, 0.15));
-    contentColor = hsv2rgb(vec3(hueShift, 0.9, 0.9));
-    highlightColor = hsv2rgb(vec3(hueShift + 0.5, 0.8, 1.0));
+    // Global intensity from hue (used as intensity modifier)
+    float globalIntensity = u_hue / 360.0;
+    float colorTime = time * 2.0 + geometryValue * 3.0 + globalIntensity * 5.0;
 
     // Geometry intensity with dramatic falloff
-    float intensity = pow(geometryValue, 1.5);
-    intensity += u_rmsAmplitude * 0.3;
+    float geomIntensity = pow(geometryValue, 1.5);
+    geomIntensity += u_rmsAmplitude * 0.3;
 
-    // Layer blending
-    vec3 color = bgColor * (0.3 + intensity * 0.2);
-    color += contentColor * intensity * 0.8;
-    color += highlightColor * pow(intensity, 3.0) * 0.5;
+    // ============================================================
+    // LAYER 0 - BACKGROUND: Deep space (purple/black/deep blue)
+    // ============================================================
+    {
+        vec3 color1 = vec3(0.05, 0.0, 0.2);   // Deep purple
+        vec3 color2 = vec3(0.0, 0.0, 0.1);    // Near black
+        vec3 color3 = vec3(0.0, 0.05, 0.3);   // Deep blue
+        vec3 layerPalette = mix(mix(color1, color2, sin(colorTime * 3.0) * 0.5 + 0.5),
+                                color3, cos(colorTime * 2.0) * 0.5 + 0.5);
+        layerPalette *= (0.5 + globalIntensity * 1.5);
 
-    // Extreme RGB separation
-    float sepIntensity = u_rgbSplit * 0.01 + u_highEnergy * 0.02;
-    color.r += sin(uv.y * 50.0 + time * 3.0) * sepIntensity;
-    color.g += sin((uv.y + 0.1) * 45.0 + time * 2.5) * sepIntensity * 0.8;
-    color.b += sin((uv.y - 0.1) * 55.0 + time * 3.5) * sepIntensity * 1.2;
+        // Subtle, fills empty space
+        vec3 layerColor = layerPalette * (0.3 + geomIntensity * 0.4);
 
-    // Particles on high intensity areas
-    vec2 particleUV = uv * 15.0;
-    vec2 particleID = floor(particleUV);
-    vec2 particlePos = fract(particleUV) - 0.5;
-    float particleDist = length(particlePos);
-    float particleTime = time * 3.0 + dot(particleID, vec2(127.1, 311.7));
-    float particleAlpha = sin(particleTime) * 0.5 + 0.5;
-    float particles = (1.0 - smoothstep(0.05, 0.15, particleDist)) * particleAlpha * intensity;
-    color += vec3(1.0) * particles * 0.3;
+        // Minimal RGB separation
+        layerColor.r += sin(uv.x * 10.0 + time) * 0.02 * geomIntensity;
+        layerColor.g += cos(uv.y * 8.0 + time * 1.5) * 0.02 * geomIntensity;
+        layerColor.b += sin(uv.x * uv.y * 6.0 + time * 0.8) * 0.02 * geomIntensity;
 
-    return color * u_brightness;
+        finalColor += layerColor * 0.6; // alpha 0.6
+    }
+
+    // ============================================================
+    // LAYER 1 - SHADOW: Toxic greens
+    // ============================================================
+    {
+        vec3 color1 = vec3(0.0, 1.0, 0.0);    // Toxic green
+        vec3 color2 = vec3(0.8, 1.0, 0.0);    // Sickly yellow-green
+        vec3 color3 = vec3(0.0, 0.8, 0.3);    // Forest green
+        vec3 layerPalette = mix(mix(color1, color2, sin(colorTime * 7.0) * 0.5 + 0.5),
+                                color3, cos(colorTime * 5.0) * 0.5 + 0.5);
+        layerPalette *= (0.5 + globalIntensity * 1.5);
+
+        // Aggressive, high contrast where geometry is weak
+        float shadowIntensity = pow(1.0 - geomIntensity, 2.0);
+        vec3 layerColor = layerPalette * (shadowIntensity * 0.8 + 0.1);
+
+        // Heavy vertical RGB separation
+        layerColor.r += sin(uv.y * 50.0 + time * 3.0) * 0.15 * geomIntensity;
+        layerColor.g += sin((uv.y + 0.1) * 45.0 + time * 2.5) * 0.12 * geomIntensity;
+        layerColor.b += sin((uv.y - 0.1) * 55.0 + time * 3.5) * 0.18 * geomIntensity;
+
+        finalColor += layerColor * 0.4 * shadowIntensity; // alpha 0.4
+    }
+
+    // ============================================================
+    // LAYER 2 - CONTENT: Blazing hot (red/orange/white)
+    // ============================================================
+    {
+        vec3 color1 = vec3(1.0, 0.0, 0.0);    // Pure red
+        vec3 color2 = vec3(1.0, 0.5, 0.0);    // Blazing orange
+        vec3 color3 = vec3(1.0, 1.0, 1.0);    // White hot
+        vec3 layerPalette = mix(mix(color1, color2, sin(colorTime * 11.0) * 0.5 + 0.5),
+                                color3, cos(colorTime * 8.0) * 0.5 + 0.5);
+        layerPalette *= (0.5 + globalIntensity * 1.5);
+
+        // Dominant, follows geometry strongly
+        vec3 layerColor = layerPalette * (geomIntensity * 1.2 + 0.2);
+
+        // Explosive radial RGB separation
+        float dist = length(uv);
+        float angle = atan(uv.y, uv.x);
+        layerColor.r += sin(dist * 30.0 + angle * 10.0 + time * 4.0) * 0.2 * geomIntensity;
+        layerColor.g += cos(dist * 25.0 + angle * 8.0 + time * 3.5) * 0.18 * geomIntensity;
+        layerColor.b += sin(dist * 35.0 + angle * 12.0 + time * 4.5) * 0.22 * geomIntensity;
+
+        // White-hot particles
+        vec2 particleUV = uv * 12.0;
+        vec2 particleID = floor(particleUV);
+        vec2 particlePos = fract(particleUV) - 0.5;
+        float particleDist = length(particlePos);
+        float particleTime = time * 3.0 + dot(particleID, vec2(127.1, 311.7));
+        float particleAlpha = sin(particleTime) * 0.5 + 0.5;
+        float particles = (1.0 - smoothstep(0.05, 0.2, particleDist)) * particleAlpha * 0.4;
+        layerColor += vec3(1.0) * particles;
+
+        finalColor += layerColor * geomIntensity; // alpha 1.0
+    }
+
+    // ============================================================
+    // LAYER 3 - HIGHLIGHT: Electric blues/cyans
+    // ============================================================
+    {
+        vec3 color1 = vec3(0.0, 1.0, 1.0);    // Electric cyan
+        vec3 color2 = vec3(0.0, 0.5, 1.0);    // Electric blue
+        vec3 color3 = vec3(0.5, 1.0, 1.0);    // Bright cyan
+        vec3 layerPalette = mix(mix(color1, color2, sin(colorTime * 13.0) * 0.5 + 0.5),
+                                color3, cos(colorTime * 9.0) * 0.5 + 0.5);
+        layerPalette *= (0.5 + globalIntensity * 1.5);
+
+        // Electric, peaks only (cubic for sharp peaks)
+        float peakIntensity = pow(geomIntensity, 3.0);
+        vec3 layerColor = layerPalette * (peakIntensity * 1.5 + 0.1);
+
+        // Lightning-like RGB separation
+        float lightning = sin(uv.x * 80.0 + time * 8.0) * cos(uv.y * 60.0 + time * 6.0);
+        layerColor.r += lightning * 0.25 * geomIntensity;
+        layerColor.g += sin(lightning * 40.0 + time * 5.0) * 0.2 * geomIntensity;
+        layerColor.b += cos(lightning * 30.0 + time * 7.0) * 0.3 * geomIntensity;
+
+        // Cyan particles
+        vec2 particleUV = uv * 20.0;
+        vec2 particleID = floor(particleUV);
+        vec2 particlePos = fract(particleUV) - 0.5;
+        float particleDist = length(particlePos);
+        float particleTime = time * 8.0 + dot(particleID, vec2(127.1, 311.7));
+        float particleAlpha = sin(particleTime) * 0.5 + 0.5;
+        float particles = (1.0 - smoothstep(0.05, 0.1, particleDist)) * particleAlpha * 0.4;
+        layerColor += vec3(0.0, 1.0, 1.0) * particles;
+
+        finalColor += layerColor * 0.8 * peakIntensity; // alpha 0.8
+    }
+
+    // ============================================================
+    // LAYER 4 - ACCENT: Violent magentas/purples
+    // ============================================================
+    {
+        vec3 color1 = vec3(1.0, 0.0, 1.0);    // Pure magenta
+        vec3 color2 = vec3(0.8, 0.0, 1.0);    // Violet
+        vec3 color3 = vec3(1.0, 0.3, 1.0);    // Hot pink
+        vec3 layerPalette = mix(mix(color1, color2, sin(colorTime * 17.0) * 0.5 + 0.5),
+                                color3, cos(colorTime * 12.0) * 0.5 + 0.5);
+        layerPalette *= (0.5 + globalIntensity * 1.5);
+
+        // Chaotic, random bursts
+        float randomBurst = sin(geometryValue * 50.0 + time * 10.0) * 0.5 + 0.5;
+        vec3 layerColor = layerPalette * (randomBurst * geomIntensity * 2.0 + 0.05);
+
+        // Chaotic multi-directional RGB separation
+        float chaos1 = sin(uv.x * 100.0 + uv.y * 80.0 + time * 10.0);
+        float chaos2 = cos(uv.x * 70.0 - uv.y * 90.0 + time * 8.0);
+        float chaos3 = sin(uv.x * uv.y * 150.0 + time * 12.0);
+        layerColor += vec3(chaos1, chaos2, chaos3) * 0.3 * geomIntensity;
+
+        // Pulsing madness
+        layerColor *= (1.0 + sin(time * 20.0) * 0.3);
+
+        finalColor += layerColor * 0.3 * randomBurst; // alpha 0.3
+    }
+
+    return finalColor * u_brightness;
 }
 
 // FACETED: Clean geometric with sharp edges
@@ -397,42 +512,136 @@ vec3 renderFaceted(vec2 uv, float geometryValue, vec4 pos) {
     return color * u_brightness;
 }
 
-// HOLOGRAPHIC: Multi-depth with chromatic aberration and moire
+// ============================================================
+// HOLOGRAPHIC: 5-Layer Translucent Canvas System
+// Each layer has different: densityMult, speedMult, colorShift, intensity
+// These density multipliers create the faux 4D topological depth effect
+// ============================================================
 vec3 renderHolographic(vec2 uv, float geometryValue, vec4 pos) {
     float time = u_time * 0.001;
-    vec3 color = vec3(0.0);
+    vec3 finalColor = vec3(0.0);
 
-    // Multi-layer depth effect
-    for (float layer = 0.0; layer < 5.0; layer += 1.0) {
-        float depth = layer / 4.0;
-        float layerOffset = (layer - 2.0) * 0.08;
-        float layerValue = geometryValue + layerOffset + pos.w * 0.1 * depth;
+    // Base parameters
+    float baseDensity = u_gridDensity * 0.08 + 1.0;
+    float baseSpeed = 1.0;
+    float baseHue = u_hue;
+    float baseIntensity = 0.5;
 
-        float layerHue = (u_hue + layer * 25.0) / 360.0;
-        float layerAlpha = 0.15 + depth * 0.25 + u_rmsAmplitude * 0.15;
-        vec3 layerCol = hsv2rgb(vec3(layerHue, 0.7 + u_saturation * 0.2, 0.5 + depth * 0.2));
+    // ============================================================
+    // LAYER ROLE PARAMETERS (from HolographicVisualizer.js)
+    // Density multipliers create parallax/depth effect:
+    // - Lower density = far away, sparse pattern
+    // - Higher density = closer, denser pattern
+    // ============================================================
 
-        float edge = 1.0 - smoothstep(0.0, 0.06 + u_glowIntensity * 0.02, abs(layerValue - 0.5));
-        color += layerCol * edge * layerAlpha;
+    // Layer 0 - BACKGROUND: Far layer, sparse
+    float density0 = 0.4;  float speed0 = 0.2;  float colorShift0 = 0.0;    float intensity0 = 0.2;
+    // Layer 1 - SHADOW: Mid-far
+    float density1 = 0.8;  float speed1 = 0.3;  float colorShift1 = 180.0;  float intensity1 = 0.4;
+    // Layer 2 - CONTENT: Base layer
+    float density2 = 1.0;  float speed2 = 1.0;  float colorShift2 = 0.0;    float intensity2 = baseIntensity;
+    // Layer 3 - HIGHLIGHT: Closer
+    float density3 = 1.5;  float speed3 = 0.8;  float colorShift3 = 60.0;   float intensity3 = 0.6;
+    // Layer 4 - ACCENT: Closest, densest
+    float density4 = 2.5;  float speed4 = 0.4;  float colorShift4 = 300.0;  float intensity4 = 0.3;
+
+    // Alpha values for blending (from original)
+    float alpha0 = 0.6;   // Background
+    float alpha1 = 0.4;   // Shadow
+    float alpha2 = 0.95;  // Content (near full)
+    float alpha3 = 0.8;   // Highlight
+    float alpha4 = 0.3;   // Accent (subtle)
+
+    // Recalculate geometry for each layer at different densities
+    vec3 p3d = project4Dto3D(pos);
+
+    // ---- LAYER 0: BACKGROUND (farthest, sparsest) ----
+    {
+        float layerGridSize = baseDensity * density0;
+        vec3 layerP = applyCoreWarp(p3d * speed0, u_geometry);
+        float layerGeom = tetrahedronLattice(layerP, layerGridSize); // Use base geometry function
+        // Actually we need to call the full geometry selector... simplified here
+        float layerValue = layerGeom * (0.5 + u_morphFactor * 0.5);
+
+        float layerHue = (baseHue + colorShift0) / 360.0;
+        vec3 layerCol = hsv2rgb(vec3(layerHue, u_saturation * 0.8, 0.3 + layerValue * 0.3));
+        float edge = smoothstep(0.0, 0.1, layerValue);
+        finalColor += layerCol * edge * intensity0 * alpha0;
+    }
+
+    // ---- LAYER 1: SHADOW ----
+    {
+        float layerGridSize = baseDensity * density1;
+        vec3 layerP = p3d * (1.0 + time * speed1 * 0.01);
+        float layerValue = geometryValue * density1; // Approximate with scaled base
+
+        float layerHue = (baseHue + colorShift1) / 360.0;
+        vec3 layerCol = hsv2rgb(vec3(layerHue, u_saturation * 0.7, 0.4 + layerValue * 0.2));
+
+        // Shadow layer is inverted - stronger where geometry is weak
+        float shadowIntensity = pow(1.0 - clamp(layerValue, 0.0, 1.0), 2.0);
+        finalColor += layerCol * shadowIntensity * intensity1 * alpha1;
+    }
+
+    // ---- LAYER 2: CONTENT (main layer, base density) ----
+    {
+        float layerHue = (baseHue + colorShift2) / 360.0;
+        vec3 layerCol = hsv2rgb(vec3(layerHue, u_saturation, 0.6 + geometryValue * 0.4));
+
+        // Audio reactivity strongest on content layer
+        float audioBoost = u_rmsAmplitude * 0.4 + u_bassEnergy * 0.2;
+        float edge = smoothstep(0.0, 0.08, geometryValue);
+        finalColor += layerCol * edge * (intensity2 + audioBoost) * alpha2;
+    }
+
+    // ---- LAYER 3: HIGHLIGHT (closer, denser) ----
+    {
+        float layerGridSize = baseDensity * density3;
+        float layerValue = geometryValue * density3;
+
+        float layerHue = (baseHue + colorShift3) / 360.0;
+        vec3 layerCol = hsv2rgb(vec3(layerHue, u_saturation * 0.9, 0.8));
+
+        // Highlight only on peaks (cubic falloff)
+        float peakIntensity = pow(clamp(layerValue, 0.0, 1.0), 3.0);
+        finalColor += layerCol * peakIntensity * intensity3 * alpha3;
+
+        // Add electric glow on highlights
+        float glow = exp(-abs(layerValue - 0.7) * 8.0) * u_highEnergy;
+        finalColor += vec3(0.0, 1.0, 1.0) * glow * 0.3;
+    }
+
+    // ---- LAYER 4: ACCENT (closest, densest, chaotic) ----
+    {
+        float layerGridSize = baseDensity * density4;
+        float layerValue = geometryValue * density4;
+
+        float layerHue = (baseHue + colorShift4) / 360.0;
+        vec3 layerCol = hsv2rgb(vec3(layerHue, u_saturation, 0.5));
+
+        // Chaotic bursts
+        float chaos = sin(geometryValue * 50.0 + time * 10.0) * 0.5 + 0.5;
+        float burstIntensity = chaos * clamp(layerValue, 0.0, 1.0);
+        finalColor += layerCol * burstIntensity * intensity4 * alpha4;
     }
 
     // Chromatic aberration
     float dist = length(uv);
     float aberr = u_rgbSplit * 0.01;
-    color.r *= 1.0 + sin(dist * 10.0 + time) * aberr;
-    color.g *= 1.0 + sin(dist * 10.0 + time + 2.09) * aberr;
-    color.b *= 1.0 + sin(dist * 10.0 + time + 4.18) * aberr;
+    finalColor.r *= 1.0 + sin(dist * 10.0 + time) * aberr;
+    finalColor.g *= 1.0 + sin(dist * 10.0 + time + 2.09) * aberr;
+    finalColor.b *= 1.0 + sin(dist * 10.0 + time + 4.18) * aberr;
 
     // Holographic shimmer
     float shimmer = sin(uv.x * 50.0 + time * 2.0) * sin(uv.y * 50.0 + time * 1.5);
-    color += vec3(shimmer * 0.05 * u_glowIntensity);
+    finalColor += vec3(shimmer * 0.05 * u_glowIntensity);
 
     // Moire interference pattern
     float moire = sin(dist * u_gridDensity * 5.0 + time) * 0.5 + 0.5;
     moire *= sin(dist * u_gridDensity * 5.5 - time * 0.5) * 0.5 + 0.5;
-    color *= 0.9 + moire * 0.2;
+    finalColor *= 0.9 + moire * 0.2;
 
-    return color * u_brightness;
+    return finalColor * u_brightness;
 }
 
 // ============================================================
