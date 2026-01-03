@@ -123,6 +123,66 @@ class GeometryPanelContent extends StatelessWidget {
           systemColors: systemColors,
           icon: Icons.timeline,
         ),
+        const SizedBox(height: SynthTheme.spacingLarge),
+
+        // Section: Visual Parameters (with sonic parity)
+        Text(
+          'VISUAL → AUDIO',
+          style: SynthTheme.textStyleHeading.copyWith(
+            color: systemColors.primary,
+          ),
+        ),
+        const SizedBox(height: SynthTheme.spacingSmall),
+        HolographicSlider(
+          label: 'Density → Voice Count',
+          value: visualProvider.tessellationDensity,
+          min: 3.0,
+          max: 8.0,
+          unit: '',
+          onChanged: (value) => visualProvider.setTessellationDensity(value),
+          systemColors: systemColors,
+          icon: Icons.grid_4x4,
+        ),
+        HolographicSlider(
+          label: 'Chaos → Noise',
+          value: visualProvider.rgbSplitAmount / 10.0, // 0-10 → 0-1
+          min: 0.0,
+          max: 1.0,
+          unit: '%',
+          onChanged: (value) => visualProvider.setRGBSplitAmount(value * 10.0),
+          systemColors: systemColors,
+          icon: Icons.scatter_plot,
+        ),
+        HolographicSlider(
+          label: 'Hue → Spectral Tilt',
+          value: visualProvider.hueShift,
+          min: 0.0,
+          max: 360.0,
+          unit: '°',
+          onChanged: (value) => visualProvider.setHueShift(value),
+          systemColors: systemColors,
+          icon: Icons.palette,
+        ),
+        HolographicSlider(
+          label: 'Glow → Reverb/Attack',
+          value: visualProvider.glowIntensity,
+          min: 0.0,
+          max: 3.0,
+          unit: '',
+          onChanged: (value) => visualProvider.setGlowIntensity(value),
+          systemColors: systemColors,
+          icon: Icons.light_mode,
+        ),
+        HolographicSlider(
+          label: 'Saturation → Resonance',
+          value: visualProvider.saturation,
+          min: 0.0,
+          max: 1.0,
+          unit: '%',
+          onChanged: (value) => visualProvider.setSaturation(value),
+          systemColors: systemColors,
+          icon: Icons.contrast,
+        ),
       ],
     );
   }

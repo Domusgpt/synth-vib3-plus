@@ -17,9 +17,8 @@ import '../theme/synth_theme.dart';
 import 'package:provider/provider.dart';
 import '../../providers/ui_state_provider.dart';
 import '../panels/synthesis_panel.dart';
-import '../panels/effects_panel.dart';
 import '../panels/geometry_panel.dart';
-import '../panels/mapping_panel.dart';
+// Note: Effects merged into Synthesis, Mapping removed per sonic parity spec
 
 class CollapsibleBezel extends StatefulWidget {
   final String panelId;
@@ -221,7 +220,8 @@ class BottomBezelContainer extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Collapsed tabs (show all 4 when nothing is expanded)
+          // Collapsed tabs (show 2 panels: Synthesis and Geometry)
+          // Effects merged into Synthesis, Mapping removed per sonic parity spec
           if (!anyExpanded)
             Container(
               height: SynthTheme.panelCollapsedHeight,
@@ -245,23 +245,9 @@ class BottomBezelContainer extends StatelessWidget {
                   ),
                   _buildTabButton(
                     context,
-                    'effects',
-                    'Effects',
-                    Icons.graphic_eq,
-                    uiState,
-                  ),
-                  _buildTabButton(
-                    context,
                     'geometry',
                     'Geometry',
                     Icons.category,
-                    uiState,
-                  ),
-                  _buildTabButton(
-                    context,
-                    'mapping',
-                    'Mapping',
-                    Icons.settings_input_component,
                     uiState,
                   ),
                 ],
@@ -323,9 +309,10 @@ class BottomBezelContainer extends StatelessWidget {
 
   String _getExpandedPanelId(UIStateProvider uiState) {
     if (uiState.isPanelExpanded('synthesis')) return 'synthesis';
-    if (uiState.isPanelExpanded('effects')) return 'effects';
     if (uiState.isPanelExpanded('geometry')) return 'geometry';
-    if (uiState.isPanelExpanded('mapping')) return 'mapping';
+    // Legacy fallbacks - redirect to synthesis
+    if (uiState.isPanelExpanded('effects')) return 'synthesis';
+    if (uiState.isPanelExpanded('mapping')) return 'synthesis';
     return 'synthesis';
   }
 
@@ -339,12 +326,8 @@ class BottomBezelContainer extends StatelessWidget {
     switch (id) {
       case 'synthesis':
         return Icons.music_note;
-      case 'effects':
-        return Icons.graphic_eq;
       case 'geometry':
         return Icons.category;
-      case 'mapping':
-        return Icons.settings_input_component;
       default:
         return Icons.music_note;
     }
@@ -355,12 +338,8 @@ class BottomBezelContainer extends StatelessWidget {
     switch (id) {
       case 'synthesis':
         return const SynthesisPanelContent();
-      case 'effects':
-        return const EffectsPanelContent();
       case 'geometry':
         return const GeometryPanelContent();
-      case 'mapping':
-        return const MappingPanelContent();
       default:
         return const SynthesisPanelContent();
     }

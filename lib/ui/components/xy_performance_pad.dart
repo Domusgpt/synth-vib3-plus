@@ -238,6 +238,7 @@ class _XYPerformancePadState extends State<XYPerformancePad>
     final audioProvider = Provider.of<AudioProvider>(context);
 
     return Listener(
+      behavior: HitTestBehavior.opaque, // CRITICAL: Capture all pointer events
       onPointerDown: (event) => _handleTouchStart(event, uiState, audioProvider),
       onPointerMove: (event) => _handleTouchMove(event, uiState, audioProvider),
       onPointerUp: (event) => _handleTouchEnd(event, uiState, audioProvider),

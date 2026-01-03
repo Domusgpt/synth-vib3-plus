@@ -22,6 +22,7 @@ import 'package:flutter/scheduler.dart';
 import '../core/vib3_engine.dart';
 import '../rendering/vib3_shader_renderer.dart';
 import '../audio/audio_reactive_modulator.dart';
+import '../../debug/debug_console.dart';
 
 /// Main VIB3+ visualization widget - Native shader rendering only
 class VIB3Widget extends StatefulWidget {
@@ -86,6 +87,17 @@ class _VIB3WidgetState extends State<VIB3Widget>
     _loadShader();
     _ticker = createTicker(_onTick);
     _ticker.start();
+    // Update debug status with initial state
+    _updateDebugStatus();
+  }
+
+  void _updateDebugStatus() {
+    DebugStatus().update(
+      visualSystem: widget.system.name.toUpperCase(),
+      geometryIndex: widget.geometryIndex,
+      morphParameter: _state.morphParameter,
+      gridDensity: _state.tessellationDensity,
+    );
   }
 
   Future<void> _loadShader() async {
@@ -95,6 +107,7 @@ class _VIB3WidgetState extends State<VIB3Widget>
         setState(() {
           _shader = program.fragmentShader();
         });
+        DebugStatus().update(shaderLoaded: true, shaderError: null);
       }
     } catch (e) {
       debugPrint('VIB3 Shader load error: $e');
@@ -103,6 +116,7 @@ class _VIB3WidgetState extends State<VIB3Widget>
           _shaderLoadError = true;
           _shaderErrorMessage = e.toString();
         });
+        DebugStatus().update(shaderLoaded: false, shaderError: e.toString());
       }
     }
   }
@@ -152,6 +166,9 @@ class _VIB3WidgetState extends State<VIB3Widget>
           _modulator = AudioReactiveModulator(config: _getModulationConfig());
         }
       });
+
+      // Update debug status when parameters change
+      _updateDebugStatus();
     }
   }
 
@@ -170,6 +187,12 @@ class _VIB3WidgetState extends State<VIB3Widget>
 
     _modulator.update(audioData, _time);
     _updateState(deltaTime);
+
+    // Update FPS in debug status (every ~0.5 seconds)
+    if ((elapsed.inMilliseconds % 500) < 20) {
+      final fps = deltaTime > 0 ? (1.0 / deltaTime) : 60.0;
+      DebugStatus().update(fps: fps, shaderTime: _time);
+    }
 
     if (mounted) setState(() {});
   }

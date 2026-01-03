@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import '../theme/synth_theme.dart';
 import '../components/holographic_slider.dart';
 import '../../providers/ui_state_provider.dart';
+import '../../providers/visual_provider.dart';
 
 class MappingPanelContent extends StatelessWidget {
   const MappingPanelContent({Key? key}) : super(key: key);
@@ -19,7 +20,8 @@ class MappingPanelContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final uiState = Provider.of<UIStateProvider>(context);
-    final systemColors = uiState.currentSystemColors;
+    final visualProvider = Provider.of<VisualProvider>(context);
+    final systemColors = visualProvider.systemColors;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
