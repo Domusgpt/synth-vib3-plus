@@ -33,7 +33,7 @@ class GeometryPanelContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: SynthTheme.spacingSmall),
-        _buildGeometryGrid(visualProvider, systemColors),
+        _buildGeometryGrid(context, visualProvider, systemColors),
         const SizedBox(height: SynthTheme.spacingLarge),
 
         // Section: Synthesis Modulation (4D Rotation controls sonic parameters)
@@ -129,6 +129,7 @@ class GeometryPanelContent extends StatelessWidget {
   }
 
   Widget _buildGeometryGrid(
+    BuildContext context,
     VisualProvider visualProvider,
     SystemColors systemColors,
   ) {
