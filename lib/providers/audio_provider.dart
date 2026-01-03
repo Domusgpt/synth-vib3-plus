@@ -262,22 +262,15 @@ class AudioProvider with ChangeNotifier {
   }
 
   /// Stop audio generation and playback
-  Future<void> stopAudio() async {
+  void stopAudio() {
     DebugConsole.audio('Stopping audio playback...');
 
     _audioGenerationTimer?.cancel();
     _isPlaying = false;
-
-    if (_pcmInitialized) {
-      try {
-        await FlutterPcmSound.stop();
-        DebugConsole.audio('PCM: Playback stopped');
-      } catch (e) {
-        DebugConsole.warn('PCM stop error: $e');
-      }
-    }
+    // No FlutterPcmSound.stop() exists - stopping feed() stops audio
 
     notifyListeners();
+    DebugConsole.audio('PCM: Playback stopped (feed halted)');
     debugPrint('⏸️  Audio stopped');
   }
 
