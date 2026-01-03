@@ -161,6 +161,8 @@ class SynthesisPanelContent extends StatelessWidget {
                 final currentBase = audioProvider.synthesisBranchManager.currentGeometry % 8;
                 final newGeometryIndex = (index * 8) + currentBase;
                 audioProvider.setSynthesisBranch(newGeometryIndex);
+                // SYNC: Also update visual provider for immediate effect
+                visualProvider.setGeometry(newGeometryIndex);
               },
               child: AnimatedContainer(
                 duration: SynthTheme.transitionQuick,

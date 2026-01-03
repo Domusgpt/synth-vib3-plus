@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import '../theme/synth_theme.dart';
 import '../components/holographic_slider.dart';
 import '../../providers/visual_provider.dart';
+import '../../providers/audio_provider.dart';
 
 class GeometryPanelContent extends StatelessWidget {
   const GeometryPanelContent({Key? key}) : super(key: key);
@@ -187,6 +188,9 @@ class GeometryPanelContent extends StatelessWidget {
                     // Change core but keep current base geometry
                     final newIndex = (index * 8) + currentBaseIndex;
                     visualProvider.setGeometry(newIndex);
+                    // SYNC: Also update audio provider for immediate effect
+                    final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+                    audioProvider.setGeometry(newIndex);
                   },
                   child: AnimatedContainer(
                     duration: SynthTheme.transitionQuick,
@@ -245,6 +249,9 @@ class GeometryPanelContent extends StatelessWidget {
                 // Change base geometry but keep current core
                 final newIndex = (currentCoreIndex * 8) + baseIndex;
                 visualProvider.setGeometry(newIndex);
+                // SYNC: Also update audio provider for immediate effect
+                final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+                audioProvider.setGeometry(newIndex);
               },
               child: AnimatedContainer(
                 duration: SynthTheme.transitionQuick,
