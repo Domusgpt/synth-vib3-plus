@@ -88,6 +88,10 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # Custom GLSL shaders for VIB3+ visualization
+  shaders:
+    - shaders/vib3_core.frag
+
   assets:
     - assets/shaders/vertex/
     - assets/shaders/fragment/

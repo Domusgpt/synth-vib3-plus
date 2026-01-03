@@ -1,7 +1,9 @@
 /**
  * VIB3+ Native Flutter Widget
  *
- * Complete Flutter widget for VIB3+ 4D visualization.
+ * Complete Flutter widget for VIB3+ 4D visualization using native GPU shaders.
+ * NO WebView, NO wireframe - pure Flutter FragmentShader rendering.
+ *
  * Features:
  * - 60 FPS animation loop with vsync
  * - Touch/gesture interaction for rotation
@@ -9,62 +11,30 @@
  * - All three visual systems (Quantum, Holographic, Faceted)
  * - All 24 geometries with smooth transitions
  *
- * Usage:
- * ```dart
- * VIB3Widget(
- *   system: VisualSystem.quantum,
- *   geometryIndex: 0,
- *   audioData: audioAnalysisData,
- *   onStateChanged: (state) => print(state),
- * )
- * ```
- *
  * A Paul Phillips Manifestation
  * © 2025 Paul Phillips - Clear Seas Solutions LLC
  */
 
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../core/vib3_engine.dart';
-import '../rendering/visual_system_renderer.dart';
+import '../rendering/vib3_shader_renderer.dart';
 import '../audio/audio_reactive_modulator.dart';
-import '../effects/post_processing.dart';
 
-/// Main VIB3+ visualization widget
+/// Main VIB3+ visualization widget - Native shader rendering only
 class VIB3Widget extends StatefulWidget {
-  /// Visual system type
   final VisualSystem system;
-
-  /// Geometry index (0-23)
   final int geometryIndex;
-
-  /// Audio reactivity data (optional)
   final AudioReactivityData? audioData;
-
-  /// Audio reactivity strength (0-1)
   final double audioReactivityStrength;
-
-  /// Enable demo mode with simulated audio
   final bool demoMode;
-
-  /// Base hue shift (0-360)
   final double hueShift;
-
-  /// Glow intensity (0-3)
   final double glowIntensity;
-
-  /// Auto-rotation speed (0 = disabled)
   final double autoRotateSpeed;
-
-  /// Enable touch interaction
   final bool enableInteraction;
-
-  /// Callback when state changes
   final ValueChanged<VIB3EngineState>? onStateChanged;
-
-  /// Custom post-processing config
-  final PostProcessingConfig? effectsConfig;
 
   const VIB3Widget({
     super.key,
@@ -78,7 +48,6 @@ class VIB3Widget extends StatefulWidget {
     this.autoRotateSpeed = 0.3,
     this.enableInteraction = true,
     this.onStateChanged,
-    this.effectsConfig,
   });
 
   @override
@@ -96,6 +65,11 @@ class _VIB3WidgetState extends State<VIB3Widget>
   late AudioReactiveModulator _modulator;
   late TestAudioGenerator _testAudioGen;
 
+  // Shader state
+  ui.FragmentShader? _shader;
+  bool _shaderLoadError = false;
+  String? _shaderErrorMessage;
+
   // Interaction state
   double _interactionRotationXY = 0.0;
   double _interactionRotationXZ = 0.0;
@@ -106,15 +80,31 @@ class _VIB3WidgetState extends State<VIB3Widget>
   @override
   void initState() {
     super.initState();
-
     _initializeState();
-    _modulator = AudioReactiveModulator(
-      config: _getModulationConfig(),
-    );
+    _modulator = AudioReactiveModulator(config: _getModulationConfig());
     _testAudioGen = TestAudioGenerator();
-
+    _loadShader();
     _ticker = createTicker(_onTick);
     _ticker.start();
+  }
+
+  Future<void> _loadShader() async {
+    try {
+      final program = await VIB3ShaderLoader.load();
+      if (mounted) {
+        setState(() {
+          _shader = program.fragmentShader();
+        });
+      }
+    } catch (e) {
+      debugPrint('VIB3 Shader load error: $e');
+      if (mounted) {
+        setState(() {
+          _shaderLoadError = true;
+          _shaderErrorMessage = e.toString();
+        });
+      }
+    }
   }
 
   void _initializeState() {
@@ -143,13 +133,11 @@ class _VIB3WidgetState extends State<VIB3Widget>
   void didUpdateWidget(VIB3Widget oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Update state when widget properties change
     if (oldWidget.system != widget.system ||
         oldWidget.geometryIndex != widget.geometryIndex ||
         oldWidget.hueShift != widget.hueShift ||
         oldWidget.glowIntensity != widget.glowIntensity ||
         oldWidget.autoRotateSpeed != widget.autoRotateSpeed) {
-
       setState(() {
         _state = _state.copyWith(
           system: widget.system,
@@ -160,11 +148,8 @@ class _VIB3WidgetState extends State<VIB3Widget>
           audioReactivityStrength: widget.audioReactivityStrength,
         );
 
-        // Update modulator config if system changed
         if (oldWidget.system != widget.system) {
-          _modulator = AudioReactiveModulator(
-            config: _getModulationConfig(),
-          );
+          _modulator = AudioReactiveModulator(config: _getModulationConfig());
         }
       });
     }
@@ -176,7 +161,6 @@ class _VIB3WidgetState extends State<VIB3Widget>
     _lastTickTime = elapsedSeconds;
     _time = elapsedSeconds;
 
-    // Get audio data
     AudioReactivityData audioData;
     if (widget.demoMode) {
       audioData = _testAudioGen.generate(_time);
@@ -184,20 +168,13 @@ class _VIB3WidgetState extends State<VIB3Widget>
       audioData = widget.audioData ?? AudioReactivityData.silent;
     }
 
-    // Update modulator
     _modulator.update(audioData, _time);
-
-    // Update state with auto-rotation and audio modulation
     _updateState(deltaTime);
 
-    // Trigger repaint
-    if (mounted) {
-      setState(() {});
-    }
+    if (mounted) setState(() {});
   }
 
   void _updateState(double deltaTime) {
-    // Apply interaction rotations
     var newState = _state.copyWith(
       rotationXY: _state.rotationXY + _interactionRotationXY,
       rotationXZ: _state.rotationXZ + _interactionRotationXZ,
@@ -205,7 +182,6 @@ class _VIB3WidgetState extends State<VIB3Widget>
       rotationYW: _state.rotationYW + _interactionRotationYW,
     );
 
-    // Apply auto-rotation
     if (widget.autoRotateSpeed > 0) {
       final rotSpeed = widget.autoRotateSpeed * deltaTime;
       final audioBoost = 1.0 + _modulator.smoothedAudio.bassEnergy *
@@ -221,18 +197,14 @@ class _VIB3WidgetState extends State<VIB3Widget>
       );
     }
 
-    // Apply audio modulation
     newState = _modulator.applyToState(newState);
 
-    // Decay interaction rotations
     _interactionRotationXY *= 0.95;
     _interactionRotationXZ *= 0.95;
     _interactionRotationXW *= 0.95;
     _interactionRotationYW *= 0.95;
 
     _state = newState;
-
-    // Notify listener
     widget.onStateChanged?.call(_state);
   }
 
@@ -241,17 +213,13 @@ class _VIB3WidgetState extends State<VIB3Widget>
   }
 
   void _handleScaleUpdate(ScaleUpdateDetails details) {
-    // Single-finger drag: map to XY/XZ rotation
     if (_lastPanPosition != null) {
       final delta = details.localFocalPoint - _lastPanPosition!;
       _lastPanPosition = details.localFocalPoint;
-
-      // Map horizontal drag to XY rotation, vertical to XZ rotation
       _interactionRotationXY += delta.dx * 0.01;
       _interactionRotationXZ += delta.dy * 0.01;
     }
 
-    // Two-finger rotation for 4D rotations
     if (details.pointerCount >= 2) {
       _interactionRotationXW += details.rotation * 0.1;
     }
@@ -259,8 +227,6 @@ class _VIB3WidgetState extends State<VIB3Widget>
 
   void _handleScaleEnd(ScaleEndDetails details) {
     _lastPanPosition = null;
-
-    // Add momentum from velocity
     final velocity = details.velocity.pixelsPerSecond;
     _interactionRotationXY += velocity.dx * 0.0001;
     _interactionRotationXZ += velocity.dy * 0.0001;
@@ -274,84 +240,106 @@ class _VIB3WidgetState extends State<VIB3Widget>
 
   @override
   Widget build(BuildContext context) {
-    Widget painter = CustomPaint(
-      painter: _VIB3Painter(
-        state: _state,
-        time: _time,
-        effectsConfig: widget.effectsConfig,
-      ),
-      size: Size.infinite,
-    );
+    Widget content;
 
-    // Add interaction gestures (scale handles both single-finger drag and pinch)
-    if (widget.enableInteraction) {
-      painter = GestureDetector(
-        onScaleStart: _handleScaleStart,
-        onScaleUpdate: _handleScaleUpdate,
-        onScaleEnd: _handleScaleEnd,
-        child: painter,
+    if (_shaderLoadError) {
+      content = _buildErrorWidget();
+    } else if (_shader == null) {
+      content = _buildLoadingWidget();
+    } else {
+      content = CustomPaint(
+        painter: VIB3ShaderPainter(
+          shader: _shader!,
+          state: _state,
+          time: _time,
+        ),
+        size: Size.infinite,
       );
     }
 
-    return painter;
+    if (widget.enableInteraction) {
+      content = GestureDetector(
+        onScaleStart: _handleScaleStart,
+        onScaleUpdate: _handleScaleUpdate,
+        onScaleEnd: _handleScaleEnd,
+        child: content,
+      );
+    }
+
+    return content;
   }
-}
 
-/// Custom painter for VIB3+ visualization
-class _VIB3Painter extends CustomPainter {
-  final VIB3EngineState state;
-  final double time;
-  final PostProcessingConfig? effectsConfig;
-
-  _VIB3Painter({
-    required this.state,
-    required this.time,
-    this.effectsConfig,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final renderer = VisualSystemRendererFactory.create(
-      state: state,
-      canvasSize: size,
-      time: time,
-      effectsConfig: effectsConfig,
+  Widget _buildLoadingWidget() {
+    return Container(
+      color: Colors.black,
+      child: const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: Colors.cyan, strokeWidth: 3),
+            SizedBox(height: 20),
+            Text(
+              'VIB3+ INITIALIZING',
+              style: TextStyle(
+                color: Colors.cyan,
+                fontSize: 14,
+                fontWeight: FontWeight.w300,
+                letterSpacing: 4,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
-
-    renderer.render(canvas);
   }
 
-  @override
-  bool shouldRepaint(_VIB3Painter oldDelegate) {
-    return time != oldDelegate.time ||
-        state.system != oldDelegate.state.system ||
-        state.geometryIndex != oldDelegate.state.geometryIndex;
+  Widget _buildErrorWidget() {
+    return Container(
+      color: Colors.black,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 48),
+            const SizedBox(height: 16),
+            const Text(
+              'SHADER ERROR',
+              style: TextStyle(
+                color: Colors.red,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                _shaderErrorMessage ?? 'Unknown error',
+                style: const TextStyle(color: Colors.white54, fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
-/// Stateless version for simple embedding
+/// Stateless shader widget
 class VIB3StaticWidget extends StatelessWidget {
   final VIB3EngineState state;
   final double time;
-  final PostProcessingConfig? effectsConfig;
 
   const VIB3StaticWidget({
     super.key,
     required this.state,
     required this.time,
-    this.effectsConfig,
   });
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _VIB3Painter(
-        state: state,
-        time: time,
-        effectsConfig: effectsConfig,
-      ),
-      size: Size.infinite,
-    );
+    return VIB3ShaderWidget(state: state, time: time);
   }
 }
 
@@ -378,13 +366,8 @@ class VIB3Controller extends ChangeNotifier {
     notifyListeners();
   }
 
-  void nextGeometry() {
-    setGeometry((_state.geometryIndex + 1) % 24);
-  }
-
-  void previousGeometry() {
-    setGeometry((_state.geometryIndex - 1 + 24) % 24);
-  }
+  void nextGeometry() => setGeometry((_state.geometryIndex + 1) % 24);
+  void previousGeometry() => setGeometry((_state.geometryIndex - 1 + 24) % 24);
 
   void setRotation({
     double? xy, double? xz, double? yz,
@@ -435,17 +418,15 @@ class VIB3Controller extends ChangeNotifier {
   }
 }
 
-/// Controlled VIB3+ widget using a controller
+/// Controlled VIB3+ widget
 class VIB3ControlledWidget extends StatefulWidget {
   final VIB3Controller controller;
   final bool enableInteraction;
-  final PostProcessingConfig? effectsConfig;
 
   const VIB3ControlledWidget({
     super.key,
     required this.controller,
     this.enableInteraction = true,
-    this.effectsConfig,
   });
 
   @override
@@ -484,10 +465,6 @@ class _VIB3ControlledWidgetState extends State<VIB3ControlledWidget>
 
   @override
   Widget build(BuildContext context) {
-    return VIB3StaticWidget(
-      state: widget.controller.state,
-      time: _time,
-      effectsConfig: widget.effectsConfig,
-    );
+    return VIB3StaticWidget(state: widget.controller.state, time: _time);
   }
 }

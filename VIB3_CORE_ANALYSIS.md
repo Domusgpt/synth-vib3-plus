@@ -2,7 +2,13 @@
 
 ## Source: https://github.com/Domusgpt/Vib3-CORE-Documented01-
 
-This document provides a comprehensive analysis of the VIB3-CORE visualization system for porting to native Flutter/Dart.
+This document provides analysis for porting VIB3-CORE **rendering** to native Flutter/Dart.
+
+> **IMPORTANT:** The audio-visual parameter coupling is ALREADY IMPLEMENTED in this codebase!
+> See: `lib/mapping/`, `lib/vib3/audio/audio_reactive_modulator.dart`
+>
+> **What's broken:** The native visualizer rendering (`lib/vib3/`) uses simple wireframes
+> instead of VIB3-CORE's WebGL fragment shader approach.
 
 ---
 

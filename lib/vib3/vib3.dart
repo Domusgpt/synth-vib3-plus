@@ -79,6 +79,7 @@ export 'geometry/polytope_generator.dart';
 // Rendering
 export 'rendering/vib3_native_renderer.dart';
 export 'rendering/visual_system_renderer.dart';
+export 'rendering/vib3_shader_renderer.dart';
 
 // Post-processing effects
 export 'effects/post_processing.dart';
