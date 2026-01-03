@@ -12,6 +12,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import '../core/vib3_engine.dart';
 
 /// Shader uniform indices (must match shader uniform order)
