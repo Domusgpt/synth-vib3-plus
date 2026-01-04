@@ -229,24 +229,30 @@ class _DebugConsoleOverlayState extends State<DebugConsoleOverlay> {
   }
 
   void _onLogUpdate() {
+    // Defer setState to avoid calling during build phase
     if (mounted) {
-      setState(() {});
-      if (_showLogs) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_scrollController.hasClients) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {});
+          if (_showLogs && _scrollController.hasClients) {
             _scrollController.animateTo(
               _scrollController.position.maxScrollExtent,
               duration: const Duration(milliseconds: 100),
               curve: Curves.easeOut,
             );
           }
-        });
-      }
+        }
+      });
     }
   }
 
   void _onStatusUpdate() {
-    if (mounted) setState(() {});
+    // Defer setState to avoid calling during build phase
+    if (mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+    }
   }
 
   Widget _buildAudioBar(String label, double value, Color color) {
