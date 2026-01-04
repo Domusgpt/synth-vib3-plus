@@ -487,29 +487,105 @@ vec3 renderQuantum(vec2 uv, float geometryValue, vec4 pos) {
     return finalColor * u_brightness;
 }
 
-// FACETED: Clean geometric with sharp edges
+// ============================================================
+// FACETED: 5-Layer Geometric System (from VIB3-CORE roleIntensities)
+// Clean geometric patterns with 4D rotation, sharp edges, no RGB glitch
+// Role intensities: background 0.3, shadow 0.5, content 0.8, highlight 1.0, accent 1.2
+// ============================================================
 vec3 renderFaceted(vec2 uv, float geometryValue, vec4 pos) {
     float time = u_time * 0.001;
+    vec3 finalColor = vec3(0.0);
 
-    // Cooler color palette for faceted
-    float hueShift = u_hue / 360.0;
-    vec3 edgeColor = hsv2rgb(vec3(hueShift + 0.6, 0.7, 0.8));  // Blue-ish
-    vec3 fillColor = hsv2rgb(vec3(hueShift + 0.55, 0.4, 0.2));  // Darker
-    vec3 glowColor = hsv2rgb(vec3(hueShift + 0.65, 0.9, 1.0));  // Bright
+    // Base parameters
+    float baseHue = u_hue;
+    float geomIntensity = geometryValue;
 
-    // Sharp edge detection
-    float edge = smoothstep(0.3, 0.5, geometryValue) - smoothstep(0.5, 0.7, geometryValue);
-    float fill = smoothstep(0.0, 0.3, geometryValue) * 0.3;
+    // ============================================================
+    // LAYER 0 - BACKGROUND: Subtle foundation (roleIntensity 0.3)
+    // ============================================================
+    {
+        float layerHue = (baseHue - 60.0) / 360.0;  // Cooler background
+        vec3 layerCol = hsv2rgb(vec3(layerHue, u_saturation * 0.4, 0.2));
 
-    vec3 color = fillColor * fill;
-    color += edgeColor * edge * (0.8 + u_midEnergy * 0.4);
-    color += glowColor * pow(geometryValue, 4.0) * u_glowIntensity * 0.5;
+        // Subtle fill
+        float fillIntensity = smoothstep(0.0, 0.2, geomIntensity) * 0.3;
+        finalColor += layerCol * fillIntensity * 0.12; // roleIntensity 0.3 * alpha 0.4
+    }
 
-    // Subtle vertex highlights
-    float vertGlow = pow(geometryValue, 6.0) * u_highEnergy;
-    color += vec3(1.0) * vertGlow * 0.3;
+    // ============================================================
+    // LAYER 1 - SHADOW: Depth support (roleIntensity 0.5)
+    // ============================================================
+    {
+        float layerHue = (baseHue - 30.0) / 360.0;  // Slightly cooler
+        vec3 layerCol = hsv2rgb(vec3(layerHue, u_saturation * 0.5, 0.3));
 
-    return color * u_brightness;
+        // Shadow layer - stronger where geometry is weaker
+        float shadowIntensity = pow(1.0 - clamp(geomIntensity, 0.0, 1.0), 2.0) * 0.5;
+        finalColor += layerCol * shadowIntensity * 0.2; // roleIntensity 0.5 * alpha 0.4
+    }
+
+    // ============================================================
+    // LAYER 2 - CONTENT: Primary geometric structure (roleIntensity 0.8)
+    // ============================================================
+    {
+        float layerHue = baseHue / 360.0;
+        vec3 layerCol = hsv2rgb(vec3(layerHue, u_saturation * 0.7, 0.5));
+
+        // Sharp edge detection for clean geometric look
+        float edge = smoothstep(0.3, 0.5, geomIntensity) - smoothstep(0.5, 0.7, geomIntensity);
+        float fill = smoothstep(0.0, 0.3, geomIntensity) * 0.4;
+
+        float contentIntensity = (edge * 1.2 + fill) * 0.8;
+        contentIntensity *= (0.8 + u_midEnergy * 0.4);
+
+        finalColor += layerCol * contentIntensity * 0.8; // roleIntensity 0.8 * alpha 1.0
+    }
+
+    // ============================================================
+    // LAYER 3 - HIGHLIGHT: Bright geometric edges (roleIntensity 1.0)
+    // ============================================================
+    {
+        float layerHue = (baseHue + 30.0) / 360.0;  // Warmer highlight
+        vec3 layerCol = hsv2rgb(vec3(layerHue, u_saturation * 0.8, 0.65));
+
+        // Highlight only peaks
+        float peakIntensity = pow(clamp(geomIntensity, 0.0, 1.0), 2.0);
+        peakIntensity *= 1.0;  // roleIntensity 1.0
+
+        // Add vertex glow
+        float vertGlow = pow(geomIntensity, 4.0) * u_glowIntensity;
+        vec3 glowCol = hsv2rgb(vec3(layerHue + 0.1, 0.9, 1.0));
+
+        finalColor += layerCol * peakIntensity * 0.8; // alpha 0.8
+        finalColor += glowCol * vertGlow * 0.4;
+    }
+
+    // ============================================================
+    // LAYER 4 - ACCENT: Complementary color accents (roleIntensity 1.2)
+    // ============================================================
+    {
+        float layerHue = (baseHue + 180.0) / 360.0;  // Complementary color
+        vec3 layerCol = hsv2rgb(vec3(layerHue, u_saturation * 0.9, 0.6));
+
+        // Accent on strongest geometry features
+        float accentIntensity = pow(clamp(geomIntensity, 0.0, 1.0), 3.0) * 1.2;
+
+        // Subtle pulsing
+        accentIntensity *= (0.8 + sin(time * 2.0) * 0.2);
+
+        finalColor += layerCol * accentIntensity * 0.36; // roleIntensity 1.2 * alpha 0.3
+    }
+
+    // ============================================================
+    // VERTEX PARTICLES: White points for crisp geometric look
+    // ============================================================
+    {
+        float vertGlow = pow(geomIntensity, 6.0);
+        vertGlow *= (1.0 + u_highEnergy * 0.8);
+        finalColor += vec3(1.0) * vertGlow * 0.5;
+    }
+
+    return finalColor * u_brightness;
 }
 
 // ============================================================
