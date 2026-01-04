@@ -101,13 +101,19 @@ lib/
     └── mapping_preset.dart                # Bidirectional mapping configurations
 ```
 
-### The VIB3+ WebView System
+### The VIB3+ Native Shader System (Current)
 
-VIB3+ runs as a WebGL visualization inside a Flutter WebView. Communication happens through JavaScript message passing:
+**NOTE**: The visualization has been migrated from WebView/JavaScript to native Flutter GLSL FragmentShader rendering.
 
-- Flutter → JS: Send visual parameter updates via `webViewController.runJavaScript()`
-- JS → Flutter: Visual state changes trigger callbacks to `VisualProvider`
-- All VIB3+ source files are in `assets/src/`, `assets/js/`, `assets/styles/`
+The core shader is `shaders/vib3_core.frag` which implements:
+- 3 visual systems (Quantum, Faceted, Holographic) each with 5-layer architecture
+- 24 geometries (8 base lattice patterns × 3 polytope cores)
+- Full 6D rotation (XY/XZ/YZ for 3D space, XW/YW/ZW for 4D hyperspace)
+- Audio reactivity via uniforms (u_bassEnergy, u_midEnergy, u_highEnergy, u_rmsAmplitude)
+
+The shader renderer is `lib/vib3/rendering/vib3_shader_renderer.dart` which passes uniforms to the shader.
+
+**Legacy WebView system** (assets/src/, assets/js/) is still in codebase but NOT actively used.
 
 ## Parameter Mappings Reference
 
@@ -140,19 +146,57 @@ VIB3+ runs as a WebGL visualization inside a Flutter WebView. Communication happ
 
 ## Implementation Status
 
-See `PROJECT_STATUS.md` for current development phase. As of creation:
+### Current State (January 2026)
 
-- Phase 1 (Core System): IN PROGRESS - synthesis branch manager under development
-- Phase 2 (Parameter Mapping): NOT STARTED
-- Phase 3 (UI Integration): NOT STARTED
-- Phase 4 (Polish & Testing): NOT STARTED
+**VIB3+ Dart Native Refactor: ~80% Complete**
 
-## Development Notes
+- ✅ Core shader (`shaders/vib3_core.frag`) - 3 visual systems with 5-layer architecture
+- ✅ 24 geometries (8 base × 3 polytope cores) fully implemented in shader
+- ✅ 6D rotation system working in shader
+- ✅ Audio reactivity uniforms connected
+- ✅ UI panels (Geometry, Synthesis, Effects, Mapping) implemented
+- ⚠️ Parameter mappings partially implemented - see `docs/PARAMETER_AUDIT.md`
+- ⚠️ Audio reactivity overwrites base values instead of being additive modulation
+- ⚠️ Duplicate sliders across panels need consolidation
+- ❌ Some Visual→Audio mappings not yet connected (XW→FM, YW→RingMod, etc.)
 
-### Platform Support
+### Key Documentation
+
+- **`docs/PARAMETER_AUDIT.md`** - Complete audit of all UI parameters, shader uniforms, current vs planned mappings
+- **`UI_UX_DESIGN_PLAN.md`** - Full UI/UX specification
+- **`PROJECT_STATUS.md`** - Sprint tracking
+
+## Development Environment
+
+### Remote Development Setup
+
+Development happens via **Claude Code web terminal** with no local Flutter SDK:
+
+- **Code editing**: Claude Code (claude.ai/code)
+- **Builds**: GitHub Actions CI/CD workflow
+- **Testing**: Firebase Test Lab for real Android device testing
+- **No local emulator**: All testing is remote
+
+### GitHub Actions Workflow
+
+```bash
+# Triggered on push to any branch
+# Builds debug APK and uploads to Firebase Test Lab
+# See .github/workflows/ for configuration
+```
+
+### Firebase Test Lab
+
+- Automated testing on real Android devices
+- Screenshots captured for visual verification
+- Logcat output available for debugging
+- Access via Firebase Console
+
+## Platform Support
 
 - **Primary**: Android (phone/tablet)
-- **Development**: Linux/WSL
+- **Development**: Web terminal (Claude Code) + GitHub Actions
+- **Testing**: Firebase Test Lab
 - **Blocked**: Web builds (Firebase package conflicts)
 
 ### Performance Targets
