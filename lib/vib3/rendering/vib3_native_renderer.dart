@@ -121,14 +121,94 @@ class VIB3NativeRenderer extends CustomPainter {
     return HSLColor.fromAHSL(1.0, config.hueShift, 0.1, baseDarkness).toColor();
   }
 
-  /// Render Quantum system (pure harmonic synthesis aesthetic)
+  /// Render Quantum system - 5 canvas layers with extreme RGB separation
+  /// Layer 0: Background (deep purple/black) - 0.02 separation
+  /// Layer 1: Shadow (toxic green) - 0.08 separation
+  /// Layer 2: Content (red/orange/white-hot) - 0.15 separation
+  /// Layer 3: Highlight (electric cyan) - 0.25 separation
+  /// Layer 4: Accent (magenta/violet) - 0.30 separation
   void _renderQuantumSystem(Canvas canvas, double cx, double cy, double radius) {
-    // Generate geometry
     final metadata = GeometryLibrary.getGeometryMetadata(config.geometryIndex);
     final polytope = PolytopeGenerator.generateBase(metadata.baseIndex);
 
-    // Apply 6D rotation
-    final rotation = Rotation4D.apply6DRotation(
+    // Quantum layer definitions: [hue, saturation, lightness, alpha, rgbSplit]
+    final quantumLayers = [
+      {'hue': 270.0, 'sat': 0.6, 'light': 0.15, 'alpha': 0.4, 'split': 0.02, 'name': 'background'},   // Deep purple/black
+      {'hue': 90.0,  'sat': 0.8, 'light': 0.35, 'alpha': 0.5, 'split': 0.08, 'name': 'shadow'},       // Toxic green
+      {'hue': 15.0,  'sat': 0.9, 'light': 0.55, 'alpha': 0.7, 'split': 0.15, 'name': 'content'},      // Red/orange/white-hot
+      {'hue': 190.0, 'sat': 0.9, 'light': 0.6,  'alpha': 0.8, 'split': 0.25, 'name': 'highlight'},    // Electric cyan
+      {'hue': 300.0, 'sat': 0.85,'light': 0.5,  'alpha': 0.9, 'split': 0.30, 'name': 'accent'},       // Magenta/violet
+    ];
+
+    // Render all 5 layers back to front
+    for (int layer = 0; layer < 5; layer++) {
+      final layerDef = quantumLayers[layer];
+      final depth = layer / 4.0;
+
+      // Each layer has different rotation offset for parallax depth
+      final layerOffset = (layer - 2) * 0.15;
+      final layerSpeed = 1.0 + (layer - 2) * 0.15;
+
+      final rotation = Rotation4D.apply6DRotation(
+        xy: config.rotationXY * config.rotationSpeed * layerSpeed + layerOffset * 0.3,
+        xz: config.rotationXZ * config.rotationSpeed * layerSpeed + layerOffset * 0.2,
+        yz: config.rotationYZ * config.rotationSpeed * layerSpeed + layerOffset * 0.1,
+        xw: config.rotationXW * config.rotationSpeed * layerSpeed,
+        yw: config.rotationYW * config.rotationSpeed * layerSpeed,
+        zw: config.rotationZW * config.rotationSpeed * layerSpeed,
+      );
+
+      final rotatedVertices = Rotation4D.rotateVertices(polytope.vertices, rotation);
+
+      // Layer-specific hue with user hue shift applied
+      final layerHue = ((layerDef['hue'] as double) + config.hueShift) % 360.0;
+
+      // Audio reactivity affects different layers differently
+      final audioBoost = layer == 2 ? config.bassEnergy * 0.3 :    // Content responds to bass
+                         layer == 3 ? config.midEnergy * 0.3 :     // Highlight responds to mid
+                         layer == 4 ? config.highEnergy * 0.3 : 0.0; // Accent responds to high
+
+      final layerAlpha = ((layerDef['alpha'] as double) + audioBoost).clamp(0.1, 1.0);
+      final layerLight = ((layerDef['light'] as double) + config.vertexBrightness * 0.2).clamp(0.1, 0.9);
+
+      final layerColor = HSLColor.fromAHSL(
+        layerAlpha,
+        layerHue,
+        layerDef['sat'] as double,
+        layerLight,
+      ).toColor();
+
+      // Layer radius varies for depth effect
+      final layerRadius = radius * (0.85 + depth * 0.3) * (1.0 + config.bassEnergy * 0.15);
+
+      // RGB split amount for this layer
+      final splitAmount = (layerDef['split'] as double) * config.rgbSplitAmount * 10.0;
+
+      // Stroke width varies by layer (content/highlight/accent are thicker)
+      final strokeWidth = layer < 2 ? 1.0 + layer * 0.5 : 2.0 + (layer - 2) * 0.8;
+
+      // Render with RGB separation if split amount is significant
+      if (splitAmount > 0.5) {
+        _renderWireframeRGBSplit(
+          canvas, cx, cy, layerRadius,
+          rotatedVertices, polytope.edges,
+          layerColor, splitAmount,
+          strokeWidth: strokeWidth,
+          glow: config.glowIntensity * (0.5 + depth * 0.5),
+        );
+      } else {
+        _renderWireframe(
+          canvas, cx, cy, layerRadius,
+          rotatedVertices, polytope.edges,
+          layerColor,
+          strokeWidth: strokeWidth,
+          glow: config.glowIntensity * (0.5 + depth * 0.5),
+        );
+      }
+    }
+
+    // Add bright vertex particles on topmost layer
+    final mainRotation = Rotation4D.apply6DRotation(
       xy: config.rotationXY * config.rotationSpeed,
       xz: config.rotationXZ * config.rotationSpeed,
       yz: config.rotationYZ * config.rotationSpeed,
@@ -136,39 +216,94 @@ class VIB3NativeRenderer extends CustomPainter {
       yw: config.rotationYW * config.rotationSpeed,
       zw: config.rotationZW * config.rotationSpeed,
     );
+    final mainVertices = Rotation4D.rotateVertices(polytope.vertices, mainRotation);
 
-    final rotatedVertices = Rotation4D.rotateVertices(polytope.vertices, rotation);
-
-    // Quantum uses single bright layer with high contrast
-    final baseColor = HSLColor.fromAHSL(
-      1.0,
-      config.hueShift,
-      0.8,
-      0.5 + config.vertexBrightness * 0.3,
+    // Particle color cycles through quantum palette
+    final particleHue = (config.hueShift + time * 30.0) % 360.0;
+    final particleColor = HSLColor.fromAHSL(
+      0.9,
+      particleHue,
+      0.9,
+      0.7 + config.highEnergy * 0.2,
     ).toColor();
 
-    _renderWireframe(
-      canvas,
-      cx,
-      cy,
-      radius * (1.0 + config.bassEnergy * 0.2),
-      rotatedVertices,
-      polytope.edges,
-      baseColor,
-      strokeWidth: 2.0 + config.midEnergy * 2.0,
-      glow: config.glowIntensity,
-    );
-
-    // Add vertex particles
     _renderVertexParticles(
-      canvas,
-      cx,
-      cy,
+      canvas, cx, cy,
       radius * (1.0 + config.bassEnergy * 0.2),
-      rotatedVertices,
-      baseColor,
+      mainVertices,
+      particleColor,
       size: 3.0 + config.highEnergy * 4.0,
     );
+  }
+
+  /// Render wireframe with RGB channel separation (chromatic aberration)
+  void _renderWireframeRGBSplit(
+    Canvas canvas,
+    double cx,
+    double cy,
+    double radius,
+    List<vm.Vector4> vertices,
+    List<Edge> edges,
+    Color baseColor,
+    double splitAmount,
+    {
+    required double strokeWidth,
+    required double glow,
+  }) {
+    // Calculate RGB offsets based on split amount
+    final offsetR = Offset(splitAmount, -splitAmount * 0.5);
+    final offsetG = Offset.zero;
+    final offsetB = Offset(-splitAmount, splitAmount * 0.5);
+
+    // Extract RGB from base color
+    final r = baseColor.red / 255.0;
+    final g = baseColor.green / 255.0;
+    final b = baseColor.blue / 255.0;
+    final alpha = baseColor.opacity;
+
+    // Render each color channel separately with offset
+    final channels = [
+      {'offset': offsetR, 'color': Color.fromRGBO((r * 255).round(), 0, 0, alpha * 0.8)},
+      {'offset': offsetG, 'color': Color.fromRGBO(0, (g * 255).round(), 0, alpha * 0.9)},
+      {'offset': offsetB, 'color': Color.fromRGBO(0, 0, (b * 255).round(), alpha * 0.8)},
+    ];
+
+    for (final channel in channels) {
+      final offset = channel['offset'] as Offset;
+      final color = channel['color'] as Color;
+
+      final paint = Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round
+        ..blendMode = BlendMode.plus; // Additive blending for RGB
+
+      if (glow > 0.0) {
+        paint.maskFilter = MaskFilter.blur(BlurStyle.normal, glow * 1.5);
+      }
+
+      for (final edge in edges) {
+        final v1 = vertices[edge.v1];
+        final v2 = vertices[edge.v2];
+
+        final p1 = _projectToScreen(v1, cx, cy, radius);
+        final p2 = _projectToScreen(v2, cx, cy, radius);
+
+        // Apply channel offset
+        final p1Offset = p1 + offset;
+        final p2Offset = p2 + offset;
+
+        // Depth-based alpha
+        final depth1 = 1.0 / (config.projectionDistance - v1.w);
+        final depth2 = 1.0 / (config.projectionDistance - v2.w);
+        final avgDepth = (depth1 + depth2) / 2.0;
+        final depthAlpha = (avgDepth * 0.5 + 0.5).clamp(0.2, 1.0);
+
+        paint.color = color.withOpacity(color.opacity * depthAlpha);
+        canvas.drawLine(p1Offset, p2Offset, paint);
+      }
+    }
   }
 
   /// Render Holographic system (multi-layer depth field)
