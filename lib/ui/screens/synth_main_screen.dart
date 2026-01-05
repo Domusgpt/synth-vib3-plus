@@ -178,9 +178,16 @@ class _SynthMainContentState extends State<_SynthMainContent> {
             audioData: audioData,
             audioReactivityStrength: 0.7,
             demoMode: !audioProvider.isPlaying, // Demo when not playing
+            // All visual parameters passed to shader
             hueShift: visualProvider.hueShift,
             glowIntensity: visualProvider.glowIntensity,
             autoRotateSpeed: visualProvider.rotationSpeed * 0.3,
+            saturation: visualProvider.saturation,
+            vertexBrightness: visualProvider.vertexBrightness,
+            tessellationDensity: visualProvider.tessellationDensity,
+            morphParameter: visualProvider.morphParameter,
+            rgbSplitAmount: visualProvider.rgbSplitAmount,
+            chaosAmount: visualProvider.chaosAmount,
             enableInteraction: true,
             onStateChanged: (state) {
               // Sync ALL 6 rotation planes back to provider for audio coupling

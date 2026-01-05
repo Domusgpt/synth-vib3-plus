@@ -31,9 +31,16 @@ class VIB3Widget extends StatefulWidget {
   final AudioReactivityData? audioData;
   final double audioReactivityStrength;
   final bool demoMode;
+  // All visual parameters for shader
   final double hueShift;
   final double glowIntensity;
   final double autoRotateSpeed;
+  final double saturation;
+  final double vertexBrightness;
+  final double tessellationDensity;
+  final double morphParameter;
+  final double rgbSplitAmount;
+  final double chaosAmount;
   final bool enableInteraction;
   final ValueChanged<VIB3EngineState>? onStateChanged;
 
@@ -47,6 +54,12 @@ class VIB3Widget extends StatefulWidget {
     this.hueShift = 200.0,
     this.glowIntensity = 1.0,
     this.autoRotateSpeed = 0.3,
+    this.saturation = 0.7,
+    this.vertexBrightness = 0.8,
+    this.tessellationDensity = 8.0,
+    this.morphParameter = 0.5,
+    this.rgbSplitAmount = 0.0,
+    this.chaosAmount = 0.0,
     this.enableInteraction = true,
     this.onStateChanged,
   });
@@ -129,6 +142,12 @@ class _VIB3WidgetState extends State<VIB3Widget>
       glowIntensity: widget.glowIntensity,
       autoRotateSpeed: widget.autoRotateSpeed,
       audioReactivityStrength: widget.audioReactivityStrength,
+      saturation: widget.saturation,
+      vertexBrightness: widget.vertexBrightness,
+      tessellationDensity: widget.tessellationDensity.round(),
+      morphParameter: widget.morphParameter,
+      rgbSplitAmount: widget.rgbSplitAmount,
+      chaosAmount: widget.chaosAmount,
     );
   }
 
@@ -147,11 +166,20 @@ class _VIB3WidgetState extends State<VIB3Widget>
   void didUpdateWidget(VIB3Widget oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (oldWidget.system != widget.system ||
+    // Check if any visual parameter changed
+    final changed = oldWidget.system != widget.system ||
         oldWidget.geometryIndex != widget.geometryIndex ||
         oldWidget.hueShift != widget.hueShift ||
         oldWidget.glowIntensity != widget.glowIntensity ||
-        oldWidget.autoRotateSpeed != widget.autoRotateSpeed) {
+        oldWidget.autoRotateSpeed != widget.autoRotateSpeed ||
+        oldWidget.saturation != widget.saturation ||
+        oldWidget.vertexBrightness != widget.vertexBrightness ||
+        oldWidget.tessellationDensity != widget.tessellationDensity ||
+        oldWidget.morphParameter != widget.morphParameter ||
+        oldWidget.rgbSplitAmount != widget.rgbSplitAmount ||
+        oldWidget.chaosAmount != widget.chaosAmount;
+
+    if (changed) {
       setState(() {
         _state = _state.copyWith(
           system: widget.system,
@@ -160,6 +188,12 @@ class _VIB3WidgetState extends State<VIB3Widget>
           glowIntensity: widget.glowIntensity,
           autoRotateSpeed: widget.autoRotateSpeed,
           audioReactivityStrength: widget.audioReactivityStrength,
+          saturation: widget.saturation,
+          vertexBrightness: widget.vertexBrightness,
+          tessellationDensity: widget.tessellationDensity.round(),
+          morphParameter: widget.morphParameter,
+          rgbSplitAmount: widget.rgbSplitAmount,
+          chaosAmount: widget.chaosAmount,
         );
 
         if (oldWidget.system != widget.system) {

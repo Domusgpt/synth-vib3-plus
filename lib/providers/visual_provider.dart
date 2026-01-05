@@ -108,6 +108,8 @@ class VisualProvider with ChangeNotifier {
   double get glowIntensity => (_baseGlowIntensity + _modGlowIntensity).clamp(0.0, 3.0);
   double get rgbSplitAmount => (_baseRgbSplitAmount + _modRgbSplitAmount).clamp(0.0, 10.0);
   double get saturation => (_baseSaturation + _modSaturation).clamp(0.0, 1.0);
+  // Chaos is derived from rgbSplitAmount (0-10 → 0-1)
+  double get chaosAmount => (rgbSplitAmount / 10.0).clamp(0.0, 1.0);
 
   // Base value getters (for UI display)
   double get baseRotationSpeed => _baseRotationSpeed;
