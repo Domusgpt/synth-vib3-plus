@@ -16,9 +16,8 @@ import 'package:flutter/material.dart';
 import '../theme/synth_theme.dart';
 import 'package:provider/provider.dart';
 import '../../providers/ui_state_provider.dart';
-import '../panels/synthesis_panel.dart';
 import '../panels/geometry_panel.dart';
-// Note: Effects merged into Synthesis, Mapping removed per sonic parity spec
+// UNIFIED PANEL: All controls in Geometry panel (bidirectional visual↔audio)
 
 class CollapsibleBezel extends StatefulWidget {
   final String panelId;
@@ -220,8 +219,7 @@ class BottomBezelContainer extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Collapsed tabs (show 2 panels: Synthesis and Geometry)
-          // Effects merged into Synthesis, Mapping removed per sonic parity spec
+          // UNIFIED PANEL: Single Geometry tab with all bidirectional controls
           if (!anyExpanded)
             Container(
               height: SynthTheme.panelCollapsedHeight,
@@ -238,16 +236,9 @@ class BottomBezelContainer extends StatelessWidget {
                 children: [
                   _buildTabButton(
                     context,
-                    'synthesis',
-                    'Synthesis',
-                    Icons.music_note,
-                    uiState,
-                  ),
-                  _buildTabButton(
-                    context,
                     'geometry',
-                    'Geometry',
-                    Icons.category,
+                    'Controls',
+                    Icons.tune,
                     uiState,
                   ),
                 ],
@@ -308,41 +299,20 @@ class BottomBezelContainer extends StatelessWidget {
   }
 
   String _getExpandedPanelId(UIStateProvider uiState) {
-    if (uiState.isPanelExpanded('synthesis')) return 'synthesis';
-    if (uiState.isPanelExpanded('geometry')) return 'geometry';
-    // Legacy fallbacks - redirect to synthesis
-    if (uiState.isPanelExpanded('effects')) return 'synthesis';
-    if (uiState.isPanelExpanded('mapping')) return 'synthesis';
-    return 'synthesis';
+    // All legacy panels redirect to unified geometry panel
+    return 'geometry';
   }
 
   String _getExpandedPanelLabel(UIStateProvider uiState) {
-    final id = _getExpandedPanelId(uiState);
-    return id[0].toUpperCase() + id.substring(1);
+    return 'Controls';
   }
 
   IconData _getExpandedPanelIcon(UIStateProvider uiState) {
-    final id = _getExpandedPanelId(uiState);
-    switch (id) {
-      case 'synthesis':
-        return Icons.music_note;
-      case 'geometry':
-        return Icons.category;
-      default:
-        return Icons.music_note;
-    }
+    return Icons.tune;
   }
 
   Widget _getExpandedPanelContent(BuildContext context, UIStateProvider uiState) {
-    final id = _getExpandedPanelId(uiState);
-    switch (id) {
-      case 'synthesis':
-        return const SynthesisPanelContent();
-      case 'geometry':
-        return const GeometryPanelContent();
-      default:
-        return const SynthesisPanelContent();
-    }
+    return const GeometryPanelContent();
   }
 }
 
