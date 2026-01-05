@@ -102,24 +102,36 @@ class AudioToVisualModulator {
   }
 
   void _updateVisualParameter(String paramName, double value) {
+    // IMPORTANT: Use modulation setters (additive) not base setters (overwrite)
+    // This preserves user-set base values while adding audio-reactive offsets
     switch (paramName) {
       case 'rotationSpeed':
-        visualProvider.setRotationSpeed(value);
+        // Calculate offset from baseline (1.0) and apply as modulation
+        final speedOffset = value - 1.0;  // baseline is 1.0
+        visualProvider.setRotationSpeedModulation(speedOffset);
         break;
       case 'tessellationDensity':
-        visualProvider.setTessellationDensity(value);
+        // Calculate offset from baseline (5.0) and apply as modulation
+        final tessOffset = value - 5.0;  // baseline is 5.0
+        visualProvider.setTessellationDensityModulation(tessOffset);
         break;
       case 'vertexBrightness':
-        visualProvider.setVertexBrightness(value);
+        // Calculate offset from baseline (0.7) and apply as modulation
+        final brightOffset = value - 0.7;  // baseline is 0.7
+        visualProvider.setVertexBrightnessModulation(brightOffset);
         break;
       case 'hueShift':
-        visualProvider.setHueShift(value);
+        // Hue shift is already additive - pass the shift amount directly
+        visualProvider.setHueShiftModulation(value);
         break;
       case 'glowIntensity':
-        visualProvider.setGlowIntensity(value);
+        // Calculate offset from baseline (1.0) and apply as modulation
+        final glowOffset = value - 1.0;  // baseline is 1.0
+        visualProvider.setGlowIntensityModulation(glowOffset);
         break;
       case 'rgbSplitAmount':
-        visualProvider.setRGBSplitAmount(value);
+        // Calculate offset from baseline (0.0) and apply as modulation
+        visualProvider.setRGBSplitAmountModulation(value);
         break;
     }
   }

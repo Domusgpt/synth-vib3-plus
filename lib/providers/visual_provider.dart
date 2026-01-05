@@ -42,14 +42,23 @@ class VisualProvider with ChangeNotifier {
   double _rotationVelocityYW = 0.0;
   double _rotationVelocityZW = 0.0;
 
-  // Visual parameters
-  double _rotationSpeed = 1.0;       // Base rotation speed multiplier
-  double _tessellationDensity = 8.0;   // Grid density (2-30)
-  double _vertexBrightness = 0.8;    // Vertex intensity (0-1)
-  double _hueShift = 180.0;          // Color hue offset (0-360°)
-  double _glowIntensity = 1.0;       // Bloom/glow amount (0-3)
-  double _rgbSplitAmount = 0.0;      // Chromatic aberration (0-10)
-  double _saturation = 0.7;          // Color saturation (0-1)
+  // Visual parameters - BASE values (set by user/UI)
+  double _baseRotationSpeed = 1.0;       // Base rotation speed multiplier
+  double _baseTessellationDensity = 8.0;   // Grid density (2-30)
+  double _baseVertexBrightness = 0.8;    // Vertex intensity (0-1)
+  double _baseHueShift = 180.0;          // Color hue offset (0-360°)
+  double _baseGlowIntensity = 1.0;       // Bloom/glow amount (0-3)
+  double _baseRgbSplitAmount = 0.0;      // Chromatic aberration (0-10)
+  double _baseSaturation = 0.7;          // Color saturation (0-1)
+
+  // Audio modulation OFFSETS (set by audio reactivity, added to base)
+  double _modRotationSpeed = 0.0;
+  double _modTessellationDensity = 0.0;
+  double _modVertexBrightness = 0.0;
+  double _modHueShift = 0.0;
+  double _modGlowIntensity = 0.0;
+  double _modRgbSplitAmount = 0.0;
+  double _modSaturation = 0.0;
 
   // Geometry state
   int _activeVertexCount = 120;      // Current vertex count
@@ -91,13 +100,23 @@ class VisualProvider with ChangeNotifier {
   double get rotationXW => _rotationXW;
   double get rotationYW => _rotationYW;
   double get rotationZW => _rotationZW;
-  double get rotationSpeed => _rotationSpeed;
-  double get tessellationDensity => _tessellationDensity;
-  double get vertexBrightness => _vertexBrightness;
-  double get hueShift => _hueShift;
-  double get glowIntensity => _glowIntensity;
-  double get rgbSplitAmount => _rgbSplitAmount;
-  double get saturation => _saturation;
+  // Getters return BASE + MODULATION (audio reactivity is additive)
+  double get rotationSpeed => (_baseRotationSpeed + _modRotationSpeed).clamp(0.1, 5.0);
+  double get tessellationDensity => (_baseTessellationDensity + _modTessellationDensity).clamp(2.0, 30.0);
+  double get vertexBrightness => (_baseVertexBrightness + _modVertexBrightness).clamp(0.0, 1.0);
+  double get hueShift => (_baseHueShift + _modHueShift) % 360.0;
+  double get glowIntensity => (_baseGlowIntensity + _modGlowIntensity).clamp(0.0, 3.0);
+  double get rgbSplitAmount => (_baseRgbSplitAmount + _modRgbSplitAmount).clamp(0.0, 10.0);
+  double get saturation => (_baseSaturation + _modSaturation).clamp(0.0, 1.0);
+
+  // Base value getters (for UI display)
+  double get baseRotationSpeed => _baseRotationSpeed;
+  double get baseTessellationDensity => _baseTessellationDensity;
+  double get baseVertexBrightness => _baseVertexBrightness;
+  double get baseHueShift => _baseHueShift;
+  double get baseGlowIntensity => _baseGlowIntensity;
+  double get baseRgbSplitAmount => _baseRgbSplitAmount;
+  double get baseSaturation => _baseSaturation;
   int get activeVertexCount => _activeVertexCount;
   double get morphParameter => _morphParameter;
   int get currentGeometry => _currentGeometry;
@@ -189,85 +208,130 @@ class VisualProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Set rotation speed (from audio modulation)
+  /// Set rotation speed BASE value (from UI)
   /// VIB3+ parameter: 'speed'
   void setRotationSpeed(double speed) {
-    _rotationSpeed = speed.clamp(0.1, 5.0);
+    _baseRotationSpeed = speed.clamp(0.1, 5.0);
 
-    // Update JavaScript - VIB3+ uses 'speed' not 'rotationSpeed'
-    _updateJavaScriptParameter('speed', _rotationSpeed);
+    // Update JavaScript with combined value
+    _updateJavaScriptParameter('speed', rotationSpeed);
 
     notifyListeners();
   }
 
-  /// Set tessellation/grid density (from audio modulation)
+  /// Set rotation speed MODULATION (from audio reactivity)
+  void setRotationSpeedModulation(double offset) {
+    _modRotationSpeed = offset;
+    _updateJavaScriptParameter('speed', rotationSpeed);
+    // Don't notify - audio reactivity updates at 60 FPS
+  }
+
+  /// Set tessellation/grid density BASE value (from UI)
   /// VIB3+ parameter: 'gridDensity' - Range: 2-30
   void setTessellationDensity(double density) {
-    _tessellationDensity = density.clamp(2.0, 30.0);
+    _baseTessellationDensity = density.clamp(2.0, 30.0);
 
-    // Update JavaScript - VIB3+ uses 'gridDensity' not 'tessellationDensity'
-    _updateJavaScriptParameter('gridDensity', _tessellationDensity);
+    // Update JavaScript with combined value
+    _updateJavaScriptParameter('gridDensity', tessellationDensity);
 
     notifyListeners();
   }
 
-  /// Set vertex brightness (from audio modulation)
+  /// Set tessellation MODULATION (from audio reactivity)
+  void setTessellationDensityModulation(double offset) {
+    _modTessellationDensity = offset;
+    _updateJavaScriptParameter('gridDensity', tessellationDensity);
+  }
+
+  /// Set vertex brightness BASE value (from UI)
   /// VIB3+ parameter: 'intensity'
   void setVertexBrightness(double brightness) {
-    _vertexBrightness = brightness.clamp(0.0, 1.0);
+    _baseVertexBrightness = brightness.clamp(0.0, 1.0);
 
-    // Update JavaScript - VIB3+ uses 'intensity' not 'vertexBrightness'
-    _updateJavaScriptParameter('intensity', _vertexBrightness);
+    // Update JavaScript with combined value
+    _updateJavaScriptParameter('intensity', vertexBrightness);
 
     notifyListeners();
   }
 
-  /// Set hue shift (from audio modulation)
+  /// Set vertex brightness MODULATION (from audio reactivity)
+  void setVertexBrightnessModulation(double offset) {
+    _modVertexBrightness = offset;
+    _updateJavaScriptParameter('intensity', vertexBrightness);
+  }
+
+  /// Set hue shift BASE value (from UI)
   /// VIB3+ parameter: 'hue' (0-360)
   void setHueShift(double hue) {
-    _hueShift = hue % 360.0;
+    _baseHueShift = hue % 360.0;
 
-    // Update JavaScript - VIB3+ uses 'hue' not 'hueShift'
-    _updateJavaScriptParameter('hue', _hueShift);
+    // Update JavaScript with combined value
+    _updateJavaScriptParameter('hue', hueShift);
 
     notifyListeners();
   }
 
-  /// Set glow intensity (from audio modulation)
+  /// Set hue shift MODULATION (from audio reactivity)
+  void setHueShiftModulation(double offset) {
+    _modHueShift = offset;
+    _updateJavaScriptParameter('hue', hueShift);
+  }
+
+  /// Set glow intensity BASE value (from UI)
   /// VIB3+ parameter: 'saturation' (closest match for glow effect)
   void setGlowIntensity(double intensity) {
-    _glowIntensity = intensity.clamp(0.0, 3.0);
+    _baseGlowIntensity = intensity.clamp(0.0, 3.0);
 
     // Update JavaScript - map to saturation for visual effect
-    final saturationValue = (intensity / 3.0).clamp(0.0, 1.0);
+    final saturationValue = (glowIntensity / 3.0).clamp(0.0, 1.0);
     _updateJavaScriptParameter('saturation', saturationValue);
 
     notifyListeners();
   }
 
-  /// Set RGB split amount (from audio modulation)
+  /// Set glow intensity MODULATION (from audio reactivity)
+  void setGlowIntensityModulation(double offset) {
+    _modGlowIntensity = offset;
+    final saturationValue = (glowIntensity / 3.0).clamp(0.0, 1.0);
+    _updateJavaScriptParameter('saturation', saturationValue);
+  }
+
+  /// Set RGB split amount BASE value (from UI)
   /// VIB3+ parameter: 'chaos' (closest match for distortion effects)
   void setRGBSplitAmount(double amount) {
-    _rgbSplitAmount = amount.clamp(0.0, 10.0);
+    _baseRgbSplitAmount = amount.clamp(0.0, 10.0);
 
     // Update JavaScript - map to chaos for visual distortion effect
-    final chaosValue = (amount / 10.0).clamp(0.0, 1.0);
+    final chaosValue = (rgbSplitAmount / 10.0).clamp(0.0, 1.0);
     _updateJavaScriptParameter('chaos', chaosValue);
 
     notifyListeners();
   }
 
-  /// Set saturation (color intensity)
+  /// Set RGB split MODULATION (from audio reactivity)
+  void setRGBSplitAmountModulation(double offset) {
+    _modRgbSplitAmount = offset;
+    final chaosValue = (rgbSplitAmount / 10.0).clamp(0.0, 1.0);
+    _updateJavaScriptParameter('chaos', chaosValue);
+  }
+
+  /// Set saturation BASE value (from UI)
   /// VIB3+ parameter: 'saturation'
   void setSaturation(double sat) {
-    _saturation = sat.clamp(0.0, 1.0);
-    _updateJavaScriptParameter('saturation', _saturation);
+    _baseSaturation = sat.clamp(0.0, 1.0);
+    _updateJavaScriptParameter('saturation', saturation);
     notifyListeners();
+  }
+
+  /// Set saturation MODULATION (from audio reactivity)
+  void setSaturationModulation(double offset) {
+    _modSaturation = offset;
+    _updateJavaScriptParameter('saturation', saturation);
   }
 
   /// Update rotation angles (internal animation or external control)
   void updateRotations(double deltaTime) {
-    final dt = deltaTime * _rotationSpeed;
+    final dt = deltaTime * rotationSpeed;  // Use getter (base + modulation)
 
     // Store old values for velocity calculation
     final oldXW = _rotationXW;
@@ -506,19 +570,32 @@ class VisualProvider with ChangeNotifier {
       'rotationXW': _rotationXW,
       'rotationYW': _rotationYW,
       'rotationZW': _rotationZW,
-      'rotationSpeed': _rotationSpeed,
-      'tessellationDensity': _tessellationDensity,
-      'vertexBrightness': _vertexBrightness,
-      'hueShift': _hueShift,
-      'glowIntensity': _glowIntensity,
-      'rgbSplitAmount': _rgbSplitAmount,
-      'saturation': _saturation,
+      'rotationSpeed': rotationSpeed,  // Use getter (base + modulation)
+      'tessellationDensity': tessellationDensity,
+      'vertexBrightness': vertexBrightness,
+      'hueShift': hueShift,
+      'glowIntensity': glowIntensity,
+      'rgbSplitAmount': rgbSplitAmount,
+      'saturation': saturation,
       'activeVertexCount': _activeVertexCount,
       'morphParameter': _morphParameter,
       'projectionDistance': _projectionDistance,
       'layerSeparation': _layerSeparation,
       'isAnimating': _isAnimating,
     };
+  }
+
+  /// Reset all audio modulation offsets to zero
+  /// Call this when audio playback stops
+  void resetAudioModulation() {
+    _modRotationSpeed = 0.0;
+    _modTessellationDensity = 0.0;
+    _modVertexBrightness = 0.0;
+    _modHueShift = 0.0;
+    _modGlowIntensity = 0.0;
+    _modRgbSplitAmount = 0.0;
+    _modSaturation = 0.0;
+    notifyListeners();
   }
 
   // Additional methods for UI component compatibility

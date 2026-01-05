@@ -92,7 +92,7 @@ class ParameterBridge with ChangeNotifier {
   }
 
   /// Main update loop called at 60 FPS
-  /// Update Audio→Visual only (Visual→Audio happens in audio buffer generation)
+  /// Update BOTH Audio→Visual AND Visual→Audio for true bidirectional sync
   void _updateAudioToVisual() {
     try {
       // Audio → Visual modulation (if enabled in preset)
@@ -103,7 +103,11 @@ class ParameterBridge with ChangeNotifier {
         }
       }
 
-      // NOTE: Visual→Audio is now synced with buffer generation (more elegant)
+      // Visual → Audio modulation at 60 FPS (if enabled in preset)
+      // This ensures visual changes affect audio continuously, not just on PCM feed
+      if (_currentPreset.visualReactiveEnabled) {
+        visualToAudio.updateFromVisuals();
+      }
 
       // Update FPS counter
       _frameCount++;

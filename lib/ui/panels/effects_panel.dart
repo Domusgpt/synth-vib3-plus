@@ -1,7 +1,10 @@
 /**
  * Effects Panel
  *
- * Controls for reverb, delay, filter, and other audio effects.
+ * Controls for reverb, delay, filter refinement, and other audio effects.
+ * NOTE: Primary controls (Cutoff→Hue, Resonance→Saturation, Reverb→Glow, Delay→Distance)
+ * are in the Synthesis panel as bidirectional mappings. This panel contains
+ * ONLY the unique refinement parameters.
  *
  * A Paul Phillips Manifestation
  */
@@ -25,7 +28,7 @@ class EffectsPanelContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Section: Filter
+        // Section: Filter (unique params only)
         Text(
           'FILTER',
           style: SynthTheme.textStyleHeading.copyWith(
@@ -33,26 +36,7 @@ class EffectsPanelContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: SynthTheme.spacingSmall),
-        HolographicSlider(
-          label: 'Cutoff',
-          value: audioProvider.filterCutoff,
-          min: 20.0,
-          max: 20000.0,
-          unit: 'Hz',
-          onChanged: (value) => audioProvider.setFilterCutoff(value),
-          systemColors: systemColors,
-          icon: Icons.waves,
-        ),
-        HolographicSlider(
-          label: 'Resonance',
-          value: audioProvider.filterResonance,
-          min: 0.0,
-          max: 1.0,
-          unit: '%',
-          onChanged: (value) => audioProvider.setFilterResonance(value),
-          systemColors: systemColors,
-          icon: Icons.graphic_eq,
-        ),
+        // NOTE: Cutoff and Resonance are in Synthesis panel (bidirectional with Hue/Saturation)
         HolographicSlider(
           label: 'Filter Env',
           value: audioProvider.filterEnvelopeAmount,
@@ -65,7 +49,7 @@ class EffectsPanelContent extends StatelessWidget {
         ),
         const SizedBox(height: SynthTheme.spacingLarge),
 
-        // Section: Reverb
+        // Section: Reverb (unique params only)
         Text(
           'REVERB',
           style: SynthTheme.textStyleHeading.copyWith(
@@ -73,16 +57,7 @@ class EffectsPanelContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: SynthTheme.spacingSmall),
-        HolographicSlider(
-          label: 'Mix',
-          value: audioProvider.reverbMix,
-          min: 0.0,
-          max: 1.0,
-          unit: '%',
-          onChanged: (value) => audioProvider.setReverbMix(value),
-          systemColors: systemColors,
-          icon: Icons.water_drop,
-        ),
+        // NOTE: Reverb Mix is in Synthesis panel (bidirectional with Glow)
         HolographicSlider(
           label: 'Room Size',
           value: audioProvider.reverbRoomSize,
@@ -105,7 +80,7 @@ class EffectsPanelContent extends StatelessWidget {
         ),
         const SizedBox(height: SynthTheme.spacingLarge),
 
-        // Section: Delay
+        // Section: Delay (unique params only)
         Text(
           'DELAY',
           style: SynthTheme.textStyleHeading.copyWith(
@@ -113,6 +88,7 @@ class EffectsPanelContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: SynthTheme.spacingSmall),
+        // NOTE: Delay Mix is in Synthesis panel (bidirectional with Distance)
         HolographicSlider(
           label: 'Time',
           value: audioProvider.delayTime,
@@ -132,16 +108,6 @@ class EffectsPanelContent extends StatelessWidget {
           onChanged: (value) => audioProvider.setDelayFeedback(value),
           systemColors: systemColors,
           icon: Icons.repeat,
-        ),
-        HolographicSlider(
-          label: 'Mix',
-          value: audioProvider.delayMix,
-          min: 0.0,
-          max: 1.0,
-          unit: '%',
-          onChanged: (value) => audioProvider.setDelayMix(value),
-          systemColors: systemColors,
-          icon: Icons.volume_up,
         ),
       ],
     );
