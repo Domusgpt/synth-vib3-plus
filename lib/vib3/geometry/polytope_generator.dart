@@ -70,7 +70,6 @@ class PolytopeGenerator {
   /// Fundamental 4D polytope with 5 vertices
   static Polytope _generateTetrahedron(double scale) {
     // 5-cell vertices in 4D
-    final phi = (1.0 + math.sqrt(5.0)) / 2.0; // Golden ratio
     final vertices = [
       vm.Vector4(1, 1, 1, -1 / math.sqrt(5)) * scale,
       vm.Vector4(1, -1, -1, -1 / math.sqrt(5)) * scale,

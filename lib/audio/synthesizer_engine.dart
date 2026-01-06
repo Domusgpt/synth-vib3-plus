@@ -70,6 +70,7 @@ class SynthesizerEngine {
   // Master parameters
   double masterVolume = 0.7;
   double mixBalance = 0.5; // 0 = osc1 only, 1 = osc2 only
+  double stereoWidth = 0.5; // 0 = mono, 1 = full stereo spread
 
   // Modulation inputs (from visual system)
   double _osc1FreqModulation = 0.0;  // ±2 semitones
@@ -77,6 +78,15 @@ class SynthesizerEngine {
   double _filterCutoffModulation = 0.0; // ±40%
   double _wavetablePositionModulation = 0.0; // 0-1
   int voiceCount = 1; // Make public instead of private
+
+  // Noise injection (from visual chaos parameter)
+  double _noiseLevel = 0.0; // 0-0.3 (0-30%)
+  final math.Random _noiseRandom = math.Random();
+
+  // LFO (Low Frequency Oscillator)
+  double _lfoRate = 1.0; // 0.1-10 Hz
+  double _lfoPhase = 0.0;
+  double _lfoDepth = 0.5; // 0-1
 
   SynthesizerEngine({
     this.sampleRate = 44100.0,
@@ -108,9 +118,18 @@ class SynthesizerEngine {
     final buffer = Float32List(frames);
 
     for (int i = 0; i < frames; i++) {
-      // Apply frequency modulation from visual system
-      oscillator1.frequencyModulation = _osc1FreqModulation;
-      oscillator2.frequencyModulation = _osc2FreqModulation;
+      // Update LFO
+      _lfoPhase += (2.0 * math.pi * _lfoRate) / sampleRate;
+      if (_lfoPhase >= 2.0 * math.pi) _lfoPhase -= 2.0 * math.pi;
+      final lfoValue = math.sin(_lfoPhase) * _lfoDepth;
+
+      // Apply frequency modulation from visual system + LFO modulation
+      oscillator1.frequencyModulation = _osc1FreqModulation + (lfoValue * 0.1);
+      oscillator2.frequencyModulation = _osc2FreqModulation - (lfoValue * 0.1);
+
+      // Apply stereo width via detuning (creates pseudo-stereo in mono output)
+      oscillator1.detune = stereoWidth * 5.0;
+      oscillator2.detune = -stereoWidth * 5.0;
 
       // Generate oscillator outputs
       final osc1Sample = oscillator1.nextSample();
@@ -119,9 +138,13 @@ class SynthesizerEngine {
       // Mix oscillators
       final mixed = (osc1Sample * (1.0 - mixBalance)) + (osc2Sample * mixBalance);
 
-      // Apply filter with modulation
-      filter.cutoffModulation = _filterCutoffModulation;
-      final filtered = filter.process(mixed);
+      // Add noise injection (from chaos parameter)
+      final noise = (_noiseRandom.nextDouble() * 2.0 - 1.0) * _noiseLevel;
+      final withNoise = mixed + noise;
+
+      // Apply filter with modulation (+ LFO modulation on cutoff)
+      filter.cutoffModulation = _filterCutoffModulation + (lfoValue * 0.2);
+      final filtered = filter.process(withNoise);
 
       // Apply effects
       final delayed = delay.process(filtered);
@@ -176,6 +199,31 @@ class SynthesizerEngine {
   /// Set delay time (from visual layer depth)
   void setDelayTime(double milliseconds) {
     delay.delayTime = milliseconds.clamp(0.0, 1000.0);
+  }
+
+  /// Set delay mix/wet level (from visual projection distance)
+  void setDelayMix(double mix) {
+    delay.mix = mix.clamp(0.0, 1.0);
+  }
+
+  /// Set stereo width (from visual rgbSplit parameter)
+  void setStereoWidth(double width) {
+    stereoWidth = width.clamp(0.0, 1.0);
+  }
+
+  /// Set noise injection level (from visual chaos parameter)
+  void setNoiseLevel(double level) {
+    _noiseLevel = level.clamp(0.0, 0.3); // Max 30%
+  }
+
+  /// Set LFO rate (from visual rotation speed)
+  void setLFORate(double rateHz) {
+    _lfoRate = rateHz.clamp(0.1, 10.0);
+  }
+
+  /// Set LFO depth (modulation intensity)
+  void setLFODepth(double depth) {
+    _lfoDepth = depth.clamp(0.0, 1.0);
   }
 
   /// Convert MIDI note to frequency

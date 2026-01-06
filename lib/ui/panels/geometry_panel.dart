@@ -1,8 +1,17 @@
 /**
- * Geometry Panel
+ * Geometry Panel - UNIFIED CONTROL PANEL
  *
- * Controls for 4D geometry selection, polytope core, rotation parameters,
- * and projection settings.
+ * Single panel for all bidirectional visual↔audio controls.
+ * Every slider affects BOTH visual rendering AND audio synthesis.
+ *
+ * Sections:
+ * - POLYTOPE CORE: Synthesis branch (Direct/FM/RingMod)
+ * - BASE GEOMETRY: Voice character (8 shapes)
+ * - 4D ROTATION: XW→FM, YW→RingMod, ZW→Filter
+ * - 3D ROTATION: XY→OSC1, XZ→OSC2 (detune)
+ * - SHAPE: Morph→Waveform, Density→Voices, Chaos→Noise
+ * - COLOR: Hue→Cutoff, Saturation→Resonance, Brightness→Mix
+ * - EFFECTS: Glow→Reverb, Speed→LFO
  *
  * A Paul Phillips Manifestation
  */
@@ -12,6 +21,7 @@ import 'package:provider/provider.dart';
 import '../theme/synth_theme.dart';
 import '../components/holographic_slider.dart';
 import '../../providers/visual_provider.dart';
+import '../../providers/audio_provider.dart';
 
 class GeometryPanelContent extends StatelessWidget {
   const GeometryPanelContent({Key? key}) : super(key: key);
@@ -19,14 +29,15 @@ class GeometryPanelContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visualProvider = Provider.of<VisualProvider>(context);
+    final audioProvider = Provider.of<AudioProvider>(context);
     final systemColors = visualProvider.systemColors;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Section: Base Geometry
+        // Section: Base Geometry Selection
         Text(
-          'BASE GEOMETRY',
+          'GEOMETRY',
           style: SynthTheme.textStyleHeading.copyWith(
             color: systemColors.primary,
           ),
@@ -35,26 +46,26 @@ class GeometryPanelContent extends StatelessWidget {
         _buildGeometryGrid(visualProvider, systemColors),
         const SizedBox(height: SynthTheme.spacingLarge),
 
-        // Section: Synthesis Modulation (4D Rotation controls sonic parameters)
+        // Section: 4D Rotation (Synthesis branch modulation)
         Text(
-          'SYNTHESIS MODULATION',
+          '4D ROTATION',
           style: SynthTheme.textStyleHeading.copyWith(
             color: systemColors.primary,
           ),
         ),
         const SizedBox(height: SynthTheme.spacingSmall),
         HolographicSlider(
-          label: 'XW: FM Depth / Detune 1',
+          label: 'XW → FM Depth',
           value: visualProvider.rotationXW,
           min: 0.0,
-          max: 6.28, // 2π
+          max: 6.28,
           unit: '',
           onChanged: (value) => visualProvider.setRotationXW(value),
           systemColors: systemColors,
           icon: Icons.tune,
         ),
         HolographicSlider(
-          label: 'YW: Ring Mod / Detune 2',
+          label: 'YW → Ring Mod',
           value: visualProvider.rotationYW,
           min: 0.0,
           max: 6.28,
@@ -64,7 +75,7 @@ class GeometryPanelContent extends StatelessWidget {
           icon: Icons.grain,
         ),
         HolographicSlider(
-          label: 'ZW: Filter Cutoff',
+          label: 'ZW → Filter Mod',
           value: visualProvider.rotationZW,
           min: 0.0,
           max: 6.28,
@@ -73,55 +84,181 @@ class GeometryPanelContent extends StatelessWidget {
           systemColors: systemColors,
           icon: Icons.filter_alt,
         ),
-        HolographicSlider(
-          label: 'Modulation Rate (LFO)',
-          value: visualProvider.rotationSpeed,
-          min: 0.0,
-          max: 2.0,
-          unit: '',
-          onChanged: (value) => visualProvider.setRotationSpeed(value),
-          systemColors: systemColors,
-          icon: Icons.waves,
-        ),
         const SizedBox(height: SynthTheme.spacingLarge),
 
-        // Section: Spatial Synthesis (Projection controls reverb/delay)
+        // Section: 3D Rotation (Oscillator detuning)
         Text(
-          'SPATIAL SYNTHESIS',
+          '3D ROTATION',
           style: SynthTheme.textStyleHeading.copyWith(
             color: systemColors.primary,
           ),
         ),
         const SizedBox(height: SynthTheme.spacingSmall),
         HolographicSlider(
-          label: 'Reverb Amount',
-          value: visualProvider.projectionDistance,
-          min: 5.0,
-          max: 15.0,
-          unit: '',
-          onChanged: (value) => visualProvider.setProjectionDistance(value),
-          systemColors: systemColors,
-          icon: Icons.surround_sound,
-        ),
-        HolographicSlider(
-          label: 'Delay / Echo Depth',
-          value: visualProvider.layerSeparation,
+          label: 'XY → OSC 1 Detune',
+          value: visualProvider.rotationXY,
           min: 0.0,
-          max: 5.0,
+          max: 6.28,
           unit: '',
-          onChanged: (value) => visualProvider.setLayerSeparation(value),
+          onChanged: (value) {
+            visualProvider.setRotationXY(value);
+            // Bidirectional: Map to oscillator detune (±12 cents)
+            final detune = ((value / 6.28) * 24.0) - 12.0;
+            audioProvider.setOscillator1Detune(detune);
+          },
           systemColors: systemColors,
-          icon: Icons.graphic_eq,
+          icon: Icons.music_note,
         ),
         HolographicSlider(
-          label: 'Waveform Crossfade',
+          label: 'XZ → OSC 2 Detune',
+          value: visualProvider.rotationXZ,
+          min: 0.0,
+          max: 6.28,
+          unit: '',
+          onChanged: (value) {
+            visualProvider.setRotationXZ(value);
+            // Bidirectional: Map to oscillator detune (±12 cents)
+            final detune = ((value / 6.28) * 24.0) - 12.0;
+            audioProvider.setOscillator2Detune(detune);
+          },
+          systemColors: systemColors,
+          icon: Icons.music_note,
+        ),
+        const SizedBox(height: SynthTheme.spacingLarge),
+
+        // Section: Shape Modulation
+        Text(
+          'SHAPE',
+          style: SynthTheme.textStyleHeading.copyWith(
+            color: systemColors.primary,
+          ),
+        ),
+        const SizedBox(height: SynthTheme.spacingSmall),
+        HolographicSlider(
+          label: 'Morph → Waveform',
           value: visualProvider.morphParameter,
           min: 0.0,
           max: 1.0,
           unit: '%',
-          onChanged: (value) => visualProvider.setMorphParameter(value),
+          onChanged: (value) {
+            visualProvider.setMorphParameter(value);
+            audioProvider.setMixBalance(value);
+          },
           systemColors: systemColors,
           icon: Icons.timeline,
+        ),
+        HolographicSlider(
+          label: 'Density → Voices',
+          value: visualProvider.baseTessellationDensity,
+          min: 3.0,
+          max: 15.0,
+          unit: '',
+          onChanged: (value) {
+            visualProvider.setTessellationDensity(value);
+            audioProvider.setVoiceCount(value.round().clamp(1, 8));
+          },
+          systemColors: systemColors,
+          icon: Icons.grid_4x4,
+        ),
+        HolographicSlider(
+          label: 'Chaos → Noise',
+          value: visualProvider.baseRgbSplitAmount / 10.0,
+          min: 0.0,
+          max: 1.0,
+          unit: '%',
+          onChanged: (value) {
+            visualProvider.setRGBSplitAmount(value * 10.0);
+            audioProvider.synthesizerEngine.setNoiseLevel(value * 0.3);
+          },
+          systemColors: systemColors,
+          icon: Icons.scatter_plot,
+        ),
+        const SizedBox(height: SynthTheme.spacingLarge),
+
+        // Section: Color (Filter mapping)
+        Text(
+          'COLOR',
+          style: SynthTheme.textStyleHeading.copyWith(
+            color: systemColors.primary,
+          ),
+        ),
+        const SizedBox(height: SynthTheme.spacingSmall),
+        HolographicSlider(
+          label: 'Hue → Cutoff',
+          value: visualProvider.baseHueShift,
+          min: 0.0,
+          max: 360.0,
+          unit: '°',
+          onChanged: (value) {
+            visualProvider.setHueShift(value);
+            // Map hue to filter cutoff (spectral → frequency)
+            final cutoff = 200 + (value / 360.0) * 8000;
+            audioProvider.setFilterCutoff(cutoff);
+          },
+          systemColors: systemColors,
+          icon: Icons.palette,
+        ),
+        HolographicSlider(
+          label: 'Saturation → Resonance',
+          value: visualProvider.baseSaturation,
+          min: 0.0,
+          max: 1.0,
+          unit: '%',
+          onChanged: (value) {
+            visualProvider.setSaturation(value);
+            audioProvider.setFilterResonance(value);
+          },
+          systemColors: systemColors,
+          icon: Icons.contrast,
+        ),
+        HolographicSlider(
+          label: 'Brightness → Mix',
+          value: visualProvider.baseVertexBrightness,
+          min: 0.0,
+          max: 1.0,
+          unit: '%',
+          onChanged: (value) {
+            visualProvider.setVertexBrightness(value);
+            audioProvider.setMixBalance(value);
+          },
+          systemColors: systemColors,
+          icon: Icons.brightness_6,
+        ),
+        const SizedBox(height: SynthTheme.spacingLarge),
+
+        // Section: Effects
+        Text(
+          'EFFECTS',
+          style: SynthTheme.textStyleHeading.copyWith(
+            color: systemColors.primary,
+          ),
+        ),
+        const SizedBox(height: SynthTheme.spacingSmall),
+        HolographicSlider(
+          label: 'Glow → Reverb',
+          value: visualProvider.baseGlowIntensity,
+          min: 0.0,
+          max: 3.0,
+          unit: '',
+          onChanged: (value) {
+            visualProvider.setGlowIntensity(value);
+            audioProvider.setReverbMix(value / 3.0);
+          },
+          systemColors: systemColors,
+          icon: Icons.light_mode,
+        ),
+        HolographicSlider(
+          label: 'Speed → LFO Rate',
+          value: visualProvider.baseRotationSpeed,
+          min: 0.1,
+          max: 2.0,
+          unit: '',
+          onChanged: (value) {
+            visualProvider.setRotationSpeed(value);
+            audioProvider.synthesizerEngine.setLFORate(value * 5.0);
+          },
+          systemColors: systemColors,
+          icon: Icons.speed,
         ),
       ],
     );
@@ -133,29 +270,24 @@ class GeometryPanelContent extends StatelessWidget {
   ) {
     final theme = SynthTheme(systemColors: systemColors);
 
-    // Architecture: 8 base geometries × 3 polytope cores = 24 combinations
-    // geometryIndex = (coreIndex * 8) + baseIndex
-
-    // 8 base geometry types (determines voice character)
+    // 8 base geometries × 3 polytope cores = 24 combinations
     final baseGeometries = [
-      'Tetrahedron',   // 0: Fundamental, minimal filtering
-      'Hypercube',     // 1: Complex, dual oscillators with detune
-      'Sphere',        // 2: Smooth, filtered harmonics
-      'Torus',         // 3: Cyclic, rhythmic phase modulation
-      'Klein Bottle',  // 4: Twisted, asymmetric stereo
-      'Fractal',       // 5: Recursive, self-modulating
-      'Wave',          // 6: Flowing, sweeping filters
-      'Crystal',       // 7: Crystalline, sharp attack transients
+      'Tetra',    // 0: Fundamental
+      'Hyper',    // 1: Complex
+      'Sphere',   // 2: Smooth
+      'Torus',    // 3: Cyclic
+      'Klein',    // 4: Twisted
+      'Fractal',  // 5: Recursive
+      'Wave',     // 6: Flowing
+      'Crystal',  // 7: Sharp
     ];
 
-    // 3 polytope cores (determines synthesis branch)
     final polytopeCores = [
-      {'name': 'Base', 'subtitle': 'Direct Synthesis', 'offset': 0},
-      {'name': 'Hypersphere', 'subtitle': 'FM Synthesis', 'offset': 8},
-      {'name': 'Hypertetra', 'subtitle': 'Ring Modulation', 'offset': 16},
+      {'name': 'Base', 'subtitle': 'Direct', 'offset': 0},
+      {'name': 'Hyper', 'subtitle': 'FM', 'offset': 8},
+      {'name': 'Tetra', 'subtitle': 'Ring', 'offset': 16},
     ];
 
-    // Calculate current core and base from full geometry index
     final currentGeometry = visualProvider.currentGeometry;
     final currentCoreIndex = currentGeometry ~/ 8;
     final currentBaseIndex = currentGeometry % 8;
@@ -163,9 +295,9 @@ class GeometryPanelContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // POLYTOPE CORE SELECTOR (3 buttons in a row)
+        // POLYTOPE CORE SELECTOR
         Text(
-          'POLYTOPE CORE (Synthesis Branch)',
+          'Core → Synthesis Branch',
           style: SynthTheme.textStyleCaption.copyWith(
             color: systemColors.accent,
           ),
@@ -184,7 +316,6 @@ class GeometryPanelContent extends StatelessWidget {
                 ),
                 child: GestureDetector(
                   onTap: () {
-                    // Change core but keep current base geometry
                     final newIndex = (index * 8) + currentBaseIndex;
                     visualProvider.setGeometry(newIndex);
                   },
@@ -220,9 +351,9 @@ class GeometryPanelContent extends StatelessWidget {
 
         const SizedBox(height: SynthTheme.spacingMedium),
 
-        // BASE GEOMETRY SELECTOR (8 buttons in 2x4 grid)
+        // BASE GEOMETRY SELECTOR
         Text(
-          'BASE GEOMETRY (Voice Character)',
+          'Shape → Voice Character',
           style: SynthTheme.textStyleCaption.copyWith(
             color: systemColors.accent,
           ),
@@ -233,7 +364,7 @@ class GeometryPanelContent extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 4,
-            childAspectRatio: 1.8,
+            childAspectRatio: 2.0,
             crossAxisSpacing: SynthTheme.spacingSmall,
             mainAxisSpacing: SynthTheme.spacingSmall,
           ),
@@ -242,7 +373,6 @@ class GeometryPanelContent extends StatelessWidget {
             final isActive = currentBaseIndex == baseIndex;
             return GestureDetector(
               onTap: () {
-                // Change base geometry but keep current core
                 final newIndex = (currentCoreIndex * 8) + baseIndex;
                 visualProvider.setGeometry(newIndex);
               },
@@ -256,31 +386,13 @@ class GeometryPanelContent extends StatelessWidget {
                     style: SynthTheme.textStyleBody.copyWith(
                       color: theme.getTextColor(isActive),
                       fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                      fontSize: 9,
+                      fontSize: 10,
                     ),
                   ),
                 ),
               ),
             );
           },
-        ),
-
-        const SizedBox(height: SynthTheme.spacingSmall),
-
-        // Show current configuration
-        Container(
-          padding: const EdgeInsets.all(SynthTheme.spacingSmall),
-          decoration: BoxDecoration(
-            color: SynthTheme.cardBackground,
-            borderRadius: BorderRadius.circular(SynthTheme.radiusSmall),
-            border: Border.all(color: systemColors.primary.withOpacity(0.3)),
-          ),
-          child: Text(
-            'Current: ${polytopeCores[currentCoreIndex]['name']} ${baseGeometries[currentBaseIndex]} (Index: $currentGeometry)',
-            style: SynthTheme.textStyleCaption.copyWith(
-              color: systemColors.primary,
-            ),
-          ),
         ),
       ],
     );

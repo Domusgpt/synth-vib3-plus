@@ -21,6 +21,7 @@ import '../theme/synth_theme.dart';
 import '../../providers/ui_state_provider.dart';
 import '../../providers/audio_provider.dart';
 import '../../providers/visual_provider.dart';
+import 'xy_pad_settings.dart';
 
 class XYPerformancePad extends StatefulWidget {
   final SystemColors systemColors;
@@ -46,6 +47,9 @@ class _XYPerformancePadState extends State<XYPerformancePad>
   // Ripple animations for each touch
   final Map<int, AnimationController> _rippleControllers = {};
   final Map<int, Animation<double>> _rippleAnimations = {};
+
+  // Settings overlay visibility
+  bool _showSettings = false;
 
   @override
   void dispose() {
@@ -238,6 +242,7 @@ class _XYPerformancePadState extends State<XYPerformancePad>
     final audioProvider = Provider.of<AudioProvider>(context);
 
     return Listener(
+      behavior: HitTestBehavior.opaque, // CRITICAL: Capture all pointer events
       onPointerDown: (event) => _handleTouchStart(event, uiState, audioProvider),
       onPointerMove: (event) => _handleTouchMove(event, uiState, audioProvider),
       onPointerUp: (event) => _handleTouchEnd(event, uiState, audioProvider),
@@ -267,59 +272,105 @@ class _XYPerformancePadState extends State<XYPerformancePad>
             ),
           ),
 
-          // Configuration overlay (top corner)
+          // Settings button (top-right corner)
           Positioned(
             top: SynthTheme.spacingMedium,
             right: SynthTheme.spacingMedium,
-            child: _buildConfigOverlay(uiState),
+            child: _buildSettingsButton(uiState),
           ),
+
+          // Settings overlay (centered, shown when _showSettings is true)
+          if (_showSettings)
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => setState(() => _showSettings = false),
+                child: Container(
+                  color: Colors.black54,
+                  alignment: Alignment.center,
+                  child: GestureDetector(
+                    onTap: () {}, // Prevent tap-through
+                    child: XYPadSettings(
+                      systemColors: widget.systemColors,
+                      onClose: () => setState(() => _showSettings = false),
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildConfigOverlay(UIStateProvider uiState) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: SynthTheme.spacingMedium,
-        vertical: SynthTheme.spacingSmall,
-      ),
-      decoration: BoxDecoration(
-        color: SynthTheme.panelBackground.withOpacity(0.8),
-        borderRadius: BorderRadius.circular(SynthTheme.radiusMedium),
-        border: Border.all(color: SynthTheme.borderSubtle),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            'X: ${_getAxisLabel(uiState.xyAxisX)}',
-            style: SynthTheme.textStyleCaption.copyWith(
+  Widget _buildSettingsButton(UIStateProvider uiState) {
+    final theme = SynthTheme(systemColors: widget.systemColors);
+    return GestureDetector(
+      onTap: () => setState(() => _showSettings = true),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: SynthTheme.spacingMedium,
+          vertical: SynthTheme.spacingSmall,
+        ),
+        decoration: BoxDecoration(
+          color: SynthTheme.panelBackground.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(SynthTheme.radiusMedium),
+          border: Border.all(color: widget.systemColors.primary.withOpacity(0.5)),
+          boxShadow: theme.getGlow(GlowIntensity.inactive),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.music_note,
+              size: 14,
               color: widget.systemColors.primary,
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Y: ${_getAxisLabel(uiState.xyAxisY)}',
-            style: SynthTheme.textStyleCaption.copyWith(
+            const SizedBox(width: 6),
+            Text(
+              '${_getNoteNames()[uiState.pitchRootNote]} ${_getScaleShortName(uiState.pitchScale)}',
+              style: SynthTheme.textStyleCaption.copyWith(
+                color: widget.systemColors.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              width: 1,
+              height: 16,
+              color: widget.systemColors.primary.withOpacity(0.3),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Y: ${_getAxisLabel(uiState.xyAxisY)}',
+              style: SynthTheme.textStyleCaption.copyWith(
+                color: widget.systemColors.secondary,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(
+              Icons.settings,
+              size: 14,
               color: widget.systemColors.secondary,
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${_getMidiNoteName(uiState.pitchRangeStart)} - ${_getMidiNoteName(uiState.pitchRangeEnd)}',
-            style: SynthTheme.textStyleCaption,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            uiState.pitchScale.toUpperCase(),
-            style: SynthTheme.textStyleCaption.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+
+  List<String> _getNoteNames() {
+    return ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  }
+
+  String _getScaleShortName(String scale) {
+    switch (scale) {
+      case 'chromatic': return 'Chr';
+      case 'major': return 'Maj';
+      case 'minor': return 'Min';
+      case 'pentatonic': return 'Pent';
+      case 'blues': return 'Blues';
+      default: return scale.substring(0, 3);
+    }
   }
 
   String _getAxisLabel(XYAxisParameter param) {

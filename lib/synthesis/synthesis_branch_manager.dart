@@ -21,32 +21,12 @@
 
 import 'dart:math' as math;
 import 'dart:typed_data';
+import '../vib3/core/vib3_engine.dart' show VisualSystem;
+import '../vib3/geometry/geometry_library.dart' show PolytopeCor, BaseGeometry;
 
-/// Visual system types (from VIB3+)
-enum VisualSystem {
-  quantum,      // Pure harmonic synthesis
-  faceted,      // Geometric hybrid synthesis
-  holographic,  // Spectral rich synthesis
-}
-
-/// Polytope core types (determines synthesis branch)
-enum PolytopeCor {
-  base,              // Direct synthesis (geometries 0-7)
-  hypersphere,       // FM synthesis (geometries 8-15)
-  hypertetrahedron,  // Ring modulation (geometries 16-23)
-}
-
-/// Base geometry types (determines voice character)
-enum BaseGeometry {
-  tetrahedron,  // 0: Fundamental - pure tone, minimal complexity
-  hypercube,    // 1: Complex - rich harmonics, detuned chorusing
-  sphere,       // 2: Smooth - filtered warm tones
-  torus,        // 3: Cyclic - rhythmic modulation
-  kleinBottle,  // 4: Twisted - stereo movement, spatial
-  fractal,      // 5: Recursive - evolving complexity
-  wave,         // 6: Flowing - sweeping evolving timbres
-  crystal,      // 7: Crystalline - bright percussive attacks
-}
+// PolytopeCor and BaseGeometry imported from geometry_library.dart (shared types)
+// PolytopeCor: base, hypersphere, hypertetrahedron (synthesis branches)
+// BaseGeometry: tetrahedron, hypercube, sphere, torus, kleinBottle, fractal, wave, crystal
 
 /// Sound family characteristics (from visual system) - MUSICALLY TUNED
 class SoundFamily {
@@ -237,10 +217,31 @@ class SynthesisBranchManager {
   int _samplesSinceNoteOn = 0;
   bool _noteIsOn = false;
 
+  // Modulation parameters (controlled by visual parameters via XW/YW rotation)
+  double _fmDepth = 0.5;           // 0-1, modulates FM index intensity
+  double _ringModMix = 0.7;        // 0-1, balance between ring mod and dry oscillators
+
   // Random number generator for noise
   final _random = math.Random();
 
   SynthesisBranchManager({this.sampleRate = 44100.0});
+
+  /// Set FM depth (modulates FM index intensity)
+  /// Called from AudioProvider when XW rotation changes (Hypersphere core only)
+  /// Value comes from visual mapping in range 0-2 (semitones)
+  void setFMDepth(double depth) {
+    _fmDepth = depth.clamp(0.0, 2.0);
+  }
+
+  /// Set ring mod mix (balance between ring mod output and dry oscillators)
+  /// Called from AudioProvider when YW rotation changes (Hypertetrahedron core only)
+  void setRingModMix(double mix) {
+    _ringModMix = mix.clamp(0.0, 1.0);
+  }
+
+  // Getters for modulation parameters
+  double get fmDepth => _fmDepth;
+  double get ringModMix => _ringModMix;
 
   /// Set geometry (0-23) and update all derived state
   void setGeometry(int geometry) {
@@ -413,8 +414,11 @@ class SynthesisBranchManager {
     final carrierIncrement = frequency / sampleRate * 2.0 * math.pi;
     final modulatorIncrement = carrierIncrement * 2.0; // Perfect octave
 
-    // FM index based on harmonic richness
-    final fmIndex = 1.5 + (_currentVoiceCharacter.harmonicCount * 0.3);
+    // FM index modulated by _fmDepth (controlled by XW rotation)
+    // _fmDepth ranges from 0-2 (semitones from visual mapping)
+    // Base index from voice character, scaled by depth parameter
+    final baseIndex = 1.0 + (_currentVoiceCharacter.harmonicCount * 0.2);
+    final fmIndex = baseIndex * (0.5 + _fmDepth * 1.25); // Range: 0.5x to 3x base at _fmDepth=2
 
     for (int i = 0; i < frames; i++) {
       final envelope = _updateEnvelope();
@@ -476,10 +480,12 @@ class SynthesisBranchManager {
       osc2 *= 0.4;
 
       // Ring modulation (creates sum and difference frequencies)
-      double sample = osc1 * osc2;
+      double ringModOutput = osc1 * osc2;
 
-      // Mix in some of the original oscillators for musicality
-      sample = sample * 0.7 + osc1 * 0.2 + osc2 * 0.1;
+      // Mix ring mod with dry oscillators based on _ringModMix (controlled by YW rotation)
+      // At 0: mostly dry oscillators, At 1: mostly ring mod
+      final dryMix = 1.0 - _ringModMix;
+      double sample = ringModOutput * _ringModMix + (osc1 * 0.6 + osc2 * 0.4) * dryMix;
 
       // Apply envelope
       sample *= envelope;
