@@ -57,6 +57,30 @@ jobs:
           path: build/release/*.apk
           retention-days: 30
 
+      # Firebase Test Lab
+      - name: Authenticate to Google Cloud
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/claude/')
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/claude/')
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Run Firebase Test Lab
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/claude/')
+        run: |
+          gcloud firebase test android run \
+            --type robo \
+            --app build/release/synth-vib3-plus-latest.apk \
+            --device model=Pixel6,version=33,locale=en,orientation=portrait \
+            --timeout 180s \
+            --results-bucket gs://synther-pro-holo-test-results \
+            --results-dir test-results-${{ github.run_id }} \
+            --no-auto-google-login
+        continue-on-error: true
+
       - name: Create Release
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/claude/')
         uses: softprops/action-gh-release@v1
