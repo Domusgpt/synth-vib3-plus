@@ -74,7 +74,7 @@ jobs:
           gcloud firebase test android run \
             --type robo \
             --app build/release/synth-vib3-plus-latest.apk \
-            --device model=Pixel6,version=33,locale=en,orientation=portrait \
+            --device model=oriole,version=33,locale=en,orientation=portrait \
             --timeout 180s \
             --results-bucket gs://synther-pro-holo-test-results \
             --results-dir test-results-${{ github.run_id }} \
