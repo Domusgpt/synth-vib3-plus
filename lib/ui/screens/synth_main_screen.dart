@@ -28,7 +28,8 @@ import '../../providers/ui_state_provider.dart';
 import '../../providers/visual_provider.dart';
 import '../../providers/audio_provider.dart';
 import '../../providers/tilt_sensor_provider.dart';
-import '../../vib3/vib3_native_widget.dart';
+import '../../vib3/rendering/vib3_shader_renderer.dart';
+import '../../vib3/core/vib3_engine.dart';
 import '../../mapping/parameter_bridge.dart';
 
 class SynthMainScreen extends StatefulWidget {
@@ -161,9 +162,48 @@ class _SynthMainContentState extends State<_SynthMainContent> {
   }
 
   Widget _buildVisualizationLayer(BuildContext context) {
-    // Use native Flutter renderer instead of WebView
-    return const Positioned.fill(
-      child: VIB3NativeWidget(),
+    // Use GPU shader-based renderer for proper VIB3+ rendering
+    return Positioned.fill(
+      child: Consumer2<VisualProvider, AudioProvider>(
+        builder: (context, visualProvider, audioProvider, child) {
+          // Map string system to enum
+          VisualSystem system;
+          switch (visualProvider.currentSystem) {
+            case 'quantum':
+              system = VisualSystem.quantum;
+              break;
+            case 'holographic':
+              system = VisualSystem.holographic;
+              break;
+            case 'faceted':
+            default:
+              system = VisualSystem.faceted;
+          }
+
+          // Get audio features for reactivity
+          final features = audioProvider.currentFeatures;
+          AudioReactivityData? audioData;
+          if (features != null && audioProvider.isPlaying) {
+            audioData = AudioReactivityData(
+              bassEnergy: features.bassEnergy.clamp(0.0, 1.0),
+              midEnergy: features.midEnergy.clamp(0.0, 1.0),
+              highEnergy: features.highEnergy.clamp(0.0, 1.0),
+              rmsAmplitude: features.rms.clamp(0.0, 1.0),
+            );
+          }
+
+          return VIB3AnimatedShaderWidget(
+            system: system,
+            geometryIndex: visualProvider.currentGeometry,
+            audioData: audioData,
+            audioReactivityStrength: 0.5,
+            hueShift: visualProvider.hueShift,
+            glowIntensity: visualProvider.glowIntensity,
+            autoRotateSpeed: visualProvider.rotationSpeed * 0.3,
+            enableInteraction: true,
+          );
+        },
+      ),
     );
   }
 
