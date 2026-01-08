@@ -200,7 +200,7 @@ class _SynthMainContentState extends State<_SynthMainContent> {
             hueShift: visualProvider.hueShift,
             glowIntensity: visualProvider.glowIntensity,
             autoRotateSpeed: visualProvider.rotationSpeed * 0.3,
-            enableInteraction: true,
+            enableInteraction: false,  // DISABLED: Let XY pad handle all touches for audio
           );
         },
       ),
