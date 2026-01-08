@@ -23,7 +23,8 @@ import '../theme/synth_theme.dart';
 import '../components/top_bezel.dart';
 import '../components/xy_performance_pad.dart';
 import '../components/orb_controller.dart';
-import '../components/collapsible_bezel.dart';
+import '../components/geometry_hero.dart';
+import '../panels/synthesis_parameters_panel.dart';
 import '../../providers/ui_state_provider.dart';
 import '../../providers/visual_provider.dart';
 import '../../providers/audio_provider.dart';
@@ -112,33 +113,34 @@ class _SynthMainContentState extends State<_SynthMainContent> {
     final systemColors = visualProvider.systemColors;
 
     return Scaffold(
-      backgroundColor: SynthTheme.backgroundColor,
+      backgroundColor: systemColors.background,
       body: Stack(
         children: [
-          // Layer 1: Background visualization (VIB3+ WebGL)
+          // Layer 1: Background visualization (VIB3+ Shader)
           _buildVisualizationLayer(context),
 
-          // Layer 2: XY Performance Pad (touch overlay)
-          Positioned.fill(
-            child: XYPerformancePad(
-              systemColors: systemColors,
-              showGrid: uiState.xyPadShowGrid,
-              backgroundVisualization: null, // Visualization rendered separately
-            ),
+          // Layer 2: Main content column
+          Column(
+            children: [
+              // Top Bezel (system selector)
+              TopBezel(systemColors: systemColors),
+
+              // XY Performance Pad (touch for notes) - takes available space
+              Expanded(
+                flex: 3,
+                child: XYPerformancePad(
+                  systemColors: systemColors,
+                  showGrid: uiState.xyPadShowGrid,
+                  backgroundVisualization: null,
+                ),
+              ),
+
+              // Bottom panel section (Geometry Hero + Scrollable Parameters)
+              _buildBottomPanelSection(context, systemColors),
+            ],
           ),
 
-          // Layer 3: Top Bezel
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: TopBezel(systemColors: systemColors),
-          ),
-
-          // Layer 4: Bottom Bezel (collapsible panels)
-          BottomBezelContainer(systemColors: systemColors),
-
-          // Layer 5: Orb Controller (floating)
+          // Layer 3: Orb Controller (floating)
           if (uiState.orbControllerVisible)
             Positioned.fill(
               child: OrbController(
@@ -147,15 +149,72 @@ class _SynthMainContentState extends State<_SynthMainContent> {
               ),
             ),
 
-          // Layer 6: Side bezels (portrait mode only)
+          // Layer 4: Side bezels (portrait mode only)
           if (_isPortrait(context)) ...[
             _buildLeftBezel(context, systemColors),
             _buildRightBezel(context, systemColors),
           ],
 
-          // Layer 7: Debug overlay (development only)
+          // Layer 5: Debug overlay (development only)
           if (_shouldShowDebugOverlay(context))
             _buildDebugOverlay(context, uiState, visualProvider),
+        ],
+      ),
+    );
+  }
+
+  /// Build the bottom panel section with Geometry Hero and scrollable parameters
+  Widget _buildBottomPanelSection(BuildContext context, SystemColors systemColors) {
+    final uiState = Provider.of<UIStateProvider>(context);
+    final isPanelExpanded = uiState.isAnyPanelExpanded();
+
+    return AnimatedContainer(
+      duration: SynthTheme.transitionStandard,
+      height: isPanelExpanded ? 400 : 200, // Collapsed: just hero, Expanded: hero + params
+      decoration: BoxDecoration(
+        color: systemColors.surface.withOpacity(0.95),
+        border: Border(
+          top: BorderSide(
+            color: systemColors.primary.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Column(
+        children: [
+          // Expand/collapse handle
+          GestureDetector(
+            onTap: () {
+              if (isPanelExpanded) {
+                uiState.collapseAllPanels();
+              } else {
+                uiState.expandPanel('synthesis');
+              }
+            },
+            child: Container(
+              height: 24,
+              color: Colors.transparent,
+              child: Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: systemColors.primary.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Geometry Hero (always visible)
+          const GeometryHeroWidget(),
+
+          // Scrollable Parameters (visible when expanded)
+          if (isPanelExpanded)
+            const Expanded(
+              child: SynthesisParametersPanel(),
+            ),
         ],
       ),
     );
@@ -233,7 +292,7 @@ class _SynthMainContentState extends State<_SynthMainContent> {
       child: Container(
         width: SynthTheme.sideBezelWidth,
         decoration: BoxDecoration(
-          color: SynthTheme.panelBackground.withOpacity(0.8),
+          color: systemColors.surface.withOpacity(0.8),
           borderRadius: const BorderRadius.only(
             topRight: Radius.circular(SynthTheme.radiusLarge),
             bottomRight: Radius.circular(SynthTheme.radiusLarge),
@@ -269,7 +328,7 @@ class _SynthMainContentState extends State<_SynthMainContent> {
       child: Container(
         width: SynthTheme.sideBezelWidth,
         decoration: BoxDecoration(
-          color: SynthTheme.panelBackground.withOpacity(0.8),
+          color: systemColors.surface.withOpacity(0.8),
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(SynthTheme.radiusLarge),
             bottomLeft: Radius.circular(SynthTheme.radiusLarge),
@@ -300,7 +359,7 @@ class _SynthMainContentState extends State<_SynthMainContent> {
         width: 40,
         height: 60,
         decoration: BoxDecoration(
-          color: SynthTheme.cardBackground,
+          color: systemColors.surface,
           borderRadius: BorderRadius.circular(SynthTheme.radiusMedium),
           border: Border.all(color: systemColors.primary.withOpacity(0.5)),
           boxShadow: SynthTheme(systemColors: systemColors).getGlow(GlowIntensity.inactive),

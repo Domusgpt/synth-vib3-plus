@@ -15,41 +15,62 @@
 import 'package:flutter/material.dart';
 
 /// System-specific color schemes
+/// Each visual system has a complete color theme that affects the entire UI
 class SystemColors {
   final Color primary;
   final Color secondary;
   final Color accent;
+  final Color background;  // Main app background
+  final Color surface;     // Panel/card backgrounds
+  final Color sliderStart; // Slider gradient start
+  final Color sliderEnd;   // Slider gradient end
   final String name;
 
   const SystemColors({
     required this.primary,
     required this.secondary,
     required this.accent,
+    required this.background,
+    required this.surface,
+    required this.sliderStart,
+    required this.sliderEnd,
     required this.name,
   });
 
-  /// Quantum system: Pure harmonic (Cyan)
+  /// Quantum system: Electric/Plasma - Pure harmonic (Cyan/Magenta)
   static const quantum = SystemColors(
-    primary: Color(0xFF00FFFF),   // Cyan
-    secondary: Color(0xFF88CCFF), // Ice Blue
-    accent: Color(0xFF0088FF),    // Electric Blue
-    name: 'Quantum',
+    primary: Color(0xFF00FFFF),     // Cyan
+    secondary: Color(0xFF88CCFF),   // Ice Blue
+    accent: Color(0xFFFF00FF),      // Magenta
+    background: Color(0xFF0A0A1A),  // Near black with blue tint
+    surface: Color(0xFF1A1A2E),     // Dark blue-grey
+    sliderStart: Color(0xFF00FFFF), // Cyan
+    sliderEnd: Color(0xFFFF00FF),   // Magenta
+    name: 'quantum',
   );
 
-  /// Faceted system: Geometric hybrid (Magenta)
+  /// Faceted system: Cool/Geometric - Geometric hybrid (Blue/Teal)
   static const faceted = SystemColors(
-    primary: Color(0xFFFF00FF),   // Magenta
-    secondary: Color(0xFFFF88FF), // Pink
-    accent: Color(0xFF8800FF),    // Deep Purple
-    name: 'Faceted',
+    primary: Color(0xFF4488FF),     // Blue
+    secondary: Color(0xFF88AAFF),   // Light Blue
+    accent: Color(0xFF00FFAA),      // Teal
+    background: Color(0xFF0A0F14),  // Near black with green tint
+    surface: Color(0xFF1A2428),     // Dark teal-grey
+    sliderStart: Color(0xFF4488FF), // Blue
+    sliderEnd: Color(0xFF00FFAA),   // Teal
+    name: 'faceted',
   );
 
-  /// Holographic system: Spectral rich (Amber)
+  /// Holographic system: Warm/Spectral - Spectral rich (Gold/Pink)
   static const holographic = SystemColors(
-    primary: Color(0xFFFFAA00),   // Amber
-    secondary: Color(0xFFFFCC44), // Gold
-    accent: Color(0xFFFF8800),    // Orange
-    name: 'Holographic',
+    primary: Color(0xFFFFAA00),     // Gold
+    secondary: Color(0xFFFFCC44),   // Light Gold
+    accent: Color(0xFFFF4488),      // Pink
+    background: Color(0xFF140A0A),  // Near black with red tint
+    surface: Color(0xFF2E1A1A),     // Dark warm grey
+    sliderStart: Color(0xFFFFAA00), // Gold
+    sliderEnd: Color(0xFFFF4488),   // Pink
+    name: 'holographic',
   );
 
   /// Get system colors by name
@@ -65,6 +86,19 @@ class SystemColors {
         return quantum;
     }
   }
+
+  /// Get linear gradient for sliders
+  LinearGradient get sliderGradient => LinearGradient(
+    colors: [sliderStart, sliderEnd],
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+  );
+
+  /// Get ghost/audio reactivity color (40% opacity accent)
+  Color get ghostColor => accent.withOpacity(0.4);
+
+  /// Get disabled color (30% opacity primary)
+  Color get disabledColor => primary.withOpacity(0.3);
 }
 
 /// Glow intensity levels
@@ -79,10 +113,15 @@ class SynthTheme {
   /// Current system colors
   final SystemColors systemColors;
 
-  /// Base dark background
+  /// Base dark background (static defaults for backwards compatibility)
   static const backgroundColor = Color(0xFF0A0A0A);
   static const panelBackground = Color(0xFF1A1A2E);
   static const cardBackground = Color(0xFF16213E);
+
+  /// Get system-specific background color (use these for system-themed UI)
+  Color get systemBackground => systemColors.background;
+  Color get systemPanelBackground => systemColors.surface;
+  Color get systemCardBackground => systemColors.surface.withOpacity(0.9);
 
   /// Text colors
   static const textPrimary = Color(0xFFFFFFFF);
@@ -147,10 +186,10 @@ class SynthTheme {
   /// Get glassmorphic panel decoration
   BoxDecoration getGlassPanelDecoration({bool expanded = false}) {
     return BoxDecoration(
-      color: panelBackground.withOpacity(0.8),
+      color: systemColors.surface.withOpacity(0.85),
       border: Border.all(
-        color: borderSubtle,
-        width: 1,
+        color: expanded ? systemColors.primary.withOpacity(0.4) : borderSubtle,
+        width: expanded ? 2 : 1,
       ),
       borderRadius: BorderRadius.circular(12),
       boxShadow: [
@@ -160,7 +199,7 @@ class SynthTheme {
           offset: const Offset(0, 8),
         ),
         BoxShadow(
-          color: Colors.white.withOpacity(0.1),
+          color: systemColors.primary.withOpacity(0.05),
           blurRadius: 0,
           spreadRadius: 0,
           offset: const Offset(0, 1),

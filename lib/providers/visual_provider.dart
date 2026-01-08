@@ -25,10 +25,15 @@ class VisualProvider with ChangeNotifier {
   // Current VIB34D system - default to 'faceted' (VIB3+ engine default)
   String _currentSystem = 'faceted'; // 'faceted', 'quantum', 'holographic'
 
-  // 4D Rotation angles (radians, 0-2π)
-  double _rotationXW = 0.0;
-  double _rotationYW = 0.0;
-  double _rotationZW = 0.0;
+  // 3D Rotation angles (radians, 0-2π) - maps to oscillator detune
+  double _rotationXY = 0.0;  // → Detune 1 (±12 cents)
+  double _rotationXZ = 0.0;  // → Detune 2 (±12 cents)
+  double _rotationYZ = 0.0;  // → Chorus/Combined detune (±7 cents)
+
+  // 4D Rotation angles (radians, 0-2π) - maps to synthesis modulation
+  double _rotationXW = 0.0;  // → FM depth (Hypersphere only)
+  double _rotationYW = 0.0;  // → Ring mod depth (Hypertetra only)
+  double _rotationZW = 0.0;  // → Filter cutoff modulation (all)
 
   // Rotation velocity (for advanced modulation)
   double _rotationVelocityXW = 0.0;
@@ -36,11 +41,13 @@ class VisualProvider with ChangeNotifier {
   double _rotationVelocityZW = 0.0;
 
   // Visual parameters
-  double _rotationSpeed = 1.0;       // Base rotation speed multiplier
-  int _tessellationDensity = 5;      // Subdivision level (3-8)
-  double _vertexBrightness = 0.8;    // Vertex intensity (0-1)
-  double _hueShift = 180.0;          // Color hue offset (0-360°)
-  double _glowIntensity = 1.0;       // Bloom/glow amount (0-3)
+  double _rotationSpeed = 1.0;       // Base rotation speed multiplier → LFO rate
+  int _tessellationDensity = 5;      // Subdivision level (3-8) → Voice count
+  double _vertexBrightness = 0.8;    // Vertex intensity (0-1) → Output gain
+  double _hueShift = 180.0;          // Color hue offset (0-360°) → Spectral tilt
+  double _saturation = 0.7;          // Color saturation (0-1) → Filter resonance
+  double _glowIntensity = 1.0;       // Bloom/glow amount (0-3) → Reverb mix
+  double _chaosAmount = 0.0;         // Noise/randomness (0-1) → Noise injection
   double _rgbSplitAmount = 0.0;      // Chromatic aberration (0-10)
 
   // Geometry state
@@ -74,19 +81,34 @@ class VisualProvider with ChangeNotifier {
   // Getters
   String get currentSystem => _currentSystem;
   String get currentSystemName => _currentSystem; // Alias for clarity
+
+  // 3D Rotations (detune control)
+  double get rotationXY => _rotationXY;
+  double get rotationXZ => _rotationXZ;
+  double get rotationYZ => _rotationYZ;
+
+  // 4D Rotations (synthesis modulation)
   double get rotationXW => _rotationXW;
   double get rotationYW => _rotationYW;
   double get rotationZW => _rotationZW;
+
+  // Visual parameters
   double get rotationSpeed => _rotationSpeed;
   int get tessellationDensity => _tessellationDensity;
   double get vertexBrightness => _vertexBrightness;
   double get hueShift => _hueShift;
+  double get saturation => _saturation;
   double get glowIntensity => _glowIntensity;
+  double get chaosAmount => _chaosAmount;
   double get rgbSplitAmount => _rgbSplitAmount;
+
+  // Geometry state
   int get activeVertexCount => _activeVertexCount;
   double get morphParameter => _morphParameter;
   int get currentGeometry => _currentGeometry;
   int get geometryIndex => _currentGeometry; // Alias for VIB3+ API
+
+  // Projection
   double get projectionDistance => _projectionDistance;
   double get layerSeparation => _layerSeparation;
   bool get isAnimating => _isAnimating;
@@ -228,6 +250,41 @@ class VisualProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// Set saturation (resonance/harmonic richness)
+  void setSaturation(double sat) {
+    _saturation = sat.clamp(0.0, 1.0);
+    _updateJavaScriptParameter('saturation', _saturation);
+    notifyListeners();
+  }
+
+  /// Set chaos amount (noise injection)
+  void setChaosAmount(double chaos) {
+    _chaosAmount = chaos.clamp(0.0, 1.0);
+    _updateJavaScriptParameter('chaos', _chaosAmount);
+    notifyListeners();
+  }
+
+  /// Set 3D rotation XY (Detune 1: ±12 cents)
+  void setRotationXY(double angle) {
+    _rotationXY = angle % (2.0 * math.pi);
+    _updateJavaScriptParameter('rot3dXY', _rotationXY);
+    notifyListeners();
+  }
+
+  /// Set 3D rotation XZ (Detune 2: ±12 cents)
+  void setRotationXZ(double angle) {
+    _rotationXZ = angle % (2.0 * math.pi);
+    _updateJavaScriptParameter('rot3dXZ', _rotationXZ);
+    notifyListeners();
+  }
+
+  /// Set 3D rotation YZ (Chorus: ±7 cents)
+  void setRotationYZ(double angle) {
+    _rotationYZ = angle % (2.0 * math.pi);
+    _updateJavaScriptParameter('rot3dYZ', _rotationYZ);
+    notifyListeners();
+  }
+
   /// Update rotation angles (internal animation or external control)
   void updateRotations(double deltaTime) {
     final dt = deltaTime * _rotationSpeed;
@@ -258,6 +315,14 @@ class VisualProvider with ChangeNotifier {
   /// Get rotation angle for specific plane (for visual→audio modulation)
   double getRotationAngle(String plane) {
     switch (plane.toUpperCase()) {
+      // 3D rotations (detune)
+      case 'XY':
+        return _rotationXY;
+      case 'XZ':
+        return _rotationXZ;
+      case 'YZ':
+        return _rotationYZ;
+      // 4D rotations (synthesis modulation)
       case 'XW':
         return _rotationXW;
       case 'YW':
@@ -439,17 +504,28 @@ class VisualProvider with ChangeNotifier {
   Map<String, dynamic> getVisualState() {
     return {
       'system': _currentSystem,
+      // 3D rotations (detune)
+      'rotationXY': _rotationXY,
+      'rotationXZ': _rotationXZ,
+      'rotationYZ': _rotationYZ,
+      // 4D rotations (synthesis modulation)
       'rotationXW': _rotationXW,
       'rotationYW': _rotationYW,
       'rotationZW': _rotationZW,
+      // Visual parameters
       'rotationSpeed': _rotationSpeed,
       'tessellationDensity': _tessellationDensity,
       'vertexBrightness': _vertexBrightness,
       'hueShift': _hueShift,
+      'saturation': _saturation,
       'glowIntensity': _glowIntensity,
+      'chaosAmount': _chaosAmount,
       'rgbSplitAmount': _rgbSplitAmount,
+      // Geometry
       'activeVertexCount': _activeVertexCount,
       'morphParameter': _morphParameter,
+      'currentGeometry': _currentGeometry,
+      // Projection
       'projectionDistance': _projectionDistance,
       'layerSeparation': _layerSeparation,
       'isAnimating': _isAnimating,
