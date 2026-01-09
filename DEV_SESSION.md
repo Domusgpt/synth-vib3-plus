@@ -154,6 +154,8 @@ test-type: instrumentation
 2. `89aafdc` - Restructure bottom panel: fixed hero + scrollable sliders
 3. `96e4db3` - Remove unused geometry_hero.dart import
 4. `5ffa7df` - Add audio diagnostics, documentation, and integration tests
+5. `1a3e79f` - Update session docs with UI completion status
+6. `66f2e7d` - Add test infrastructure and documentation
 
 ---
 
