@@ -51,10 +51,12 @@ class SynthesisParametersPanel extends StatelessWidget {
     final brightnessGhost = highEnergy * 30;  // Highs affect brightness
     final reverbGhost = rms * 0.1;            // RMS affects reverb
 
+    // Return a Column since this is embedded in a parent ListView
+    // This prevents nested scrolling issues
     return Container(
       color: systemColors.background,
-      child: ListView(
-        padding: const EdgeInsets.only(bottom: SynthTheme.spacingLarge),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           // ========================================
           // PITCH/DETUNE Section

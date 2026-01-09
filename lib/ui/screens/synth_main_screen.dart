@@ -22,7 +22,7 @@ import 'package:provider/provider.dart';
 import '../theme/synth_theme.dart';
 import '../components/top_bezel.dart';
 import '../components/xy_performance_pad.dart';
-import '../components/orb_controller.dart';
+// orb_controller.dart removed - using inline _MinimalOrbController instead
 import '../components/geometry_hero.dart';
 import '../panels/synthesis_parameters_panel.dart';
 import '../../providers/ui_state_provider.dart';
@@ -140,12 +140,15 @@ class _SynthMainContentState extends State<_SynthMainContent> {
             ],
           ),
 
-          // Layer 3: Orb Controller (floating)
+          // Layer 3: Orb Controller (minimized in corner, expands when active)
+          // Positioned in bottom-left, not using Positioned.fill to avoid blocking touches
           if (uiState.orbControllerVisible)
-            Positioned.fill(
-              child: OrbController(
+            Positioned(
+              left: 16,
+              bottom: uiState.isAnyPanelExpanded() ? 420 : 220,
+              child: _MinimalOrbController(
                 systemColors: systemColors,
-                initialPosition: _getOrbInitialPosition(context, uiState),
+                isActive: uiState.orbControllerActive,
               ),
             ),
 
@@ -163,14 +166,22 @@ class _SynthMainContentState extends State<_SynthMainContent> {
     );
   }
 
-  /// Build the bottom panel section with Geometry Hero and scrollable parameters
+  /// Build the bottom panel section - portrait phone optimized
+  /// Collapsed: compact hero bar (80px)
+  /// Expanded: full parameters panel (fills available space up to 60% screen)
   Widget _buildBottomPanelSection(BuildContext context, SystemColors systemColors) {
     final uiState = Provider.of<UIStateProvider>(context);
     final isPanelExpanded = uiState.isAnyPanelExpanded();
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    // Collapsed: just a thin bar with key controls
+    // Expanded: up to 60% of screen for parameters
+    final collapsedHeight = 80.0;
+    final expandedHeight = (screenHeight * 0.55).clamp(300.0, 500.0);
 
     return AnimatedContainer(
       duration: SynthTheme.transitionStandard,
-      height: isPanelExpanded ? 400 : 200, // Collapsed: just hero, Expanded: hero + params
+      height: isPanelExpanded ? expandedHeight : collapsedHeight,
       decoration: BoxDecoration(
         color: systemColors.surface.withOpacity(0.95),
         border: Border(
@@ -182,7 +193,7 @@ class _SynthMainContentState extends State<_SynthMainContent> {
       ),
       child: Column(
         children: [
-          // Expand/collapse handle
+          // Expand/collapse handle + compact hero bar (always visible)
           GestureDetector(
             onTap: () {
               if (isPanelExpanded) {
@@ -191,29 +202,24 @@ class _SynthMainContentState extends State<_SynthMainContent> {
                 uiState.expandPanel('synthesis');
               }
             },
-            child: Container(
-              height: 24,
-              color: Colors.transparent,
-              child: Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: systemColors.primary.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
+            child: _CompactHeroBar(
+              systemColors: systemColors,
+              isExpanded: isPanelExpanded,
             ),
           ),
 
-          // Geometry Hero (always visible)
-          const GeometryHeroWidget(),
-
           // Scrollable Parameters (visible when expanded)
           if (isPanelExpanded)
-            const Expanded(
-              child: SynthesisParametersPanel(),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: const [
+                  // Full geometry selector
+                  GeometryHeroWidget(),
+                  // All parameter sliders
+                  SynthesisParametersPanel(),
+                ],
+              ),
             ),
         ],
       ),
@@ -264,18 +270,6 @@ class _SynthMainContentState extends State<_SynthMainContent> {
         },
       ),
     );
-  }
-
-  Offset _getOrbInitialPosition(BuildContext context, UIStateProvider uiState) {
-    final orientation = MediaQuery.of(context).orientation;
-
-    if (orientation == Orientation.landscape) {
-      // Landscape: Bottom-left corner
-      return const Offset(0.15, 0.75);
-    } else {
-      // Portrait: Bottom-center
-      return const Offset(0.5, 0.8);
-    }
   }
 
   bool _isPortrait(BuildContext context) {
@@ -426,6 +420,248 @@ class _SynthMainContentState extends State<_SynthMainContent> {
               style: SynthTheme.textStyleCaption.copyWith(color: Colors.white),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact hero bar shown when panel is collapsed
+/// Shows: Current synthesis method + voice character + expand indicator
+class _CompactHeroBar extends StatelessWidget {
+  final SystemColors systemColors;
+  final bool isExpanded;
+
+  const _CompactHeroBar({
+    required this.systemColors,
+    required this.isExpanded,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final visualProvider = Provider.of<VisualProvider>(context);
+    final currentGeometry = visualProvider.currentGeometry;
+    final currentCore = currentGeometry ~/ 8;
+    final currentBase = currentGeometry % 8;
+
+    // Get labels
+    final methodLabels = ['DIRECT', 'FM', 'RING'];
+    final voiceLabels = ['FUND', 'CMPLX', 'SMTH', 'CYCL', 'ASYM', 'RCRS', 'SWEP', 'CRSP'];
+
+    return Container(
+      height: 80,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          // Current selection display
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${methodLabels[currentCore]} • ${voiceLabels[currentBase]}',
+                  style: SynthTheme.textStyleBody.copyWith(
+                    color: systemColors.primary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isExpanded ? 'Tap to collapse' : 'Tap to expand controls',
+                  style: SynthTheme.textStyleCaption.copyWith(
+                    color: SynthTheme.textDim,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Quick synthesis method buttons (horizontal)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (int i = 0; i < 3; i++)
+                _QuickMethodButton(
+                  label: methodLabels[i],
+                  isActive: currentCore == i,
+                  systemColors: systemColors,
+                  onTap: () {
+                    final newGeometry = (i * 8) + currentBase;
+                    visualProvider.setGeometry(newGeometry);
+                    Provider.of<AudioProvider>(context, listen: false)
+                        .setSynthesisBranch(newGeometry);
+                  },
+                ),
+            ],
+          ),
+
+          const SizedBox(width: 12),
+
+          // Expand/collapse indicator
+          Icon(
+            isExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up,
+            color: systemColors.primary,
+            size: 28,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Quick synthesis method button for compact hero bar
+class _QuickMethodButton extends StatelessWidget {
+  final String label;
+  final bool isActive;
+  final SystemColors systemColors;
+  final VoidCallback onTap;
+
+  const _QuickMethodButton({
+    required this.label,
+    required this.isActive,
+    required this.systemColors,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(left: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive
+              ? systemColors.primary.withOpacity(0.2)
+              : Colors.transparent,
+          border: Border.all(
+            color: isActive
+                ? systemColors.primary
+                : systemColors.primary.withOpacity(0.3),
+            width: isActive ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          style: SynthTheme.textStyleCaption.copyWith(
+            color: isActive ? systemColors.primary : SynthTheme.textSecondary,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            fontSize: 11,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Minimal orb controller - small circle that expands when touched
+class _MinimalOrbController extends StatefulWidget {
+  final SystemColors systemColors;
+  final bool isActive;
+
+  const _MinimalOrbController({
+    required this.systemColors,
+    required this.isActive,
+  });
+
+  @override
+  State<_MinimalOrbController> createState() => _MinimalOrbControllerState();
+}
+
+class _MinimalOrbControllerState extends State<_MinimalOrbController>
+    with SingleTickerProviderStateMixin {
+  bool _isDragging = false;
+  Offset _dragOffset = Offset.zero;
+  late AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final uiState = Provider.of<UIStateProvider>(context);
+    final audioProvider = Provider.of<AudioProvider>(context);
+
+    // Collapsed: 44px, Expanded when dragging: 80px
+    final size = _isDragging ? 80.0 : 44.0;
+
+    return GestureDetector(
+      onPanStart: (details) {
+        setState(() {
+          _isDragging = true;
+          _dragOffset = Offset.zero;
+        });
+        uiState.setOrbControllerActive(true);
+      },
+      onPanUpdate: (details) {
+        setState(() {
+          _dragOffset += details.delta / 40; // Scale down for sensitivity
+          _dragOffset = Offset(
+            _dragOffset.dx.clamp(-1.0, 1.0),
+            _dragOffset.dy.clamp(-1.0, 1.0),
+          );
+        });
+
+        // Apply pitch bend (X) and vibrato (Y)
+        final pitchBend = _dragOffset.dx * uiState.orbPitchBendRange;
+        audioProvider.setPitchBend(pitchBend);
+        audioProvider.setVibratoDepth((1.0 - _dragOffset.dy) / 2.0);
+      },
+      onPanEnd: (details) {
+        setState(() {
+          _isDragging = false;
+          _dragOffset = Offset.zero;
+        });
+        uiState.setOrbControllerActive(false);
+        audioProvider.setPitchBend(0);
+        audioProvider.setVibratoDepth(0);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [
+              widget.systemColors.primary,
+              widget.systemColors.accent,
+            ],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: widget.systemColors.primary.withOpacity(_isDragging ? 0.6 : 0.3),
+              blurRadius: _isDragging ? 20 : 8,
+              spreadRadius: 0,
+            ),
+          ],
+        ),
+        child: Center(
+          child: AnimatedBuilder(
+            animation: _pulseController,
+            builder: (context, child) {
+              return Icon(
+                _isDragging ? Icons.control_camera : Icons.touch_app,
+                color: Colors.white.withOpacity(0.8),
+                size: _isDragging ? 32 : 20,
+              );
+            },
+          ),
         ),
       ),
     );
