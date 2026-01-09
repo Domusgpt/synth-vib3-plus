@@ -23,7 +23,7 @@ import '../theme/synth_theme.dart';
 import '../components/top_bezel.dart';
 import '../components/xy_performance_pad.dart';
 // orb_controller.dart removed - using inline _MinimalOrbController instead
-import '../components/geometry_hero.dart';
+// geometry_hero.dart removed - using inline _FixedGeometryHero
 import '../panels/synthesis_parameters_panel.dart';
 import '../../providers/ui_state_provider.dart';
 import '../../providers/visual_provider.dart';
