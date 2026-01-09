@@ -107,9 +107,6 @@ class AudioProvider with ChangeNotifier {
     try {
       debugPrint('🔧 [AudioProvider] Setting up PCM: sampleRate=${sampleRate.toInt()}, channels=1');
 
-      // Set up log callback to catch PCM issues
-      FlutterPcmSound.setLogEnabled(true);
-
       // Initialize PCM player (static API)
       await FlutterPcmSound.setup(
         sampleRate: sampleRate.toInt(),
