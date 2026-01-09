@@ -141,11 +141,14 @@ class _SynthMainContentState extends State<_SynthMainContent> {
           ),
 
           // Layer 3: Orb Controller (minimized in corner, expands when active)
-          // Positioned in bottom-left, not using Positioned.fill to avoid blocking touches
+          // Positioned in bottom-left, above the panel
           if (uiState.orbControllerVisible)
             Positioned(
               left: 16,
-              bottom: uiState.isAnyPanelExpanded() ? 420 : 220,
+              // Panel heights: collapsed ~154px, expanded ~55% screen
+              bottom: uiState.isAnyPanelExpanded()
+                  ? (MediaQuery.of(context).size.height * 0.55).clamp(320.0, 520.0) + 16
+                  : 170,
               child: _MinimalOrbController(
                 systemColors: systemColors,
                 isActive: uiState.orbControllerActive,
@@ -167,17 +170,19 @@ class _SynthMainContentState extends State<_SynthMainContent> {
   }
 
   /// Build the bottom panel section - portrait phone optimized
-  /// Collapsed: compact hero bar (80px)
-  /// Expanded: full parameters panel (fills available space up to 60% screen)
+  /// Structure: FIXED HERO (always visible) + SCROLLABLE SLIDERS (when expanded)
   Widget _buildBottomPanelSection(BuildContext context, SystemColors systemColors) {
     final uiState = Provider.of<UIStateProvider>(context);
     final isPanelExpanded = uiState.isAnyPanelExpanded();
     final screenHeight = MediaQuery.of(context).size.height;
 
-    // Collapsed: just a thin bar with key controls
-    // Expanded: up to 60% of screen for parameters
-    final collapsedHeight = 80.0;
-    final expandedHeight = (screenHeight * 0.55).clamp(300.0, 500.0);
+    // Hero height: ~130px (compact geometry selector)
+    // Collapsed: just hero + expand hint = ~150px
+    // Expanded: hero + scrollable sliders up to 55% screen
+    const heroHeight = 130.0;
+    const expandBarHeight = 24.0;
+    final collapsedHeight = heroHeight + expandBarHeight;
+    final expandedHeight = (screenHeight * 0.55).clamp(320.0, 520.0);
 
     return AnimatedContainer(
       duration: SynthTheme.transitionStandard,
@@ -193,7 +198,13 @@ class _SynthMainContentState extends State<_SynthMainContent> {
       ),
       child: Column(
         children: [
-          // Expand/collapse handle + compact hero bar (always visible)
+          // FIXED HERO - Always visible (synthesis method + voice character)
+          SizedBox(
+            height: heroHeight,
+            child: _FixedGeometryHero(systemColors: systemColors),
+          ),
+
+          // Expand/collapse bar
           GestureDetector(
             onTap: () {
               if (isPanelExpanded) {
@@ -202,21 +213,37 @@ class _SynthMainContentState extends State<_SynthMainContent> {
                 uiState.expandPanel('synthesis');
               }
             },
-            child: _CompactHeroBar(
-              systemColors: systemColors,
-              isExpanded: isPanelExpanded,
+            child: Container(
+              height: expandBarHeight,
+              color: systemColors.background.withOpacity(0.5),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: systemColors.primary.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    isPanelExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up,
+                    color: systemColors.primary.withOpacity(0.7),
+                    size: 18,
+                  ),
+                ],
+              ),
             ),
           ),
 
-          // Scrollable Parameters (visible when expanded)
+          // SCROLLABLE SLIDERS - Only when expanded
           if (isPanelExpanded)
             Expanded(
               child: ListView(
-                padding: EdgeInsets.zero,
+                padding: const EdgeInsets.only(bottom: 16),
                 children: const [
-                  // Full geometry selector
-                  GeometryHeroWidget(),
-                  // All parameter sliders
                   SynthesisParametersPanel(),
                 ],
               ),
@@ -426,84 +453,128 @@ class _SynthMainContentState extends State<_SynthMainContent> {
   }
 }
 
-/// Compact hero bar shown when panel is collapsed
-/// Shows: Current synthesis method + voice character + expand indicator
-class _CompactHeroBar extends StatelessWidget {
+/// Fixed Geometry Hero - Always visible at top of bottom panel
+/// Shows: System selector + Synthesis Method + Voice Character
+class _FixedGeometryHero extends StatelessWidget {
   final SystemColors systemColors;
-  final bool isExpanded;
 
-  const _CompactHeroBar({
-    required this.systemColors,
-    required this.isExpanded,
-  });
+  const _FixedGeometryHero({required this.systemColors});
 
   @override
   Widget build(BuildContext context) {
     final visualProvider = Provider.of<VisualProvider>(context);
+    final audioProvider = Provider.of<AudioProvider>(context, listen: false);
     final currentGeometry = visualProvider.currentGeometry;
     final currentCore = currentGeometry ~/ 8;
     final currentBase = currentGeometry % 8;
-
-    // Get labels
-    final methodLabels = ['DIRECT', 'FM', 'RING'];
-    final voiceLabels = ['FUND', 'CMPLX', 'SMTH', 'CYCL', 'ASYM', 'RCRS', 'SWEP', 'CRSP'];
+    final currentSystem = visualProvider.currentSystem.toLowerCase();
 
     return Container(
-      height: 80,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Column(
         children: [
-          // Current selection display
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${methodLabels[currentCore]} • ${voiceLabels[currentBase]}',
-                  style: SynthTheme.textStyleBody.copyWith(
-                    color: systemColors.primary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  isExpanded ? 'Tap to collapse' : 'Tap to expand controls',
-                  style: SynthTheme.textStyleCaption.copyWith(
-                    color: SynthTheme.textDim,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Quick synthesis method buttons (horizontal)
+          // Row 1: System selector (changes UI color theme)
           Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              for (int i = 0; i < 3; i++)
-                _QuickMethodButton(
-                  label: methodLabels[i],
-                  isActive: currentCore == i,
-                  systemColors: systemColors,
-                  onTap: () {
-                    final newGeometry = (i * 8) + currentBase;
-                    visualProvider.setGeometry(newGeometry);
-                    Provider.of<AudioProvider>(context, listen: false)
-                        .setSynthesisBranch(newGeometry);
-                  },
+              Text(
+                'SYSTEM',
+                style: SynthTheme.textStyleCaption.copyWith(
+                  color: SynthTheme.textDim,
+                  fontSize: 9,
                 ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Row(
+                  children: [
+                    for (final system in ['quantum', 'faceted', 'holographic'])
+                      Expanded(
+                        child: _SystemButton(
+                          label: system.toUpperCase().substring(0, 4),
+                          fullLabel: system,
+                          isActive: currentSystem == system,
+                          systemColors: systemColors,
+                          onTap: () {
+                            visualProvider.setSystem(system);
+                            audioProvider.setVisualSystem(system);
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ],
           ),
 
-          const SizedBox(width: 12),
+          const SizedBox(height: 6),
 
-          // Expand/collapse indicator
-          Icon(
-            isExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up,
-            color: systemColors.primary,
-            size: 28,
+          // Row 2: Synthesis Method (DIRECT/FM/RING)
+          Row(
+            children: [
+              Text(
+                'METHOD',
+                style: SynthTheme.textStyleCaption.copyWith(
+                  color: SynthTheme.textDim,
+                  fontSize: 9,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Row(
+                  children: [
+                    for (int i = 0; i < 3; i++)
+                      Expanded(
+                        child: _HeroButton(
+                          label: ['DIRECT', 'FM', 'RING'][i],
+                          isActive: currentCore == i,
+                          systemColors: systemColors,
+                          onTap: () {
+                            final newGeometry = (i * 8) + currentBase;
+                            visualProvider.setGeometry(newGeometry);
+                            audioProvider.setSynthesisBranch(newGeometry);
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 6),
+
+          // Row 3: Voice Character (8 options)
+          Row(
+            children: [
+              Text(
+                'VOICE',
+                style: SynthTheme.textStyleCaption.copyWith(
+                  color: SynthTheme.textDim,
+                  fontSize: 9,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Row(
+                  children: [
+                    for (int i = 0; i < 8; i++)
+                      Expanded(
+                        child: _HeroButton(
+                          label: ['FND', 'CPX', 'SMT', 'CYC', 'ASY', 'RCS', 'SWP', 'CRS'][i],
+                          isActive: currentBase == i,
+                          systemColors: systemColors,
+                          compact: true,
+                          onTap: () {
+                            final newGeometry = (currentCore * 8) + i;
+                            visualProvider.setGeometry(newGeometry);
+                            audioProvider.setSynthesisBranch(newGeometry);
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -511,15 +582,17 @@ class _CompactHeroBar extends StatelessWidget {
   }
 }
 
-/// Quick synthesis method button for compact hero bar
-class _QuickMethodButton extends StatelessWidget {
+/// System selector button (Quantum/Faceted/Holographic)
+class _SystemButton extends StatelessWidget {
   final String label;
+  final String fullLabel;
   final bool isActive;
   final SystemColors systemColors;
   final VoidCallback onTap;
 
-  const _QuickMethodButton({
+  const _SystemButton({
     required this.label,
+    required this.fullLabel,
     required this.isActive,
     required this.systemColors,
     required this.onTap,
@@ -527,11 +600,73 @@ class _QuickMethodButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Get the color for this specific system
+    final buttonColor = _getSystemColor(fullLabel);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(left: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? buttonColor.withOpacity(0.25) : Colors.transparent,
+          border: Border.all(
+            color: isActive ? buttonColor : buttonColor.withOpacity(0.3),
+            width: isActive ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: SynthTheme.textStyleCaption.copyWith(
+              color: isActive ? buttonColor : buttonColor.withOpacity(0.6),
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              fontSize: 10,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _getSystemColor(String system) {
+    switch (system) {
+      case 'quantum':
+        return const Color(0xFF00FFFF); // Cyan
+      case 'faceted':
+        return const Color(0xFF4488FF); // Blue
+      case 'holographic':
+        return const Color(0xFFFFAA00); // Gold
+      default:
+        return Colors.white;
+    }
+  }
+}
+
+/// Hero button for method/voice selection
+class _HeroButton extends StatelessWidget {
+  final String label;
+  final bool isActive;
+  final SystemColors systemColors;
+  final VoidCallback onTap;
+  final bool compact;
+
+  const _HeroButton({
+    required this.label,
+    required this.isActive,
+    required this.systemColors,
+    required this.onTap,
+    this.compact = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        padding: EdgeInsets.symmetric(vertical: compact ? 4 : 6),
         decoration: BoxDecoration(
           color: isActive
               ? systemColors.primary.withOpacity(0.2)
@@ -542,14 +677,16 @@ class _QuickMethodButton extends StatelessWidget {
                 : systemColors.primary.withOpacity(0.3),
             width: isActive ? 2 : 1,
           ),
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(4),
         ),
-        child: Text(
-          label,
-          style: SynthTheme.textStyleCaption.copyWith(
-            color: isActive ? systemColors.primary : SynthTheme.textSecondary,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-            fontSize: 11,
+        child: Center(
+          child: Text(
+            label,
+            style: SynthTheme.textStyleCaption.copyWith(
+              color: isActive ? systemColors.primary : SynthTheme.textSecondary,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              fontSize: compact ? 9 : 11,
+            ),
           ),
         ),
       ),
