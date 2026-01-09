@@ -29,13 +29,27 @@ class SynthesisParametersPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visualProvider = Provider.of<VisualProvider>(context);
-    final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+    final audioProvider = Provider.of<AudioProvider>(context);
     final systemColors = visualProvider.systemColors;
 
     // Determine which synthesis modulations are active based on core
     final currentCore = visualProvider.currentGeometry ~/ 8;
     final isFMCore = currentCore == 1;        // Hypersphere
     final isRingCore = currentCore == 2;      // Hypertetrahedron
+
+    // Get audio features for ghost offsets and activity meters
+    final features = audioProvider.currentFeatures;
+    final bassEnergy = features?.bassEnergy ?? 0.0;
+    final midEnergy = features?.midEnergy ?? 0.0;
+    final highEnergy = features?.highEnergy ?? 0.0;
+    final rms = features?.rms ?? 0.0;
+
+    // Calculate ghost offsets based on audio reactivity
+    // These show how audio is modulating each parameter
+    final detuneGhost = bassEnergy * 1.5;     // Bass pushes detune
+    final filterGhost = midEnergy * 0.15;     // Mid affects filter
+    final brightnessGhost = highEnergy * 30;  // Highs affect brightness
+    final reverbGhost = rms * 0.1;            // RMS affects reverb
 
     return Container(
       color: systemColors.background,
@@ -56,14 +70,14 @@ class SynthesisParametersPanel extends StatelessWidget {
               label: 'Detune 1',
               visualLabel: 'XY Rotation',
               sonicLabel: 'OSC 1 pitch offset',
-              min: -math.pi,
-              max: math.pi,
+              min: -12.0,
+              max: 12.0,
               unit: 'c',
               isBidirectional: true,
             ),
             value: _rotationToCents(visualProvider.rotationXY, 12.0),
-            ghostOffset: 0.0, // TODO: Wire to audio reactivity
-            activityLevel: 0.0,
+            ghostOffset: detuneGhost,
+            activityLevel: bassEnergy,
             systemColors: systemColors,
             onChanged: (cents) {
               visualProvider.setRotationXY(_centsToRotation(cents, 12.0));
@@ -77,14 +91,14 @@ class SynthesisParametersPanel extends StatelessWidget {
               label: 'Detune 2',
               visualLabel: 'XZ Rotation',
               sonicLabel: 'OSC 2 pitch offset',
-              min: -math.pi,
-              max: math.pi,
+              min: -12.0,
+              max: 12.0,
               unit: 'c',
               isBidirectional: true,
             ),
             value: _rotationToCents(visualProvider.rotationXZ, 12.0),
-            ghostOffset: 0.0,
-            activityLevel: 0.0,
+            ghostOffset: detuneGhost * 0.8,
+            activityLevel: bassEnergy * 0.8,
             systemColors: systemColors,
             onChanged: (cents) {
               visualProvider.setRotationXZ(_centsToRotation(cents, 12.0));
@@ -98,14 +112,14 @@ class SynthesisParametersPanel extends StatelessWidget {
               label: 'Chorus',
               visualLabel: 'YZ Rotation',
               sonicLabel: 'Combined detune (thickness)',
-              min: -math.pi,
-              max: math.pi,
+              min: -7.0,
+              max: 7.0,
               unit: 'c',
               isBidirectional: true,
             ),
             value: _rotationToCents(visualProvider.rotationYZ, 7.0),
-            ghostOffset: 0.0,
-            activityLevel: 0.0,
+            ghostOffset: detuneGhost * 0.5,
+            activityLevel: bassEnergy * 0.6,
             systemColors: systemColors,
             onChanged: (cents) {
               visualProvider.setRotationYZ(_centsToRotation(cents, 7.0));
@@ -133,8 +147,8 @@ class SynthesisParametersPanel extends StatelessWidget {
               isEnabled: isFMCore,
             ),
             value: _rotationToSemitones(visualProvider.rotationXW),
-            ghostOffset: 0.0,
-            activityLevel: isFMCore ? 0.3 : 0.0,
+            ghostOffset: isFMCore ? midEnergy * 0.5 : 0.0,
+            activityLevel: isFMCore ? midEnergy : 0.0,
             systemColors: systemColors,
             onChanged: (st) {
               if (isFMCore) {
@@ -156,8 +170,8 @@ class SynthesisParametersPanel extends StatelessWidget {
               isEnabled: isRingCore,
             ),
             value: _rotationToPercent(visualProvider.rotationYW),
-            ghostOffset: 0.0,
-            activityLevel: isRingCore ? 0.3 : 0.0,
+            ghostOffset: isRingCore ? midEnergy * 0.2 : 0.0,
+            activityLevel: isRingCore ? midEnergy : 0.0,
             systemColors: systemColors,
             onChanged: (percent) {
               if (isRingCore) {
@@ -179,8 +193,8 @@ class SynthesisParametersPanel extends StatelessWidget {
               isBidirectional: true,
             ),
             value: _rotationToFilterMod(visualProvider.rotationZW),
-            ghostOffset: 0.0,
-            activityLevel: 0.2,
+            ghostOffset: filterGhost,
+            activityLevel: midEnergy,
             systemColors: systemColors,
             onChanged: (mod) {
               visualProvider.setRotationZW(_filterModToRotation(mod));
@@ -207,8 +221,8 @@ class SynthesisParametersPanel extends StatelessWidget {
               unit: '°',
             ),
             value: visualProvider.hueShift,
-            ghostOffset: 0.0,
-            activityLevel: 0.0,
+            ghostOffset: brightnessGhost,
+            activityLevel: highEnergy,
             systemColors: systemColors,
             onChanged: (hue) => visualProvider.setHueShift(hue),
             onDoubleTap: () => visualProvider.setHueShift(180.0),
@@ -225,8 +239,8 @@ class SynthesisParametersPanel extends StatelessWidget {
               unit: '%',
             ),
             value: visualProvider.saturation,
-            ghostOffset: 0.0,
-            activityLevel: 0.0,
+            ghostOffset: midEnergy * 0.1,
+            activityLevel: midEnergy * 0.7,
             systemColors: systemColors,
             onChanged: (sat) => visualProvider.setSaturation(sat),
             onDoubleTap: () => visualProvider.setSaturation(0.7),
@@ -243,8 +257,8 @@ class SynthesisParametersPanel extends StatelessWidget {
               unit: '%',
             ),
             value: visualProvider.vertexBrightness,
-            ghostOffset: 0.0,
-            activityLevel: 0.0,
+            ghostOffset: rms * 0.05,
+            activityLevel: rms,
             systemColors: systemColors,
             onChanged: (b) => visualProvider.setVertexBrightness(b),
             onDoubleTap: () => visualProvider.setVertexBrightness(0.8),
@@ -269,8 +283,8 @@ class SynthesisParametersPanel extends StatelessWidget {
               unit: '%',
             ),
             value: _glowToReverb(visualProvider.glowIntensity),
-            ghostOffset: 0.0,
-            activityLevel: 0.0,
+            ghostOffset: reverbGhost,
+            activityLevel: rms * 0.8,
             systemColors: systemColors,
             onChanged: (reverb) {
               visualProvider.setGlowIntensity(_reverbToGlow(reverb));
@@ -289,8 +303,8 @@ class SynthesisParametersPanel extends StatelessWidget {
               unit: '%',
             ),
             value: visualProvider.chaosAmount * 0.3,
-            ghostOffset: 0.0,
-            activityLevel: 0.0,
+            ghostOffset: highEnergy * 0.05,
+            activityLevel: highEnergy * 0.5,
             systemColors: systemColors,
             onChanged: (noise) {
               visualProvider.setChaosAmount(noise / 0.3);
@@ -309,8 +323,8 @@ class SynthesisParametersPanel extends StatelessWidget {
               unit: '%',
             ),
             value: visualProvider.morphParameter,
-            ghostOffset: 0.0,
-            activityLevel: 0.0,
+            ghostOffset: bassEnergy * 0.1,
+            activityLevel: bassEnergy * 0.4,
             systemColors: systemColors,
             onChanged: (morph) => visualProvider.setMorphParameter(morph),
             onDoubleTap: () => visualProvider.setMorphParameter(0.0),
@@ -335,8 +349,8 @@ class SynthesisParametersPanel extends StatelessWidget {
               unit: 'voices',
             ),
             value: visualProvider.tessellationDensity.toDouble(),
-            ghostOffset: 0.0,
-            activityLevel: 0.0,
+            ghostOffset: midEnergy * 1.0,
+            activityLevel: midEnergy * 0.5,
             systemColors: systemColors,
             onChanged: (voices) {
               visualProvider.setTessellationDensity(voices.round());
@@ -355,8 +369,8 @@ class SynthesisParametersPanel extends StatelessWidget {
               unit: 'Hz',
             ),
             value: visualProvider.rotationSpeed,
-            ghostOffset: 0.0,
-            activityLevel: 0.0,
+            ghostOffset: bassEnergy * 0.5,
+            activityLevel: bassEnergy,
             systemColors: systemColors,
             onChanged: (rate) => visualProvider.setRotationSpeed(rate),
             onDoubleTap: () => visualProvider.setRotationSpeed(1.0),
