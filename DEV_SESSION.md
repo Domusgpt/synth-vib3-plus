@@ -46,38 +46,37 @@
 
 ---
 
-## KNOWN ISSUE: NO AUDIO
+## AUDIO STATUS: FIX APPLIED (PENDING DEVICE TEST)
 
-### Symptoms:
-- XY pad works for visual control
-- Touch feedback appears (ripples, note display)
-- NO sound output when touching XY pad
+### Root Cause Found:
+**noteOn() was being called before PCM initialization completed**
 
-### Audio Flow (should work):
-```
-XY Pad Touch
-    ↓
-xy_performance_pad.dart:76
-audioProvider.noteOn(midiNote)
-    ↓
-audio_provider.dart:432-437
-noteOn() → playNote(midiNote)
-    ↓
-audio_provider.dart:265-275
-playNote() → synthesisBranchManager.noteOn() + startAudio()
-    ↓
-audio_provider.dart:154-168
-startAudio() → Timer → _generateAudioBuffer()
-    ↓
-audio_provider.dart:183-255
-_generateAudioBuffer() → synthesisBranchManager.generateBuffer() → PCM feed
+The async `_initializeAsync()` method was completing after the user touched the XY pad,
+causing `noteOn()` to find `_pcmInitialized=false` and skip audio generation.
+
+### Fix Applied:
+Added initialization check in `noteOn()` that waits for the `_initCompleter.future`
+if initialization hasn't completed yet:
+
+```dart
+void noteOn(int midiNote) {
+  if (!_isInitialized) {
+    debugPrint('⚠️ [AudioProvider] Not initialized yet, waiting...');
+    _initCompleter.future.then((_) {
+      _playNoteInternal(midiNote);
+    });
+    return;
+  }
+  _playNoteInternal(midiNote);
+}
 ```
 
-### Possible Causes:
-1. **PCM not initialized** - `_pcmInitialized` might be false
-2. **Audio permissions** - Android might not have granted audio permission
-3. **Buffer feeding** - FlutterPcmSound.feed() might be failing silently
-4. **Envelope stuck at 0** - noteIsOn not properly set
+### Synthesis Engine: VERIFIED WORKING
+All 72 combinations tested with `dart test_synthesis.dart`:
+- RMS amplitude range: 0.01-0.19 (all non-zero)
+- Peak amplitude range: 0.03-0.60
+- Envelope attack/release working correctly
+- FM and ring modulation both producing output
 
 ---
 
@@ -137,14 +136,20 @@ test-type: instrumentation
 
 ---
 
+## COMPLETED AUDIO FIXES
+
+1. ✅ Add debug logging to audio_provider.dart
+2. ✅ Create integration_test/audio_playback_test.dart
+3. ✅ Fix audio initialization timing (wait for PCM setup before playing)
+4. ✅ Fix build error (remove invalid FlutterPcmSound.setLogEnabled call)
+5. ✅ Synthesis test: ALL 72 COMBINATIONS PASSED (RMS 0.01-0.19)
+
 ## NEXT STEPS
 
-1. Add debug logging to audio_provider.dart
-2. Create integration_test/audio_playback_test.dart
-3. Build test APK: `flutter build apk --debug`
-4. Run on Firebase Test Lab
-5. Analyze results and fix audio issue
-6. Verify all 72 geometry combinations produce sound
+1. Build test APK: `flutter build apk --debug`
+2. Run on Firebase Test Lab or real device
+3. Verify audio output works with PCM diagnostics
+4. Test all 72 geometry combinations produce sound on device
 
 ---
 
@@ -156,6 +161,9 @@ test-type: instrumentation
 4. `5ffa7df` - Add audio diagnostics, documentation, and integration tests
 5. `1a3e79f` - Update session docs with UI completion status
 6. `66f2e7d` - Add test infrastructure and documentation
+7. `31c92e2` - Update session docs with final commits
+8. `b9a5e9e` - Fix audio initialization timing and improve PCM diagnostics
+9. `e8d1b11` - Fix build: remove non-existent FlutterPcmSound.setLogEnabled call
 
 ---
 
