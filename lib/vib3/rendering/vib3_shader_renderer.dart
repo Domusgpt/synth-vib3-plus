@@ -470,17 +470,25 @@ class _VIB3AnimatedShaderWidgetState extends State<VIB3AnimatedShaderWidget>
     // Get audio data
     final audioData = widget.audioData ?? AudioReactivityData.silent;
 
-    // ALWAYS apply auto-rotation to internal state (this accumulates)
+    // SYSTEM-SPECIFIC SPEED BASES
+    // Each visual system has different rotation characteristics:
+    // - Quantum: Fast, stable, high-contrast - pure harmonic aesthetic
+    // - Holographic: Variable per-layer speeds - creates parallax depth
+    // - Faceted: Moderate, geometric - clean edges
+
     if (widget.autoRotateSpeed > 0) {
-      final rotSpeed = widget.autoRotateSpeed * deltaTime;
+      final baseSpeed = widget.autoRotateSpeed * deltaTime;
       final audioBoost = 1.0 + audioData.bassEnergy * widget.audioReactivityStrength;
 
-      _internalRotXY += rotSpeed * 0.7 * audioBoost;
-      _internalRotXZ += rotSpeed * 0.5 * audioBoost;
-      _internalRotYZ += rotSpeed * 0.3;
-      _internalRotXW += rotSpeed * 0.4;
-      _internalRotYW += rotSpeed * 0.25;
-      _internalRotZW += rotSpeed * 0.15;
+      // Get system-specific speed multipliers
+      final (xyMult, xzMult, yzMult, xwMult, ywMult, zwMult) = _getSystemSpeedMultipliers();
+
+      _internalRotXY += baseSpeed * xyMult * audioBoost;
+      _internalRotXZ += baseSpeed * xzMult * audioBoost;
+      _internalRotYZ += baseSpeed * yzMult;
+      _internalRotXW += baseSpeed * xwMult;
+      _internalRotYW += baseSpeed * ywMult;
+      _internalRotZW += baseSpeed * zwMult;
     }
 
     // Apply interaction rotations
@@ -515,6 +523,28 @@ class _VIB3AnimatedShaderWidgetState extends State<VIB3AnimatedShaderWidget>
 
     _state = newState;
     widget.onStateChanged?.call(_state);
+  }
+
+  /// Get system-specific speed multipliers for each rotation axis
+  /// Returns: (xyMult, xzMult, yzMult, xwMult, ywMult, zwMult)
+  (double, double, double, double, double, double) _getSystemSpeedMultipliers() {
+    switch (widget.system) {
+      case VisualSystem.quantum:
+        // Quantum: Fast, high-contrast, pure harmonic aesthetic
+        // Higher speed multipliers for dynamic, energetic rotation
+        return (1.0, 0.7, 0.4, 0.5, 0.35, 0.2);
+
+      case VisualSystem.holographic:
+        // Holographic: Variable speeds create parallax depth effect
+        // Layer-like variation: some axes fast, some slow
+        // Creates the characteristic holographic "floating layers" effect
+        return (0.4, 0.8, 0.2, 1.0, 0.3, 0.6);
+
+      case VisualSystem.faceted:
+        // Faceted: Moderate, geometric, clean edges
+        // Balanced speeds for stable geometric presentation
+        return (0.7, 0.5, 0.3, 0.4, 0.25, 0.15);
+    }
   }
 
   void _handleScaleStart(ScaleStartDetails details) {
