@@ -179,17 +179,19 @@ class InteractiveVisualization extends StatefulWidget {
 - Method buttons: 80px wide, icon + text
 - Voice buttons: 48px square, emoji/icon for geometry type
 
-**Voice Button Icons**:
+**Voice Button Icons** (CustomPainter-based vector graphics):
 ```
-[△] Tetrahedron (Fundamental)
-[□] Hypercube (Complex)
-[○] Sphere (Smooth)
-[◎] Torus (Cyclic)
-[∞] Klein (Twisted)
-[❋] Fractal (Recursive)
-[≈] Wave (Flowing)
-[✦] Crystal (Sharp)
+0: Tetrahedron (Fundamental) - Equilateral triangle
+1: Hypercube (Complex) - Nested rotated squares with connecting lines
+2: Sphere (Smooth) - Circle with 3D arc suggestions
+3: Torus (Cyclic) - Donut/ring shape
+4: Klein Bottle (Twisted) - Figure-8/infinity curve
+5: Fractal (Recursive) - Sierpinski-style nested triangles
+6: Wave (Flowing) - Sine wave
+7: Crystal (Sharp) - 8-pointed star burst
 ```
+
+**Implementation**: See `lib/ui/components/geometry_icons.dart` for CustomPainter implementations.
 
 **Interaction**:
 - Tap = select
