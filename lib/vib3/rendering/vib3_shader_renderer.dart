@@ -306,6 +306,20 @@ class VIB3AnimatedShaderWidget extends StatefulWidget {
   final bool enableInteraction;
   final ValueChanged<VIB3EngineState>? onStateChanged;
 
+  // External rotation overrides (from sliders/VisualProvider)
+  final double? externalRotationXY;
+  final double? externalRotationXZ;
+  final double? externalRotationYZ;
+  final double? externalRotationXW;
+  final double? externalRotationYW;
+  final double? externalRotationZW;
+
+  // Other visual parameters
+  final double? saturation;
+  final double? morphParameter;
+  final double? chaosAmount;
+  final int? tessellationDensity;
+
   const VIB3AnimatedShaderWidget({
     super.key,
     this.system = VisualSystem.quantum,
@@ -317,6 +331,18 @@ class VIB3AnimatedShaderWidget extends StatefulWidget {
     this.autoRotateSpeed = 0.3,
     this.enableInteraction = true,
     this.onStateChanged,
+    // External rotations
+    this.externalRotationXY,
+    this.externalRotationXZ,
+    this.externalRotationYZ,
+    this.externalRotationXW,
+    this.externalRotationYW,
+    this.externalRotationZW,
+    // Other params
+    this.saturation,
+    this.morphParameter,
+    this.chaosAmount,
+    this.tessellationDensity,
   });
 
   @override
@@ -365,11 +391,24 @@ class _VIB3AnimatedShaderWidgetState extends State<VIB3AnimatedShaderWidget>
   void didUpdateWidget(VIB3AnimatedShaderWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (oldWidget.system != widget.system ||
+    // Check if any props changed
+    final needsUpdate = oldWidget.system != widget.system ||
         oldWidget.geometryIndex != widget.geometryIndex ||
         oldWidget.hueShift != widget.hueShift ||
         oldWidget.glowIntensity != widget.glowIntensity ||
-        oldWidget.autoRotateSpeed != widget.autoRotateSpeed) {
+        oldWidget.autoRotateSpeed != widget.autoRotateSpeed ||
+        oldWidget.saturation != widget.saturation ||
+        oldWidget.morphParameter != widget.morphParameter ||
+        oldWidget.chaosAmount != widget.chaosAmount ||
+        oldWidget.tessellationDensity != widget.tessellationDensity ||
+        oldWidget.externalRotationXY != widget.externalRotationXY ||
+        oldWidget.externalRotationXZ != widget.externalRotationXZ ||
+        oldWidget.externalRotationYZ != widget.externalRotationYZ ||
+        oldWidget.externalRotationXW != widget.externalRotationXW ||
+        oldWidget.externalRotationYW != widget.externalRotationYW ||
+        oldWidget.externalRotationZW != widget.externalRotationZW;
+
+    if (needsUpdate) {
       setState(() {
         _state = _state.copyWith(
           system: widget.system,
@@ -378,6 +417,10 @@ class _VIB3AnimatedShaderWidgetState extends State<VIB3AnimatedShaderWidget>
           glowIntensity: widget.glowIntensity,
           autoRotateSpeed: widget.autoRotateSpeed,
           audioReactivityStrength: widget.audioReactivityStrength,
+          saturation: widget.saturation ?? _state.saturation,
+          morphParameter: widget.morphParameter ?? _state.morphParameter,
+          chaosAmount: widget.chaosAmount ?? _state.chaosAmount,
+          tessellationDensity: widget.tessellationDensity ?? _state.tessellationDensity,
         );
       });
     }
@@ -419,35 +462,70 @@ class _VIB3AnimatedShaderWidgetState extends State<VIB3AnimatedShaderWidget>
     // Get audio data
     final audioData = widget.audioData ?? AudioReactivityData.silent;
 
-    // Apply interaction rotations
-    var newState = _state.copyWith(
-      rotationXY: _state.rotationXY + _interactionRotationXY,
-      rotationXZ: _state.rotationXZ + _interactionRotationXZ,
-      rotationXW: _state.rotationXW + _interactionRotationXW,
-      rotationYW: _state.rotationYW + _interactionRotationYW,
-      audioData: audioData,
-    );
+    // Start with current rotations
+    double newRotXY = _state.rotationXY;
+    double newRotXZ = _state.rotationXZ;
+    double newRotYZ = _state.rotationYZ;
+    double newRotXW = _state.rotationXW;
+    double newRotYW = _state.rotationYW;
+    double newRotZW = _state.rotationZW;
 
-    // Apply auto-rotation
-    if (widget.autoRotateSpeed > 0) {
+    // If external rotations provided (from sliders), use them directly
+    // Otherwise apply auto-rotation + interaction
+    final hasExternalRotation = widget.externalRotationXY != null ||
+        widget.externalRotationXZ != null ||
+        widget.externalRotationYZ != null ||
+        widget.externalRotationXW != null ||
+        widget.externalRotationYW != null ||
+        widget.externalRotationZW != null;
+
+    if (hasExternalRotation) {
+      // Use external values when provided (add auto-rotation on top)
       final rotSpeed = widget.autoRotateSpeed * deltaTime;
-      final audioBoost = 1.0 + audioData.bassEnergy * widget.audioReactivityStrength;
+      final audioBoost = 1.0 + audioData.bassEnergy * widget.audioReactivityStrength * 0.3;
 
-      newState = newState.copyWith(
-        rotationXY: newState.rotationXY + rotSpeed * 0.7 * audioBoost,
-        rotationXZ: newState.rotationXZ + rotSpeed * 0.5 * audioBoost,
-        rotationYZ: newState.rotationYZ + rotSpeed * 0.3,
-        rotationXW: newState.rotationXW + rotSpeed * 0.4,
-        rotationYW: newState.rotationYW + rotSpeed * 0.25,
-        rotationZW: newState.rotationZW + rotSpeed * 0.15,
-      );
+      newRotXY = (widget.externalRotationXY ?? 0) + rotSpeed * 0.2 * audioBoost;
+      newRotXZ = (widget.externalRotationXZ ?? 0) + rotSpeed * 0.15 * audioBoost;
+      newRotYZ = (widget.externalRotationYZ ?? 0) + rotSpeed * 0.1;
+      newRotXW = (widget.externalRotationXW ?? 0) + rotSpeed * 0.12;
+      newRotYW = (widget.externalRotationYW ?? 0) + rotSpeed * 0.08;
+      newRotZW = (widget.externalRotationZW ?? 0) + rotSpeed * 0.05;
+    } else {
+      // Apply interaction rotations
+      newRotXY += _interactionRotationXY;
+      newRotXZ += _interactionRotationXZ;
+      newRotXW += _interactionRotationXW;
+      newRotYW += _interactionRotationYW;
+
+      // Apply auto-rotation
+      if (widget.autoRotateSpeed > 0) {
+        final rotSpeed = widget.autoRotateSpeed * deltaTime;
+        final audioBoost = 1.0 + audioData.bassEnergy * widget.audioReactivityStrength;
+
+        newRotXY += rotSpeed * 0.7 * audioBoost;
+        newRotXZ += rotSpeed * 0.5 * audioBoost;
+        newRotYZ += rotSpeed * 0.3;
+        newRotXW += rotSpeed * 0.4;
+        newRotYW += rotSpeed * 0.25;
+        newRotZW += rotSpeed * 0.15;
+      }
+
+      // Decay interaction rotations
+      _interactionRotationXY *= 0.95;
+      _interactionRotationXZ *= 0.95;
+      _interactionRotationXW *= 0.95;
+      _interactionRotationYW *= 0.95;
     }
 
-    // Decay interaction rotations
-    _interactionRotationXY *= 0.95;
-    _interactionRotationXZ *= 0.95;
-    _interactionRotationXW *= 0.95;
-    _interactionRotationYW *= 0.95;
+    var newState = _state.copyWith(
+      rotationXY: newRotXY,
+      rotationXZ: newRotXZ,
+      rotationYZ: newRotYZ,
+      rotationXW: newRotXW,
+      rotationYW: newRotYW,
+      rotationZW: newRotZW,
+      audioData: audioData,
+    );
 
     _state = newState;
     widget.onStateChanged?.call(_state);

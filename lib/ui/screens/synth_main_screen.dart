@@ -156,11 +156,7 @@ class _SynthMainContentState extends State<_SynthMainContent> {
               ),
             ),
 
-          // Layer 4: Side bezels (portrait mode only)
-          if (_isPortrait(context)) ...[
-            _buildLeftBezel(context, systemColors),
-            _buildRightBezel(context, systemColors),
-          ],
+          // Layer 4: Side bezels REMOVED - cluttered the interface
 
           // Layer 5: Debug overlay (development only)
           if (_shouldShowDebugOverlay(context))
@@ -309,6 +305,18 @@ class _SynthMainContentState extends State<_SynthMainContent> {
             glowIntensity: visualProvider.glowIntensity,
             autoRotateSpeed: visualProvider.rotationSpeed * 0.3,
             enableInteraction: false,  // DISABLED: Let XY pad handle all touches for audio
+            // Pass rotation values from sliders/VisualProvider
+            externalRotationXY: visualProvider.rotationXY,
+            externalRotationXZ: visualProvider.rotationXZ,
+            externalRotationYZ: visualProvider.rotationYZ,
+            externalRotationXW: visualProvider.rotationXW,
+            externalRotationYW: visualProvider.rotationYW,
+            externalRotationZW: visualProvider.rotationZW,
+            // Pass other visual parameters
+            saturation: visualProvider.saturation,
+            morphParameter: visualProvider.morphParameter,
+            chaosAmount: visualProvider.chaosAmount,
+            tessellationDensity: visualProvider.tessellationDensity,
           );
         },
       ),
@@ -470,14 +478,12 @@ class _SynthMainContentState extends State<_SynthMainContent> {
 }
 
 /// Fixed Geometry Hero - Always visible at top of bottom panel
-/// Shows: System selector + Synthesis Method + Voice Character
-/// Uses proper geometric icons (no emojis) with 40px+ touch targets
+/// Layout: System tabs at top (full width) -> Method buttons -> Voice icons
 class _FixedGeometryHero extends StatelessWidget {
   final SystemColors systemColors;
 
   const _FixedGeometryHero({required this.systemColors});
 
-  // Voice character names for tooltips
   static const _voiceNames = [
     'Fundamental', 'Complex', 'Smooth', 'Cyclic',
     'Twisted', 'Recursive', 'Flowing', 'Crystal',
@@ -492,18 +498,16 @@ class _FixedGeometryHero extends StatelessWidget {
     final currentBase = currentGeometry % 8;
     final currentSystem = visualProvider.currentSystem.toLowerCase();
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Column(
-        children: [
-          // Row 1: System selector (Q/F/H) + Method selector (DIRECT/FM/RING)
-          SizedBox(
-            height: 38,
-            child: Row(
-              children: [
-                // System buttons (3)
-                for (final system in ['quantum', 'faceted', 'holographic'])
-                  _SystemIconButton(
+    return Column(
+      children: [
+        // Row 1: System tabs spanning full width as header
+        SizedBox(
+          height: 36,
+          child: Row(
+            children: [
+              for (final system in ['quantum', 'faceted', 'holographic'])
+                Expanded(
+                  child: _SystemTabButton(
                     systemName: system,
                     isActive: currentSystem == system,
                     onTap: () {
@@ -511,108 +515,82 @@ class _FixedGeometryHero extends StatelessWidget {
                       audioProvider.setVisualSystem(system);
                     },
                   ),
+                ),
+            ],
+          ),
+        ),
 
-                const SizedBox(width: 12),
-
-                // Method buttons (3) - takes remaining space
-                Expanded(
-                  child: Row(
-                    children: [
-                      for (int i = 0; i < 3; i++)
-                        Expanded(
-                          child: _MethodIconButton(
-                            methodIndex: i,
-                            isActive: currentCore == i,
-                            systemColors: systemColors,
-                            onTap: () {
-                              final newGeometry = (i * 8) + currentBase;
-                              visualProvider.setGeometry(newGeometry);
-                              audioProvider.setSynthesisBranch(newGeometry);
-                            },
-                          ),
+        // Row 2: Method buttons centered (DIRECT/FM/RING)
+        // These fit in the middle 4/6 of the width (1/6 margin each side)
+        Container(
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          child: Row(
+            children: [
+              // 1/6 spacer on left
+              const Spacer(flex: 1),
+              // Method buttons take 4/6 of width
+              Expanded(
+                flex: 4,
+                child: Row(
+                  children: [
+                    for (int i = 0; i < 3; i++)
+                      Expanded(
+                        child: _MethodIconButton(
+                          methodIndex: i,
+                          isActive: currentCore == i,
+                          systemColors: systemColors,
+                          onTap: () {
+                            final newGeometry = (i * 8) + currentBase;
+                            visualProvider.setGeometry(newGeometry);
+                            audioProvider.setSynthesisBranch(newGeometry);
+                          },
                         ),
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              // 1/6 spacer on right
+              const Spacer(flex: 1),
+            ],
           ),
+        ),
 
-          const SizedBox(height: 4),
-
-          // Row 2: Voice Character (8 geometry icons)
-          SizedBox(
-            height: 48,
-            child: Row(
-              children: [
-                // Label
-                SizedBox(
-                  width: 40,
-                  child: Text(
-                    'VOICE',
-                    style: SynthTheme.textStyleCaption.copyWith(
-                      color: SynthTheme.textDim,
-                      fontSize: 9,
-                    ),
-                  ),
-                ),
-
-                // 8 geometry buttons
+        // Row 3: Voice Character (8 geometry icons)
+        Container(
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            children: [
+              for (int i = 0; i < 8; i++)
                 Expanded(
-                  child: Row(
-                    children: [
-                      for (int i = 0; i < 8; i++)
-                        Expanded(
-                          child: _VoiceIconButton(
-                            geometryIndex: i,
-                            isActive: currentBase == i,
-                            systemColors: systemColors,
-                            tooltip: _voiceNames[i],
-                            onTap: () {
-                              final newGeometry = (currentCore * 8) + i;
-                              visualProvider.setGeometry(newGeometry);
-                              audioProvider.setSynthesisBranch(newGeometry);
-                            },
-                          ),
-                        ),
-                    ],
+                  child: _VoiceIconButton(
+                    geometryIndex: i,
+                    isActive: currentBase == i,
+                    systemColors: systemColors,
+                    tooltip: _voiceNames[i],
+                    onTap: () {
+                      final newGeometry = (currentCore * 8) + i;
+                      visualProvider.setGeometry(newGeometry);
+                      audioProvider.setSynthesisBranch(newGeometry);
+                    },
                   ),
                 ),
-              ],
-            ),
+            ],
           ),
-
-          // Row 3: Current config display
-          SizedBox(
-            height: 24,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  '${['DIRECT', 'FM', 'RING'][currentCore]}: ${_voiceNames[currentBase]}',
-                  style: SynthTheme.textStyleCaption.copyWith(
-                    color: systemColors.primary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-/// System icon button (Q/F/H)
-class _SystemIconButton extends StatelessWidget {
+/// System tab button - full width header tabs (QUANTUM/FACETED/HOLOGRAPHIC)
+class _SystemTabButton extends StatelessWidget {
   final String systemName;
   final bool isActive;
   final VoidCallback onTap;
 
-  const _SystemIconButton({
+  const _SystemTabButton({
     required this.systemName,
     required this.isActive,
     required this.onTap,
@@ -634,11 +612,11 @@ class _SystemIconButton extends StatelessWidget {
   String get _label {
     switch (systemName) {
       case 'quantum':
-        return 'Q';
+        return 'QUANTUM';
       case 'faceted':
-        return 'F';
+        return 'FACETED';
       case 'holographic':
-        return 'H';
+        return 'HOLO';
       default:
         return '?';
     }
@@ -650,25 +628,25 @@ class _SystemIconButton extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        width: 38,
-        height: 38,
-        margin: const EdgeInsets.symmetric(horizontal: 2),
+        height: 36,
         decoration: BoxDecoration(
-          color: isActive ? _systemColor.withOpacity(0.25) : Colors.transparent,
-          border: Border.all(
-            color: isActive ? _systemColor : _systemColor.withOpacity(0.4),
-            width: isActive ? 2 : 1,
+          color: isActive ? _systemColor.withOpacity(0.2) : Colors.transparent,
+          border: Border(
+            bottom: BorderSide(
+              color: isActive ? _systemColor : _systemColor.withOpacity(0.2),
+              width: isActive ? 3 : 1,
+            ),
           ),
-          borderRadius: BorderRadius.circular(6),
         ),
         child: Center(
           child: Text(
             _label,
             style: TextStyle(
-              color: isActive ? _systemColor : _systemColor.withOpacity(0.7),
+              color: isActive ? _systemColor : _systemColor.withOpacity(0.5),
               fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-              fontSize: 14,
+              fontSize: 12,
               fontFamily: 'monospace',
+              letterSpacing: 1.0,
             ),
           ),
         ),

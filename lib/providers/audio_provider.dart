@@ -513,37 +513,53 @@ class AudioProvider with ChangeNotifier {
   // Additional methods for UI component compatibility
 
   /// Note on (polyphonic support)
+  /// IMPORTANT: Must be synchronous to avoid losing notes during async init
   void noteOn(int midiNote) {
-    debugPrint('🎹 [AudioProvider] noteOn($midiNote) called');
-    debugPrint('🎹 [AudioProvider] isInitialized=$_isInitialized, isPcmAvailable=$_pcmInitialized');
+    debugPrint('🎹 [AudioProvider] noteOn($midiNote) called - isPlaying=$_isPlaying, pcm=$_pcmInitialized');
 
-    // Ensure we're initialized before playing
-    if (!_isInitialized) {
-      debugPrint('⚠️ [AudioProvider] Not initialized yet, waiting...');
-      _initCompleter.future.then((_) {
-        _playNoteInternal(midiNote);
-      });
-      return;
-    }
-
-    // If PCM isn't available, try to initialize it first
-    if (!_pcmInitialized) {
-      debugPrint('⚠️ [AudioProvider] PCM not ready, attempting init...');
-      _retryPcmInit().then((_) {
-        _playNoteInternal(midiNote);
-      });
-      return;
-    }
-
-    _playNoteInternal(midiNote);
-  }
-
-  void _playNoteInternal(int midiNote) {
-    debugPrint('🎹 [AudioProvider] _playNoteInternal($midiNote) - PCM ready: $_pcmInitialized');
+    // Add note immediately
     if (!_activeNotes.contains(midiNote)) {
       _activeNotes.add(midiNote);
     }
-    playNote(midiNote);
+
+    // Set up synthesis immediately
+    _currentNote = midiNote;
+    synthesizerEngine.setNote(midiNote);
+    synthesisBranchManager.noteOn();
+
+    // Start audio timer immediately if not running
+    if (!_isPlaying) {
+      _isPlaying = true;
+      _lastMetricsCheck = DateTime.now();
+      _buffersGenerated = 0;
+
+      final intervalMs = (bufferSize * 1000 / sampleRate).round();
+      debugPrint('▶️ Starting audio timer (${intervalMs}ms)');
+
+      _audioGenerationTimer = Timer.periodic(
+        Duration(milliseconds: intervalMs),
+        (_) => _generateAudioBuffer(),
+      );
+    }
+
+    // Try PCM init in background (won't block note start)
+    if (!_pcmInitialized && !_isInitialized) {
+      _initCompleter.future.then((_) {
+        if (!_pcmInitialized) {
+          _retryPcmInit();
+        }
+      });
+    } else if (!_pcmInitialized) {
+      _retryPcmInit();
+    }
+
+    notifyListeners();
+    debugPrint('🎹 Note $midiNote active, total notes: ${_activeNotes.length}');
+  }
+
+  void _playNoteInternal(int midiNote) {
+    // Legacy - redirect to noteOn
+    noteOn(midiNote);
   }
 
   /// Note off (polyphonic support)
