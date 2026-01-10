@@ -121,10 +121,12 @@ class VisualProvider with ChangeNotifier {
 
   /// Switch between VIB34D systems
   Future<void> switchSystem(String systemName) async {
-    if (_currentSystem == systemName) return;
+    // Normalize to lowercase for consistent comparison
+    final normalizedName = systemName.toLowerCase();
+    if (_currentSystem.toLowerCase() == normalizedName) return;
 
-    debugPrint('🔄 Switching from $_currentSystem to $systemName...');
-    _currentSystem = systemName;
+    debugPrint('🔄 Switching from $_currentSystem to $normalizedName...');
+    _currentSystem = normalizedName;  // Store as lowercase
 
     // Update JavaScript system via WebView with proper canvas management
     // VIB3+ uses window.switchSystem(), but we need to ensure canvas is properly reset
@@ -136,13 +138,13 @@ class VisualProvider with ChangeNotifier {
           (function() {
             try {
               if (typeof window.switchSystem === 'function') {
-                console.log('🔄 Calling switchSystem("$systemName")');
-                window.switchSystem("$systemName");
-                return 'SUCCESS: System switched to $systemName';
+                console.log('🔄 Calling switchSystem("$normalizedName")');
+                window.switchSystem("$normalizedName");
+                return 'SUCCESS: System switched to $normalizedName';
               } else if (typeof window.vib3plus !== 'undefined' && typeof window.vib3plus.switchSystem === 'function') {
-                console.log('🔄 Calling vib3plus.switchSystem("$systemName")');
-                window.vib3plus.switchSystem("$systemName");
-                return 'SUCCESS: System switched to $systemName via vib3plus';
+                console.log('🔄 Calling vib3plus.switchSystem("$normalizedName")');
+                window.vib3plus.switchSystem("$normalizedName");
+                return 'SUCCESS: System switched to $normalizedName via vib3plus';
               } else {
                 console.error('❌ switchSystem function not found!');
                 console.log('Available window properties:', Object.keys(window).filter(k => k.includes('switch') || k.includes('vib') || k.includes('system')));
@@ -164,7 +166,7 @@ class VisualProvider with ChangeNotifier {
     }
 
     // Update vertex count based on system
-    switch (systemName) {
+    switch (normalizedName) {
       case 'quantum':
         _activeVertexCount = 120; // Tesseract has 120 cells
         _geometryComplexity = 0.8;

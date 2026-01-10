@@ -258,9 +258,9 @@ class _SynthMainContentState extends State<_SynthMainContent> {
     return Positioned.fill(
       child: Consumer2<VisualProvider, AudioProvider>(
         builder: (context, visualProvider, audioProvider, child) {
-          // Map string system to enum
+          // Map string system to enum (case-insensitive)
           VisualSystem system;
-          switch (visualProvider.currentSystem) {
+          switch (visualProvider.currentSystem.toLowerCase()) {
             case 'quantum':
               system = VisualSystem.quantum;
               break;

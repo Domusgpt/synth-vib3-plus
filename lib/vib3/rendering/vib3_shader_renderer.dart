@@ -103,7 +103,13 @@ class VIB3ShaderPainter extends CustomPainter {
     shader.setFloat(_ShaderUniforms.resolutionX, size.width);
     shader.setFloat(_ShaderUniforms.resolutionY, size.height);
     shader.setFloat(_ShaderUniforms.time, time);
-    shader.setFloat(_ShaderUniforms.system, _systemToFloat(state.system));
+
+    final systemFloat = _systemToFloat(state.system);
+    // DEBUG: Log system value periodically (every ~60 frames)
+    if ((time * 60).toInt() % 60 == 0) {
+      debugPrint('🎨 SHADER: system=${state.system} → u_system=$systemFloat, geo=${state.geometryIndex}');
+    }
+    shader.setFloat(_ShaderUniforms.system, systemFloat);
     shader.setFloat(_ShaderUniforms.geometry, state.geometryIndex.toDouble());
 
     // 6D Rotation
