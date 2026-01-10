@@ -361,12 +361,20 @@ class _VIB3AnimatedShaderWidgetState extends State<VIB3AnimatedShaderWidget>
 
   late VIB3EngineState _state;
 
-  // Interaction state
+  // Interaction state (temporary velocity from gestures)
   double _interactionRotationXY = 0.0;
   double _interactionRotationXZ = 0.0;
   double _interactionRotationXW = 0.0;
   double _interactionRotationYW = 0.0;
   Offset? _lastPanPosition;
+
+  // Internal rotation accumulators (for auto-rotation, always accumulate)
+  double _internalRotXY = 0.0;
+  double _internalRotXZ = 0.0;
+  double _internalRotYZ = 0.0;
+  double _internalRotXW = 0.0;
+  double _internalRotYW = 0.0;
+  double _internalRotZW = 0.0;
 
   @override
   void initState() {
@@ -462,60 +470,38 @@ class _VIB3AnimatedShaderWidgetState extends State<VIB3AnimatedShaderWidget>
     // Get audio data
     final audioData = widget.audioData ?? AudioReactivityData.silent;
 
-    // Start with current rotations
-    double newRotXY = _state.rotationXY;
-    double newRotXZ = _state.rotationXZ;
-    double newRotYZ = _state.rotationYZ;
-    double newRotXW = _state.rotationXW;
-    double newRotYW = _state.rotationYW;
-    double newRotZW = _state.rotationZW;
-
-    // If external rotations provided (from sliders), use them directly
-    // Otherwise apply auto-rotation + interaction
-    final hasExternalRotation = widget.externalRotationXY != null ||
-        widget.externalRotationXZ != null ||
-        widget.externalRotationYZ != null ||
-        widget.externalRotationXW != null ||
-        widget.externalRotationYW != null ||
-        widget.externalRotationZW != null;
-
-    if (hasExternalRotation) {
-      // Use external values when provided (add auto-rotation on top)
+    // ALWAYS apply auto-rotation to internal state (this accumulates)
+    if (widget.autoRotateSpeed > 0) {
       final rotSpeed = widget.autoRotateSpeed * deltaTime;
-      final audioBoost = 1.0 + audioData.bassEnergy * widget.audioReactivityStrength * 0.3;
+      final audioBoost = 1.0 + audioData.bassEnergy * widget.audioReactivityStrength;
 
-      newRotXY = (widget.externalRotationXY ?? 0) + rotSpeed * 0.2 * audioBoost;
-      newRotXZ = (widget.externalRotationXZ ?? 0) + rotSpeed * 0.15 * audioBoost;
-      newRotYZ = (widget.externalRotationYZ ?? 0) + rotSpeed * 0.1;
-      newRotXW = (widget.externalRotationXW ?? 0) + rotSpeed * 0.12;
-      newRotYW = (widget.externalRotationYW ?? 0) + rotSpeed * 0.08;
-      newRotZW = (widget.externalRotationZW ?? 0) + rotSpeed * 0.05;
-    } else {
-      // Apply interaction rotations
-      newRotXY += _interactionRotationXY;
-      newRotXZ += _interactionRotationXZ;
-      newRotXW += _interactionRotationXW;
-      newRotYW += _interactionRotationYW;
-
-      // Apply auto-rotation
-      if (widget.autoRotateSpeed > 0) {
-        final rotSpeed = widget.autoRotateSpeed * deltaTime;
-        final audioBoost = 1.0 + audioData.bassEnergy * widget.audioReactivityStrength;
-
-        newRotXY += rotSpeed * 0.7 * audioBoost;
-        newRotXZ += rotSpeed * 0.5 * audioBoost;
-        newRotYZ += rotSpeed * 0.3;
-        newRotXW += rotSpeed * 0.4;
-        newRotYW += rotSpeed * 0.25;
-        newRotZW += rotSpeed * 0.15;
-      }
-
-      // Decay interaction rotations
-      _interactionRotationXY *= 0.95;
-      _interactionRotationXZ *= 0.95;
-      _interactionRotationXW *= 0.95;
-      _interactionRotationYW *= 0.95;
+      _internalRotXY += rotSpeed * 0.7 * audioBoost;
+      _internalRotXZ += rotSpeed * 0.5 * audioBoost;
+      _internalRotYZ += rotSpeed * 0.3;
+      _internalRotXW += rotSpeed * 0.4;
+      _internalRotYW += rotSpeed * 0.25;
+      _internalRotZW += rotSpeed * 0.15;
     }
+
+    // Apply interaction rotations
+    _internalRotXY += _interactionRotationXY;
+    _internalRotXZ += _interactionRotationXZ;
+    _internalRotXW += _interactionRotationXW;
+    _internalRotYW += _interactionRotationYW;
+
+    // Decay interaction rotations
+    _interactionRotationXY *= 0.95;
+    _interactionRotationXZ *= 0.95;
+    _interactionRotationXW *= 0.95;
+    _interactionRotationYW *= 0.95;
+
+    // Calculate final rotation: internal accumulated + external offset from sliders
+    final newRotXY = _internalRotXY + (widget.externalRotationXY ?? 0);
+    final newRotXZ = _internalRotXZ + (widget.externalRotationXZ ?? 0);
+    final newRotYZ = _internalRotYZ + (widget.externalRotationYZ ?? 0);
+    final newRotXW = _internalRotXW + (widget.externalRotationXW ?? 0);
+    final newRotYW = _internalRotYW + (widget.externalRotationYW ?? 0);
+    final newRotZW = _internalRotZW + (widget.externalRotationZW ?? 0);
 
     var newState = _state.copyWith(
       rotationXY: newRotXY,
