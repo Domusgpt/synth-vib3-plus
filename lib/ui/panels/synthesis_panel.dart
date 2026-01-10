@@ -34,7 +34,7 @@ class SynthesisPanelContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: SynthTheme.spacingSmall),
-        _buildBranchSelector(audioProvider, systemColors),
+        _buildBranchSelector(context, audioProvider, visualProvider, systemColors),
         const SizedBox(height: SynthTheme.spacingLarge),
 
         // Section: Oscillators
@@ -130,7 +130,9 @@ class SynthesisPanelContent extends StatelessWidget {
   }
 
   Widget _buildBranchSelector(
+    BuildContext context,
     AudioProvider audioProvider,
+    VisualProvider visualProvider,
     SystemColors systemColors,
   ) {
     final theme = SynthTheme(systemColors: systemColors);
@@ -161,6 +163,8 @@ class SynthesisPanelContent extends StatelessWidget {
                 final currentBase = audioProvider.synthesisBranchManager.currentGeometry % 8;
                 final newGeometryIndex = (index * 8) + currentBase;
                 audioProvider.setSynthesisBranch(newGeometryIndex);
+                // SYNC: Also update visual provider for immediate effect
+                visualProvider.setGeometry(newGeometryIndex);
               },
               child: AnimatedContainer(
                 duration: SynthTheme.transitionQuick,

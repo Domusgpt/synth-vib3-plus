@@ -105,22 +105,34 @@ class AudioProvider with ChangeNotifier {
   /// Asynchronous initialization (PCM setup)
   Future<void> _initializeAsync() async {
     try {
+      debugPrint('🔧 [AudioProvider] Setting up PCM: sampleRate=${sampleRate.toInt()}, channels=1');
+
       // Initialize PCM player (static API)
       await FlutterPcmSound.setup(
         sampleRate: sampleRate.toInt(),
         channelCount: 1, // Mono
       );
+
+      // Set feed threshold to prevent buffer underruns (2 buffers worth)
+      FlutterPcmSound.setFeedThreshold(bufferSize * 2);
+
       _pcmInitialized = true;
-      debugPrint('✅ PCM audio output initialized');
-    } catch (e) {
+      debugPrint('✅ PCM audio output initialized successfully');
+      debugPrint('   Sample rate: ${sampleRate.toInt()} Hz');
+      debugPrint('   Buffer size: $bufferSize samples');
+      debugPrint('   Latency: ${(bufferSize * 1000 / sampleRate).toStringAsFixed(1)} ms');
+    } catch (e, stackTrace) {
       _pcmInitialized = false;
-      debugPrint('⚠️ PCM audio unavailable (software synthesis still works): $e');
+      debugPrint('❌ [AudioProvider] PCM initialization failed: $e');
+      debugPrint('   Stack trace: $stackTrace');
+      debugPrint('⚠️ Software synthesis will work but no audio output!');
     }
 
     _isInitialized = true;
     _initCompleter.complete();
     notifyListeners();
-    debugPrint('✅ AudioProvider fully initialized with SynthesisBranchManager');
+    debugPrint('✅ AudioProvider fully initialized');
+    debugPrint('   PCM available: $_pcmInitialized');
   }
 
   /// Ensure initialization is complete before performing operations
@@ -152,20 +164,24 @@ class AudioProvider with ChangeNotifier {
 
   /// Start audio generation and playback
   Future<void> startAudio() async {
+    debugPrint('▶️  [AudioProvider] startAudio() called - already playing: $_isPlaying');
     if (_isPlaying) return;
 
     _isPlaying = true;
     _lastMetricsCheck = DateTime.now();
     _buffersGenerated = 0;
 
+    final intervalMs = (bufferSize * 1000 / sampleRate).round();
+    debugPrint('▶️  [AudioProvider] Setting up timer with ${intervalMs}ms interval');
+
     // Generate audio buffers at regular intervals
     _audioGenerationTimer = Timer.periodic(
-      Duration(milliseconds: (bufferSize * 1000 / sampleRate).round()),
+      Duration(milliseconds: intervalMs),
       (_) => _generateAudioBuffer(),
     );
 
     notifyListeners();
-    debugPrint('▶️  Audio started');
+    debugPrint('▶️  [AudioProvider] Audio started! PCM available: $_pcmInitialized');
   }
 
   /// Stop audio generation and playback
@@ -181,6 +197,9 @@ class AudioProvider with ChangeNotifier {
 
   /// Generate next audio buffer
   void _generateAudioBuffer() async {
+    // Log every 100th buffer to avoid spam
+    final shouldLog = _buffersGenerated % 100 == 0;
+
     try {
       // ELEGANT: Update visual→audio parameters HERE (not on separate timer)
       // This syncs parameter updates with audio buffer generation
@@ -190,6 +209,9 @@ class AudioProvider with ChangeNotifier {
 
       // Calculate frequency from MIDI note
       final frequency = _midiNoteToFrequency(_currentNote);
+      if (shouldLog) {
+        debugPrint('🔊 [AudioProvider] Buffer #$_buffersGenerated: note=$_currentNote, freq=${frequency.toStringAsFixed(1)}Hz');
+      }
 
       // Apply parameter smoothing before generating buffer
       _smoothedFilterCutoff = _smoothedFilterCutoff * _smoothingFactor +
@@ -220,6 +242,17 @@ class AudioProvider with ChangeNotifier {
 
       // Analyze the buffer
       if (_currentBuffer != null && _currentBuffer!.isNotEmpty) {
+        // Check if buffer has actual audio content
+        if (shouldLog) {
+          double maxSample = 0;
+          for (int i = 0; i < _currentBuffer!.length; i++) {
+            if (_currentBuffer![i].abs() > maxSample) {
+              maxSample = _currentBuffer![i].abs();
+            }
+          }
+          debugPrint('🔊 [AudioProvider] Buffer max amplitude: ${maxSample.toStringAsFixed(4)}');
+        }
+
         _currentFeatures = audioAnalyzer.extractFeatures(_currentBuffer!);
 
         // Play audio buffer via PCM output (if initialized)
@@ -237,12 +270,23 @@ class AudioProvider with ChangeNotifier {
             await FlutterPcmSound.feed(
               PcmArrayInt16.fromList(int16Buffer.toList()),
             );
+            if (shouldLog) {
+              debugPrint('🔊 [AudioProvider] PCM feed successful');
+            }
           } catch (e) {
-            // Silently ignore PCM playback errors to avoid spam
+            // Log PCM playback errors
             if (_buffersGenerated % 100 == 0) {
-              debugPrint('⚠️ PCM playback error: $e');
+              debugPrint('⚠️ [AudioProvider] PCM playback error: $e');
             }
           }
+        } else {
+          if (shouldLog) {
+            debugPrint('⚠️ [AudioProvider] PCM NOT initialized - no audio output!');
+          }
+        }
+      } else {
+        if (shouldLog) {
+          debugPrint('⚠️ [AudioProvider] Buffer is null or empty!');
         }
       }
 
@@ -263,11 +307,14 @@ class AudioProvider with ChangeNotifier {
 
   /// Play a note (MIDI note number)
   void playNote(int midiNote) {
+    debugPrint('🎹 [AudioProvider] playNote($midiNote) - isPlaying=$_isPlaying');
     _currentNote = midiNote;
     synthesizerEngine.setNote(midiNote);
     synthesisBranchManager.noteOn(); // Trigger envelope in branch manager
+    debugPrint('🎹 [AudioProvider] synthesisBranchManager.noteOn() called');
 
     if (!_isPlaying) {
+      debugPrint('🎹 [AudioProvider] Starting audio...');
       startAudio();
     }
 
@@ -430,6 +477,22 @@ class AudioProvider with ChangeNotifier {
 
   /// Note on (polyphonic support)
   void noteOn(int midiNote) {
+    debugPrint('🎹 [AudioProvider] noteOn($midiNote) called');
+    debugPrint('🎹 [AudioProvider] isInitialized=$_isInitialized, isPcmAvailable=$_pcmInitialized');
+
+    // Ensure we're initialized before playing
+    if (!_isInitialized) {
+      debugPrint('⚠️ [AudioProvider] Not initialized yet, waiting...');
+      _initCompleter.future.then((_) {
+        _playNoteInternal(midiNote);
+      });
+      return;
+    }
+
+    _playNoteInternal(midiNote);
+  }
+
+  void _playNoteInternal(int midiNote) {
     if (!_activeNotes.contains(midiNote)) {
       _activeNotes.add(midiNote);
     }

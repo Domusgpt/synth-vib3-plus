@@ -22,13 +22,15 @@ import 'package:provider/provider.dart';
 import '../theme/synth_theme.dart';
 import '../components/top_bezel.dart';
 import '../components/xy_performance_pad.dart';
-import '../components/orb_controller.dart';
-import '../components/collapsible_bezel.dart';
+// orb_controller.dart removed - using inline _MinimalOrbController instead
+// geometry_hero.dart removed - using inline _FixedGeometryHero
+import '../panels/synthesis_parameters_panel.dart';
 import '../../providers/ui_state_provider.dart';
 import '../../providers/visual_provider.dart';
 import '../../providers/audio_provider.dart';
 import '../../providers/tilt_sensor_provider.dart';
-import '../../visual/vib34d_widget.dart';
+import '../../vib3/rendering/vib3_shader_renderer.dart';
+import '../../vib3/core/vib3_engine.dart';
 import '../../mapping/parameter_bridge.dart';
 
 class SynthMainScreen extends StatefulWidget {
@@ -111,48 +113,55 @@ class _SynthMainContentState extends State<_SynthMainContent> {
     final systemColors = visualProvider.systemColors;
 
     return Scaffold(
-      backgroundColor: SynthTheme.backgroundColor,
+      backgroundColor: systemColors.background,
       body: Stack(
         children: [
-          // Layer 1: Background visualization (VIB3+ WebGL)
+          // Layer 1: Background visualization (VIB3+ Shader)
           _buildVisualizationLayer(context),
 
-          // Layer 2: XY Performance Pad (touch overlay)
-          Positioned.fill(
-            child: XYPerformancePad(
-              systemColors: systemColors,
-              showGrid: uiState.xyPadShowGrid,
-              backgroundVisualization: null, // Visualization rendered separately
-            ),
+          // Layer 2: Main content column
+          Column(
+            children: [
+              // Top Bezel (system selector)
+              TopBezel(systemColors: systemColors),
+
+              // XY Performance Pad (touch for notes) - takes available space
+              Expanded(
+                flex: 3,
+                child: XYPerformancePad(
+                  systemColors: systemColors,
+                  showGrid: uiState.xyPadShowGrid,
+                  backgroundVisualization: null,
+                ),
+              ),
+
+              // Bottom panel section (Geometry Hero + Scrollable Parameters)
+              _buildBottomPanelSection(context, systemColors),
+            ],
           ),
 
-          // Layer 3: Top Bezel
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: TopBezel(systemColors: systemColors),
-          ),
-
-          // Layer 4: Bottom Bezel (collapsible panels)
-          BottomBezelContainer(systemColors: systemColors),
-
-          // Layer 5: Orb Controller (floating)
+          // Layer 3: Orb Controller (minimized in corner, expands when active)
+          // Positioned in bottom-left, above the panel
           if (uiState.orbControllerVisible)
-            Positioned.fill(
-              child: OrbController(
+            Positioned(
+              left: 16,
+              // Panel heights: collapsed ~154px, expanded ~55% screen
+              bottom: uiState.isAnyPanelExpanded()
+                  ? (MediaQuery.of(context).size.height * 0.55).clamp(320.0, 520.0) + 16
+                  : 170,
+              child: _MinimalOrbController(
                 systemColors: systemColors,
-                initialPosition: _getOrbInitialPosition(context, uiState),
+                isActive: uiState.orbControllerActive,
               ),
             ),
 
-          // Layer 6: Side bezels (portrait mode only)
+          // Layer 4: Side bezels (portrait mode only)
           if (_isPortrait(context)) ...[
             _buildLeftBezel(context, systemColors),
             _buildRightBezel(context, systemColors),
           ],
 
-          // Layer 7: Debug overlay (development only)
+          // Layer 5: Debug overlay (development only)
           if (_shouldShowDebugOverlay(context))
             _buildDebugOverlay(context, uiState, visualProvider),
         ],
@@ -160,28 +169,134 @@ class _SynthMainContentState extends State<_SynthMainContent> {
     );
   }
 
-  Widget _buildVisualizationLayer(BuildContext context) {
-    final visualProvider = Provider.of<VisualProvider>(context, listen: false);
-    final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+  /// Build the bottom panel section - portrait phone optimized
+  /// Structure: FIXED HERO (always visible) + SCROLLABLE SLIDERS (when expanded)
+  Widget _buildBottomPanelSection(BuildContext context, SystemColors systemColors) {
+    final uiState = Provider.of<UIStateProvider>(context);
+    final isPanelExpanded = uiState.isAnyPanelExpanded();
+    final screenHeight = MediaQuery.of(context).size.height;
 
-    return Positioned.fill(
-      child: VIB34DWidget(
-        visualProvider: visualProvider,
-        audioProvider: audioProvider,
+    // Hero height: ~130px (compact geometry selector)
+    // Collapsed: just hero + expand hint = ~150px
+    // Expanded: hero + scrollable sliders up to 55% screen
+    const heroHeight = 130.0;
+    const expandBarHeight = 24.0;
+    final collapsedHeight = heroHeight + expandBarHeight;
+    final expandedHeight = (screenHeight * 0.55).clamp(320.0, 520.0);
+
+    return AnimatedContainer(
+      duration: SynthTheme.transitionStandard,
+      height: isPanelExpanded ? expandedHeight : collapsedHeight,
+      decoration: BoxDecoration(
+        color: systemColors.surface.withOpacity(0.95),
+        border: Border(
+          top: BorderSide(
+            color: systemColors.primary.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Column(
+        children: [
+          // FIXED HERO - Always visible (synthesis method + voice character)
+          SizedBox(
+            height: heroHeight,
+            child: _FixedGeometryHero(systemColors: systemColors),
+          ),
+
+          // Expand/collapse bar
+          GestureDetector(
+            onTap: () {
+              if (isPanelExpanded) {
+                uiState.collapseAllPanels();
+              } else {
+                uiState.expandPanel('synthesis');
+              }
+            },
+            child: Container(
+              height: expandBarHeight,
+              color: systemColors.background.withOpacity(0.5),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: systemColors.primary.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    isPanelExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up,
+                    color: systemColors.primary.withOpacity(0.7),
+                    size: 18,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // SCROLLABLE SLIDERS - Only when expanded
+          if (isPanelExpanded)
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.only(bottom: 16),
+                children: const [
+                  SynthesisParametersPanel(),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
 
-  Offset _getOrbInitialPosition(BuildContext context, UIStateProvider uiState) {
-    final orientation = MediaQuery.of(context).orientation;
+  Widget _buildVisualizationLayer(BuildContext context) {
+    // Use GPU shader-based renderer for proper VIB3+ rendering
+    return Positioned.fill(
+      child: Consumer2<VisualProvider, AudioProvider>(
+        builder: (context, visualProvider, audioProvider, child) {
+          // Map string system to enum (case-insensitive)
+          VisualSystem system;
+          switch (visualProvider.currentSystem.toLowerCase()) {
+            case 'quantum':
+              system = VisualSystem.quantum;
+              break;
+            case 'holographic':
+              system = VisualSystem.holographic;
+              break;
+            case 'faceted':
+            default:
+              system = VisualSystem.faceted;
+          }
 
-    if (orientation == Orientation.landscape) {
-      // Landscape: Bottom-left corner
-      return const Offset(0.15, 0.75);
-    } else {
-      // Portrait: Bottom-center
-      return const Offset(0.5, 0.8);
-    }
+          // Get audio features for reactivity
+          final features = audioProvider.currentFeatures;
+          AudioReactivityData? audioData;
+          if (features != null && audioProvider.isPlaying) {
+            audioData = AudioReactivityData(
+              bassEnergy: features.bassEnergy.clamp(0.0, 1.0),
+              midEnergy: features.midEnergy.clamp(0.0, 1.0),
+              highEnergy: features.highEnergy.clamp(0.0, 1.0),
+              rmsAmplitude: features.rms.clamp(0.0, 1.0),
+            );
+          }
+
+          return VIB3AnimatedShaderWidget(
+            system: system,
+            geometryIndex: visualProvider.currentGeometry,
+            audioData: audioData,
+            audioReactivityStrength: 0.5,
+            hueShift: visualProvider.hueShift,
+            glowIntensity: visualProvider.glowIntensity,
+            autoRotateSpeed: visualProvider.rotationSpeed * 0.3,
+            enableInteraction: false,  // DISABLED: Let XY pad handle all touches for audio
+          );
+        },
+      ),
+    );
   }
 
   bool _isPortrait(BuildContext context) {
@@ -198,7 +313,7 @@ class _SynthMainContentState extends State<_SynthMainContent> {
       child: Container(
         width: SynthTheme.sideBezelWidth,
         decoration: BoxDecoration(
-          color: SynthTheme.panelBackground.withOpacity(0.8),
+          color: systemColors.surface.withOpacity(0.8),
           borderRadius: const BorderRadius.only(
             topRight: Radius.circular(SynthTheme.radiusLarge),
             bottomRight: Radius.circular(SynthTheme.radiusLarge),
@@ -234,7 +349,7 @@ class _SynthMainContentState extends State<_SynthMainContent> {
       child: Container(
         width: SynthTheme.sideBezelWidth,
         decoration: BoxDecoration(
-          color: SynthTheme.panelBackground.withOpacity(0.8),
+          color: systemColors.surface.withOpacity(0.8),
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(SynthTheme.radiusLarge),
             bottomLeft: Radius.circular(SynthTheme.radiusLarge),
@@ -265,7 +380,7 @@ class _SynthMainContentState extends State<_SynthMainContent> {
         width: 40,
         height: 60,
         decoration: BoxDecoration(
-          color: SynthTheme.cardBackground,
+          color: systemColors.surface,
           borderRadius: BorderRadius.circular(SynthTheme.radiusMedium),
           border: Border.all(color: systemColors.primary.withOpacity(0.5)),
           boxShadow: SynthTheme(systemColors: systemColors).getGlow(GlowIntensity.inactive),
@@ -332,6 +447,358 @@ class _SynthMainContentState extends State<_SynthMainContent> {
               style: SynthTheme.textStyleCaption.copyWith(color: Colors.white),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Fixed Geometry Hero - Always visible at top of bottom panel
+/// Shows: System selector + Synthesis Method + Voice Character
+class _FixedGeometryHero extends StatelessWidget {
+  final SystemColors systemColors;
+
+  const _FixedGeometryHero({required this.systemColors});
+
+  @override
+  Widget build(BuildContext context) {
+    final visualProvider = Provider.of<VisualProvider>(context);
+    final audioProvider = Provider.of<AudioProvider>(context, listen: false);
+    final currentGeometry = visualProvider.currentGeometry;
+    final currentCore = currentGeometry ~/ 8;
+    final currentBase = currentGeometry % 8;
+    final currentSystem = visualProvider.currentSystem.toLowerCase();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Column(
+        children: [
+          // Row 1: System selector (changes UI color theme)
+          Row(
+            children: [
+              Text(
+                'SYSTEM',
+                style: SynthTheme.textStyleCaption.copyWith(
+                  color: SynthTheme.textDim,
+                  fontSize: 9,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Row(
+                  children: [
+                    for (final system in ['quantum', 'faceted', 'holographic'])
+                      Expanded(
+                        child: _SystemButton(
+                          label: system.toUpperCase().substring(0, 4),
+                          fullLabel: system,
+                          isActive: currentSystem == system,
+                          systemColors: systemColors,
+                          onTap: () {
+                            visualProvider.setSystem(system);
+                            audioProvider.setVisualSystem(system);
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 6),
+
+          // Row 2: Synthesis Method (DIRECT/FM/RING)
+          Row(
+            children: [
+              Text(
+                'METHOD',
+                style: SynthTheme.textStyleCaption.copyWith(
+                  color: SynthTheme.textDim,
+                  fontSize: 9,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Row(
+                  children: [
+                    for (int i = 0; i < 3; i++)
+                      Expanded(
+                        child: _HeroButton(
+                          label: ['DIRECT', 'FM', 'RING'][i],
+                          isActive: currentCore == i,
+                          systemColors: systemColors,
+                          onTap: () {
+                            final newGeometry = (i * 8) + currentBase;
+                            visualProvider.setGeometry(newGeometry);
+                            audioProvider.setSynthesisBranch(newGeometry);
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 6),
+
+          // Row 3: Voice Character (8 options)
+          Row(
+            children: [
+              Text(
+                'VOICE',
+                style: SynthTheme.textStyleCaption.copyWith(
+                  color: SynthTheme.textDim,
+                  fontSize: 9,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Row(
+                  children: [
+                    for (int i = 0; i < 8; i++)
+                      Expanded(
+                        child: _HeroButton(
+                          label: ['FND', 'CPX', 'SMT', 'CYC', 'ASY', 'RCS', 'SWP', 'CRS'][i],
+                          isActive: currentBase == i,
+                          systemColors: systemColors,
+                          compact: true,
+                          onTap: () {
+                            final newGeometry = (currentCore * 8) + i;
+                            visualProvider.setGeometry(newGeometry);
+                            audioProvider.setSynthesisBranch(newGeometry);
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// System selector button (Quantum/Faceted/Holographic)
+class _SystemButton extends StatelessWidget {
+  final String label;
+  final String fullLabel;
+  final bool isActive;
+  final SystemColors systemColors;
+  final VoidCallback onTap;
+
+  const _SystemButton({
+    required this.label,
+    required this.fullLabel,
+    required this.isActive,
+    required this.systemColors,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Get the color for this specific system
+    final buttonColor = _getSystemColor(fullLabel);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? buttonColor.withOpacity(0.25) : Colors.transparent,
+          border: Border.all(
+            color: isActive ? buttonColor : buttonColor.withOpacity(0.3),
+            width: isActive ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: SynthTheme.textStyleCaption.copyWith(
+              color: isActive ? buttonColor : buttonColor.withOpacity(0.6),
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              fontSize: 10,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _getSystemColor(String system) {
+    switch (system) {
+      case 'quantum':
+        return const Color(0xFF00FFFF); // Cyan
+      case 'faceted':
+        return const Color(0xFF4488FF); // Blue
+      case 'holographic':
+        return const Color(0xFFFFAA00); // Gold
+      default:
+        return Colors.white;
+    }
+  }
+}
+
+/// Hero button for method/voice selection
+class _HeroButton extends StatelessWidget {
+  final String label;
+  final bool isActive;
+  final SystemColors systemColors;
+  final VoidCallback onTap;
+  final bool compact;
+
+  const _HeroButton({
+    required this.label,
+    required this.isActive,
+    required this.systemColors,
+    required this.onTap,
+    this.compact = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        padding: EdgeInsets.symmetric(vertical: compact ? 4 : 6),
+        decoration: BoxDecoration(
+          color: isActive
+              ? systemColors.primary.withOpacity(0.2)
+              : Colors.transparent,
+          border: Border.all(
+            color: isActive
+                ? systemColors.primary
+                : systemColors.primary.withOpacity(0.3),
+            width: isActive ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: SynthTheme.textStyleCaption.copyWith(
+              color: isActive ? systemColors.primary : SynthTheme.textSecondary,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              fontSize: compact ? 9 : 11,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Minimal orb controller - small circle that expands when touched
+class _MinimalOrbController extends StatefulWidget {
+  final SystemColors systemColors;
+  final bool isActive;
+
+  const _MinimalOrbController({
+    required this.systemColors,
+    required this.isActive,
+  });
+
+  @override
+  State<_MinimalOrbController> createState() => _MinimalOrbControllerState();
+}
+
+class _MinimalOrbControllerState extends State<_MinimalOrbController>
+    with SingleTickerProviderStateMixin {
+  bool _isDragging = false;
+  Offset _dragOffset = Offset.zero;
+  late AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final uiState = Provider.of<UIStateProvider>(context);
+    final audioProvider = Provider.of<AudioProvider>(context);
+
+    // Collapsed: 44px, Expanded when dragging: 80px
+    final size = _isDragging ? 80.0 : 44.0;
+
+    return GestureDetector(
+      onPanStart: (details) {
+        setState(() {
+          _isDragging = true;
+          _dragOffset = Offset.zero;
+        });
+        uiState.setOrbControllerActive(true);
+      },
+      onPanUpdate: (details) {
+        setState(() {
+          _dragOffset += details.delta / 40; // Scale down for sensitivity
+          _dragOffset = Offset(
+            _dragOffset.dx.clamp(-1.0, 1.0),
+            _dragOffset.dy.clamp(-1.0, 1.0),
+          );
+        });
+
+        // Apply pitch bend (X) and vibrato (Y)
+        final pitchBend = _dragOffset.dx * uiState.orbPitchBendRange;
+        audioProvider.setPitchBend(pitchBend);
+        audioProvider.setVibratoDepth((1.0 - _dragOffset.dy) / 2.0);
+      },
+      onPanEnd: (details) {
+        setState(() {
+          _isDragging = false;
+          _dragOffset = Offset.zero;
+        });
+        uiState.setOrbControllerActive(false);
+        audioProvider.setPitchBend(0);
+        audioProvider.setVibratoDepth(0);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [
+              widget.systemColors.primary,
+              widget.systemColors.accent,
+            ],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: widget.systemColors.primary.withOpacity(_isDragging ? 0.6 : 0.3),
+              blurRadius: _isDragging ? 20 : 8,
+              spreadRadius: 0,
+            ),
+          ],
+        ),
+        child: Center(
+          child: AnimatedBuilder(
+            animation: _pulseController,
+            builder: (context, child) {
+              return Icon(
+                _isDragging ? Icons.control_camera : Icons.touch_app,
+                color: Colors.white.withOpacity(0.8),
+                size: _isDragging ? 32 : 20,
+              );
+            },
+          ),
         ),
       ),
     );

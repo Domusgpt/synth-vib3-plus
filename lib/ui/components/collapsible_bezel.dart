@@ -17,9 +17,8 @@ import '../theme/synth_theme.dart';
 import 'package:provider/provider.dart';
 import '../../providers/ui_state_provider.dart';
 import '../panels/synthesis_panel.dart';
-import '../panels/effects_panel.dart';
 import '../panels/geometry_panel.dart';
-import '../panels/mapping_panel.dart';
+// REMOVED: effects_panel.dart and mapping_panel.dart - broken/grey, pending rebuild
 
 class CollapsibleBezel extends StatefulWidget {
   final String panelId;
@@ -245,25 +244,12 @@ class BottomBezelContainer extends StatelessWidget {
                   ),
                   _buildTabButton(
                     context,
-                    'effects',
-                    'Effects',
-                    Icons.graphic_eq,
-                    uiState,
-                  ),
-                  _buildTabButton(
-                    context,
                     'geometry',
                     'Geometry',
                     Icons.category,
                     uiState,
                   ),
-                  _buildTabButton(
-                    context,
-                    'mapping',
-                    'Mapping',
-                    Icons.settings_input_component,
-                    uiState,
-                  ),
+                  // REMOVED: Effects and Mapping panels - pending rebuild with proper coupling
                 ],
               ),
             ),
@@ -323,9 +309,7 @@ class BottomBezelContainer extends StatelessWidget {
 
   String _getExpandedPanelId(UIStateProvider uiState) {
     if (uiState.isPanelExpanded('synthesis')) return 'synthesis';
-    if (uiState.isPanelExpanded('effects')) return 'effects';
     if (uiState.isPanelExpanded('geometry')) return 'geometry';
-    if (uiState.isPanelExpanded('mapping')) return 'mapping';
     return 'synthesis';
   }
 
@@ -339,12 +323,8 @@ class BottomBezelContainer extends StatelessWidget {
     switch (id) {
       case 'synthesis':
         return Icons.music_note;
-      case 'effects':
-        return Icons.graphic_eq;
       case 'geometry':
         return Icons.category;
-      case 'mapping':
-        return Icons.settings_input_component;
       default:
         return Icons.music_note;
     }
@@ -355,12 +335,8 @@ class BottomBezelContainer extends StatelessWidget {
     switch (id) {
       case 'synthesis':
         return const SynthesisPanelContent();
-      case 'effects':
-        return const EffectsPanelContent();
       case 'geometry':
         return const GeometryPanelContent();
-      case 'mapping':
-        return const MappingPanelContent();
       default:
         return const SynthesisPanelContent();
     }
