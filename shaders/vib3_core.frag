@@ -328,34 +328,35 @@ vec3 hsv2rgb(vec3 c) {
 }
 
 // ============================================================
-// QUANTUM: Extreme 5-Layer Color System (from QuantumVisualizer.js)
-// Each layer has COMPLETELY DIFFERENT color palettes with extreme juxtapositions
-// + Layer-specific RGB separation patterns
+// QUANTUM: Extreme 5-Layer Color System
+// Each layer has different hue offsets that cycle with u_hue
+// Creates rainbow-shifting extreme juxtapositions
 // ============================================================
 vec3 renderQuantum(vec2 uv, float geometryValue, vec4 pos) {
     float time = u_time * 0.001;
     vec3 finalColor = vec3(0.0);
 
-    // Global intensity from hue (used as intensity modifier)
-    float globalIntensity = u_hue / 360.0;
-    float colorTime = time * 2.0 + geometryValue * 3.0 + globalIntensity * 5.0;
+    // Base hue from u_hue - this will cycle all colors
+    float baseHue = u_hue / 360.0;
+    float colorTime = time * 2.0 + geometryValue * 3.0;
 
     // Geometry intensity with dramatic falloff
     float geomIntensity = pow(geometryValue, 1.5);
     geomIntensity += u_rmsAmplitude * 0.3;
 
     // ============================================================
-    // LAYER 0 - BACKGROUND: Deep space (purple/black/deep blue)
+    // LAYER 0 - BACKGROUND: Deep shifted hue
+    // Hue offset: +0.5 (opposite on color wheel)
     // ============================================================
     {
-        vec3 color1 = vec3(0.05, 0.0, 0.2);   // Deep purple
-        vec3 color2 = vec3(0.0, 0.0, 0.1);    // Near black
-        vec3 color3 = vec3(0.0, 0.05, 0.3);   // Deep blue
+        float layerHue = baseHue + 0.5;
+        // Three variations within this hue range
+        vec3 color1 = hsv2rgb(vec3(layerHue, 0.8, 0.15));
+        vec3 color2 = hsv2rgb(vec3(layerHue + 0.05, 0.6, 0.08));
+        vec3 color3 = hsv2rgb(vec3(layerHue - 0.05, 0.9, 0.2));
         vec3 layerPalette = mix(mix(color1, color2, sin(colorTime * 3.0) * 0.5 + 0.5),
                                 color3, cos(colorTime * 2.0) * 0.5 + 0.5);
-        layerPalette *= (0.5 + globalIntensity * 1.5);
 
-        // Subtle, fills empty space
         vec3 layerColor = layerPalette * (0.3 + geomIntensity * 0.4);
 
         // Minimal RGB separation
@@ -363,21 +364,21 @@ vec3 renderQuantum(vec2 uv, float geometryValue, vec4 pos) {
         layerColor.g += cos(uv.y * 8.0 + time * 1.5) * 0.02 * geomIntensity;
         layerColor.b += sin(uv.x * uv.y * 6.0 + time * 0.8) * 0.02 * geomIntensity;
 
-        finalColor += layerColor * 0.6; // alpha 0.6
+        finalColor += layerColor * 0.6;
     }
 
     // ============================================================
-    // LAYER 1 - SHADOW: Toxic greens
+    // LAYER 1 - SHADOW: Complementary aggressive
+    // Hue offset: +0.33 (triadic)
     // ============================================================
     {
-        vec3 color1 = vec3(0.0, 1.0, 0.0);    // Toxic green
-        vec3 color2 = vec3(0.8, 1.0, 0.0);    // Sickly yellow-green
-        vec3 color3 = vec3(0.0, 0.8, 0.3);    // Forest green
+        float layerHue = baseHue + 0.33;
+        vec3 color1 = hsv2rgb(vec3(layerHue, 1.0, 1.0));
+        vec3 color2 = hsv2rgb(vec3(layerHue + 0.08, 0.9, 0.9));
+        vec3 color3 = hsv2rgb(vec3(layerHue - 0.05, 0.85, 0.7));
         vec3 layerPalette = mix(mix(color1, color2, sin(colorTime * 7.0) * 0.5 + 0.5),
                                 color3, cos(colorTime * 5.0) * 0.5 + 0.5);
-        layerPalette *= (0.5 + globalIntensity * 1.5);
 
-        // Aggressive, high contrast where geometry is weak
         float shadowIntensity = pow(1.0 - geomIntensity, 2.0);
         vec3 layerColor = layerPalette * (shadowIntensity * 0.8 + 0.1);
 
@@ -386,21 +387,21 @@ vec3 renderQuantum(vec2 uv, float geometryValue, vec4 pos) {
         layerColor.g += sin((uv.y + 0.1) * 45.0 + time * 2.5) * 0.12 * geomIntensity;
         layerColor.b += sin((uv.y - 0.1) * 55.0 + time * 3.5) * 0.18 * geomIntensity;
 
-        finalColor += layerColor * 0.4 * shadowIntensity; // alpha 0.4
+        finalColor += layerColor * 0.4 * shadowIntensity;
     }
 
     // ============================================================
-    // LAYER 2 - CONTENT: Blazing hot (red/orange/white)
+    // LAYER 2 - CONTENT: Primary hue, blazing hot
+    // Hue offset: 0 (base hue) with high saturation/value
     // ============================================================
     {
-        vec3 color1 = vec3(1.0, 0.0, 0.0);    // Pure red
-        vec3 color2 = vec3(1.0, 0.5, 0.0);    // Blazing orange
-        vec3 color3 = vec3(1.0, 1.0, 1.0);    // White hot
+        float layerHue = baseHue;
+        vec3 color1 = hsv2rgb(vec3(layerHue, 1.0, 1.0));
+        vec3 color2 = hsv2rgb(vec3(layerHue + 0.05, 0.8, 1.0));
+        vec3 color3 = vec3(1.0, 1.0, 1.0); // White hot stays white
         vec3 layerPalette = mix(mix(color1, color2, sin(colorTime * 11.0) * 0.5 + 0.5),
                                 color3, cos(colorTime * 8.0) * 0.5 + 0.5);
-        layerPalette *= (0.5 + globalIntensity * 1.5);
 
-        // Dominant, follows geometry strongly
         vec3 layerColor = layerPalette * (geomIntensity * 1.2 + 0.2);
 
         // Explosive radial RGB separation
@@ -420,21 +421,21 @@ vec3 renderQuantum(vec2 uv, float geometryValue, vec4 pos) {
         float particles = (1.0 - smoothstep(0.05, 0.2, particleDist)) * particleAlpha * 0.4;
         layerColor += vec3(1.0) * particles;
 
-        finalColor += layerColor * geomIntensity; // alpha 1.0
+        finalColor += layerColor * geomIntensity;
     }
 
     // ============================================================
-    // LAYER 3 - HIGHLIGHT: Electric blues/cyans
+    // LAYER 3 - HIGHLIGHT: Split complementary
+    // Hue offset: +0.17 (split complement)
     // ============================================================
     {
-        vec3 color1 = vec3(0.0, 1.0, 1.0);    // Electric cyan
-        vec3 color2 = vec3(0.0, 0.5, 1.0);    // Electric blue
-        vec3 color3 = vec3(0.5, 1.0, 1.0);    // Bright cyan
+        float layerHue = baseHue + 0.17;
+        vec3 color1 = hsv2rgb(vec3(layerHue, 1.0, 1.0));
+        vec3 color2 = hsv2rgb(vec3(layerHue + 0.05, 0.9, 0.9));
+        vec3 color3 = hsv2rgb(vec3(layerHue - 0.03, 1.0, 1.0));
         vec3 layerPalette = mix(mix(color1, color2, sin(colorTime * 13.0) * 0.5 + 0.5),
                                 color3, cos(colorTime * 9.0) * 0.5 + 0.5);
-        layerPalette *= (0.5 + globalIntensity * 1.5);
 
-        // Electric, peaks only (cubic for sharp peaks)
         float peakIntensity = pow(geomIntensity, 3.0);
         vec3 layerColor = layerPalette * (peakIntensity * 1.5 + 0.1);
 
@@ -444,7 +445,7 @@ vec3 renderQuantum(vec2 uv, float geometryValue, vec4 pos) {
         layerColor.g += sin(lightning * 40.0 + time * 5.0) * 0.2 * geomIntensity;
         layerColor.b += cos(lightning * 30.0 + time * 7.0) * 0.3 * geomIntensity;
 
-        // Cyan particles
+        // Colored particles (matches layer hue)
         vec2 particleUV = uv * 20.0;
         vec2 particleID = floor(particleUV);
         vec2 particlePos = fract(particleUV) - 0.5;
@@ -452,23 +453,23 @@ vec3 renderQuantum(vec2 uv, float geometryValue, vec4 pos) {
         float particleTime = time * 8.0 + dot(particleID, vec2(127.1, 311.7));
         float particleAlpha = sin(particleTime) * 0.5 + 0.5;
         float particles = (1.0 - smoothstep(0.05, 0.1, particleDist)) * particleAlpha * 0.4;
-        layerColor += vec3(0.0, 1.0, 1.0) * particles;
+        layerColor += hsv2rgb(vec3(layerHue, 1.0, 1.0)) * particles;
 
-        finalColor += layerColor * 0.8 * peakIntensity; // alpha 0.8
+        finalColor += layerColor * 0.8 * peakIntensity;
     }
 
     // ============================================================
-    // LAYER 4 - ACCENT: Violent magentas/purples
+    // LAYER 4 - ACCENT: Other split complement, chaotic
+    // Hue offset: +0.67 (other triadic)
     // ============================================================
     {
-        vec3 color1 = vec3(1.0, 0.0, 1.0);    // Pure magenta
-        vec3 color2 = vec3(0.8, 0.0, 1.0);    // Violet
-        vec3 color3 = vec3(1.0, 0.3, 1.0);    // Hot pink
+        float layerHue = baseHue + 0.67;
+        vec3 color1 = hsv2rgb(vec3(layerHue, 1.0, 1.0));
+        vec3 color2 = hsv2rgb(vec3(layerHue + 0.1, 0.9, 0.9));
+        vec3 color3 = hsv2rgb(vec3(layerHue - 0.05, 1.0, 0.85));
         vec3 layerPalette = mix(mix(color1, color2, sin(colorTime * 17.0) * 0.5 + 0.5),
                                 color3, cos(colorTime * 12.0) * 0.5 + 0.5);
-        layerPalette *= (0.5 + globalIntensity * 1.5);
 
-        // Chaotic, random bursts
         float randomBurst = sin(geometryValue * 50.0 + time * 10.0) * 0.5 + 0.5;
         vec3 layerColor = layerPalette * (randomBurst * geomIntensity * 2.0 + 0.05);
 
@@ -481,7 +482,7 @@ vec3 renderQuantum(vec2 uv, float geometryValue, vec4 pos) {
         // Pulsing madness
         layerColor *= (1.0 + sin(time * 20.0) * 0.3);
 
-        finalColor += layerColor * 0.3 * randomBurst; // alpha 0.3
+        finalColor += layerColor * 0.3 * randomBurst;
     }
 
     return finalColor * u_brightness;
