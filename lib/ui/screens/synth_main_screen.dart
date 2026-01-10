@@ -177,10 +177,10 @@ class _SynthMainContentState extends State<_SynthMainContent> {
     final screenHeight = MediaQuery.of(context).size.height;
 
     // Hero height: ~130px (compact geometry selector)
-    // Collapsed: just hero + expand hint = ~150px
+    // Collapsed: just hero + expand bar = ~178px
     // Expanded: hero + scrollable sliders up to 55% screen
     const heroHeight = 130.0;
-    const expandBarHeight = 24.0;
+    const expandBarHeight = 48.0; // Larger touch target
     final collapsedHeight = heroHeight + expandBarHeight;
     final expandedHeight = (screenHeight * 0.55).clamp(320.0, 520.0);
 
@@ -204,9 +204,11 @@ class _SynthMainContentState extends State<_SynthMainContent> {
             child: _FixedGeometryHero(systemColors: systemColors),
           ),
 
-          // Expand/collapse bar
+          // Expand/collapse bar - larger touch target (48px)
           GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: () {
+              debugPrint('Panel tap: isPanelExpanded=$isPanelExpanded');
               if (isPanelExpanded) {
                 uiState.collapseAllPanels();
               } else {
@@ -214,24 +216,38 @@ class _SynthMainContentState extends State<_SynthMainContent> {
               }
             },
             child: Container(
-              height: expandBarHeight,
-              color: systemColors.background.withOpacity(0.5),
-              child: Row(
+              height: 48, // Increased from 24px for better touch
+              color: systemColors.background.withOpacity(0.6),
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    width: 40,
-                    height: 4,
+                    width: 60,
+                    height: 5,
                     decoration: BoxDecoration(
-                      color: systemColors.primary.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(2),
+                      color: systemColors.primary.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(3),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    isPanelExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up,
-                    color: systemColors.primary.withOpacity(0.7),
-                    size: 18,
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        isPanelExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up,
+                        color: systemColors.primary.withOpacity(0.8),
+                        size: 20,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isPanelExpanded ? 'COLLAPSE' : 'MORE CONTROLS',
+                        style: SynthTheme.textStyleCaption.copyWith(
+                          color: systemColors.primary.withOpacity(0.7),
+                          fontSize: 10,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -241,11 +257,10 @@ class _SynthMainContentState extends State<_SynthMainContent> {
           // SCROLLABLE SLIDERS - Only when expanded
           if (isPanelExpanded)
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.only(bottom: 16),
-                children: const [
-                  SynthesisParametersPanel(),
-                ],
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.only(bottom: 24, top: 8),
+                child: const SynthesisParametersPanel(),
               ),
             ),
         ],
