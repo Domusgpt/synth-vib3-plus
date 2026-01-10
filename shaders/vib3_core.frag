@@ -488,29 +488,131 @@ vec3 renderQuantum(vec2 uv, float geometryValue, vec4 pos) {
     return finalColor * u_brightness;
 }
 
-// FACETED: Clean geometric with sharp edges
+// ============================================================
+// FACETED: 5-Layer Clean Geometric System
+// Sharp edges with proper 5-layer architecture matching Quantum/Holographic
+// Each layer has: densityMult, speedMult, colorShift, intensity
+// ============================================================
 vec3 renderFaceted(vec2 uv, float geometryValue, vec4 pos) {
     float time = u_time * 0.001;
+    vec3 finalColor = vec3(0.0);
 
-    // Cooler color palette for faceted
-    float hueShift = u_hue / 360.0;
-    vec3 edgeColor = hsv2rgb(vec3(hueShift + 0.6, 0.7, 0.8));  // Blue-ish
-    vec3 fillColor = hsv2rgb(vec3(hueShift + 0.55, 0.4, 0.2));  // Darker
-    vec3 glowColor = hsv2rgb(vec3(hueShift + 0.65, 0.9, 1.0));  // Bright
+    // Base parameters - Faceted uses cooler color palette
+    float baseDensity = u_gridDensity * 0.08 + 1.0;
+    float baseHue = u_hue;
+    float baseIntensity = 0.5;
 
-    // Sharp edge detection
-    float edge = smoothstep(0.3, 0.5, geometryValue) - smoothstep(0.5, 0.7, geometryValue);
-    float fill = smoothstep(0.0, 0.3, geometryValue) * 0.3;
+    // Project 4D position to 3D for layer calculations
+    vec3 p3d = project4Dto3D(pos);
 
-    vec3 color = fillColor * fill;
-    color += edgeColor * edge * (0.8 + u_midEnergy * 0.4);
-    color += glowColor * pow(geometryValue, 4.0) * u_glowIntensity * 0.5;
+    // ============================================================
+    // LAYER ROLE PARAMETERS (matching reference system)
+    // Faceted maintains sharp geometric edges across all layers
+    // ============================================================
 
-    // Subtle vertex highlights
-    float vertGlow = pow(geometryValue, 6.0) * u_highEnergy;
-    color += vec3(1.0) * vertGlow * 0.3;
+    // Layer 0 - BACKGROUND: Far, sparse, structural foundation
+    float density0 = 0.4;  float speed0 = 0.2;  float colorShift0 = 0.0;    float intensity0 = 0.2;
+    // Layer 1 - SHADOW: Mid-far, complementary color for depth
+    float density1 = 0.8;  float speed1 = 0.3;  float colorShift1 = 180.0;  float intensity1 = 0.4;
+    // Layer 2 - CONTENT: Primary geometric layer
+    float density2 = 1.0;  float speed2 = 1.0;  float colorShift2 = 0.0;    float intensity2 = baseIntensity;
+    // Layer 3 - HIGHLIGHT: Closer, edge emphasis
+    float density3 = 1.5;  float speed3 = 0.8;  float colorShift3 = 60.0;   float intensity3 = 0.6;
+    // Layer 4 - ACCENT: Closest, sharpest details
+    float density4 = 2.5;  float speed4 = 0.4;  float colorShift4 = 300.0;  float intensity4 = 0.3;
 
-    return color * u_brightness;
+    // Alpha values for blending
+    float alpha0 = 0.5;   // Background
+    float alpha1 = 0.4;   // Shadow
+    float alpha2 = 0.9;   // Content (dominant)
+    float alpha3 = 0.7;   // Highlight
+    float alpha4 = 0.3;   // Accent (subtle)
+
+    // ---- LAYER 0: BACKGROUND (structural foundation) ----
+    {
+        float layerValue = geometryValue * density0;
+        float layerHue = (baseHue + colorShift0) / 360.0;
+
+        // Faceted aesthetic: cool blue-shifted palette
+        vec3 layerCol = hsv2rgb(vec3(layerHue + 0.55, 0.5, 0.2 + layerValue * 0.2));
+
+        // Soft structural fill
+        float structureFill = smoothstep(0.0, 0.4, layerValue) * 0.4;
+        finalColor += layerCol * structureFill * intensity0 * alpha0;
+    }
+
+    // ---- LAYER 1: SHADOW (depth enhancement) ----
+    {
+        float layerValue = geometryValue * density1;
+        float layerHue = (baseHue + colorShift1) / 360.0;
+
+        vec3 layerCol = hsv2rgb(vec3(layerHue + 0.6, 0.4, 0.3));
+
+        // Shadow is inverted - stronger where geometry is weaker
+        float shadowIntensity = pow(1.0 - clamp(layerValue, 0.0, 1.0), 2.0);
+        finalColor += layerCol * shadowIntensity * intensity1 * alpha1;
+    }
+
+    // ---- LAYER 2: CONTENT (primary sharp edges) ----
+    {
+        float layerHue = (baseHue + colorShift2) / 360.0;
+
+        // Core faceted colors - cool geometric palette
+        vec3 edgeColor = hsv2rgb(vec3(layerHue + 0.6, 0.7, 0.8));
+        vec3 fillColor = hsv2rgb(vec3(layerHue + 0.55, 0.4, 0.3));
+
+        // Sharp edge detection - the defining Faceted characteristic
+        float edge = smoothstep(0.3, 0.5, geometryValue) - smoothstep(0.5, 0.7, geometryValue);
+        float fill = smoothstep(0.0, 0.3, geometryValue) * 0.4;
+
+        vec3 layerCol = fillColor * fill;
+        layerCol += edgeColor * edge * (0.8 + u_midEnergy * 0.4);
+
+        // Audio reactivity on content layer
+        float audioBoost = u_rmsAmplitude * 0.3 + u_bassEnergy * 0.2;
+        finalColor += layerCol * (intensity2 + audioBoost) * alpha2;
+    }
+
+    // ---- LAYER 3: HIGHLIGHT (edge emphasis, closer) ----
+    {
+        float layerValue = geometryValue * density3;
+        float layerHue = (baseHue + colorShift3) / 360.0;
+
+        vec3 layerCol = hsv2rgb(vec3(layerHue + 0.65, 0.8, 0.9));
+
+        // Highlight only on sharp peaks - cubic falloff
+        float peakIntensity = pow(clamp(layerValue, 0.0, 1.0), 3.0);
+
+        // Sharp edge glow
+        float edgeGlow = smoothstep(0.4, 0.6, layerValue) - smoothstep(0.6, 0.8, layerValue);
+        edgeGlow *= u_highEnergy * 1.5;
+
+        finalColor += layerCol * peakIntensity * intensity3 * alpha3;
+        finalColor += vec3(1.0, 0.9, 0.8) * edgeGlow * 0.4;
+    }
+
+    // ---- LAYER 4: ACCENT (sharpest details, vertex highlights) ----
+    {
+        float layerValue = geometryValue * density4;
+        float layerHue = (baseHue + colorShift4) / 360.0;
+
+        vec3 layerCol = hsv2rgb(vec3(layerHue + 0.7, 0.9, 1.0));
+
+        // Vertex glow - very sharp, only at geometry peaks
+        float vertGlow = pow(clamp(layerValue, 0.0, 1.0), 6.0);
+
+        // Subtle geometric pulse
+        float pulse = sin(geometryValue * 30.0 + time * 5.0) * 0.5 + 0.5;
+        float accentIntensity = vertGlow * (0.7 + pulse * 0.3);
+
+        finalColor += layerCol * accentIntensity * intensity4 * alpha4;
+
+        // White-hot vertex points
+        float vertexPoints = pow(clamp(layerValue, 0.0, 1.0), 8.0) * u_glowIntensity;
+        finalColor += vec3(1.0) * vertexPoints * 0.5;
+    }
+
+    return finalColor * u_brightness;
 }
 
 // ============================================================
