@@ -167,6 +167,23 @@ class AudioProvider with ChangeNotifier {
     debugPrint('▶️  [AudioProvider] startAudio() called - already playing: $_isPlaying');
     if (_isPlaying) return;
 
+    // CRITICAL: Wait for initialization to complete before starting audio
+    if (!_isInitialized) {
+      debugPrint('⏳ [AudioProvider] Waiting for initialization...');
+      await _initCompleter.future;
+    }
+
+    // Try to initialize PCM if it failed earlier
+    if (!_pcmInitialized) {
+      debugPrint('🔄 [AudioProvider] PCM not initialized, retrying...');
+      await _retryPcmInit();
+    }
+
+    // Final check - warn if PCM still not available
+    if (!_pcmInitialized) {
+      debugPrint('⚠️  [AudioProvider] WARNING: Starting without PCM - no audio output!');
+    }
+
     _isPlaying = true;
     _lastMetricsCheck = DateTime.now();
     _buffersGenerated = 0;
@@ -182,6 +199,26 @@ class AudioProvider with ChangeNotifier {
 
     notifyListeners();
     debugPrint('▶️  [AudioProvider] Audio started! PCM available: $_pcmInitialized');
+  }
+
+  /// Retry PCM initialization (called if initial setup failed)
+  Future<bool> _retryPcmInit() async {
+    if (_pcmInitialized) return true;
+
+    try {
+      debugPrint('🔧 [AudioProvider] Retrying PCM setup...');
+      await FlutterPcmSound.setup(
+        sampleRate: sampleRate.toInt(),
+        channelCount: 1,
+      );
+      FlutterPcmSound.setFeedThreshold(bufferSize * 2);
+      _pcmInitialized = true;
+      debugPrint('✅ [AudioProvider] PCM retry successful!');
+      return true;
+    } catch (e) {
+      debugPrint('❌ [AudioProvider] PCM retry failed: $e');
+      return false;
+    }
   }
 
   /// Stop audio generation and playback
@@ -489,10 +526,20 @@ class AudioProvider with ChangeNotifier {
       return;
     }
 
+    // If PCM isn't available, try to initialize it first
+    if (!_pcmInitialized) {
+      debugPrint('⚠️ [AudioProvider] PCM not ready, attempting init...');
+      _retryPcmInit().then((_) {
+        _playNoteInternal(midiNote);
+      });
+      return;
+    }
+
     _playNoteInternal(midiNote);
   }
 
   void _playNoteInternal(int midiNote) {
+    debugPrint('🎹 [AudioProvider] _playNoteInternal($midiNote) - PCM ready: $_pcmInitialized');
     if (!_activeNotes.contains(midiNote)) {
       _activeNotes.add(midiNote);
     }
