@@ -113,6 +113,11 @@ class _SynthMainContentState extends State<_SynthMainContent> {
     final visualProvider = Provider.of<VisualProvider>(context);
     final systemColors = visualProvider.systemColors;
 
+    // CRITICAL: Access ParameterBridge to ensure it's created and started!
+    // ProxyProvider2 is lazy - it won't create the bridge until something reads it.
+    // Without this, audioProvider.parameterBridge would be null and audio features break.
+    Provider.of<ParameterBridge>(context, listen: false);
+
     return Scaffold(
       backgroundColor: systemColors.background,
       body: Stack(
