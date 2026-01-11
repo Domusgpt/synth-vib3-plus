@@ -383,9 +383,11 @@ class SynthesisBranchManager {
       sample /= _currentVoiceCharacter.harmonicCount;
 
       // Mix base waveforms for timbral character
-      sample *= _currentSoundFamily.waveformMix[0]; // Sine component
-      sample += _currentSoundFamily.waveformMix[1] * _square(_phase1) * 0.3; // Square (quieter)
-      sample += _currentSoundFamily.waveformMix[2] * _triangle(_phase1) * 0.4; // Triangle
+      // waveformMix = [sine, square, triangle, saw] - all components now properly applied
+      sample *= _currentSoundFamily.waveformMix[0]; // Sine harmonics component
+      sample += _currentSoundFamily.waveformMix[1] * _square(_phase1); // Square wave
+      sample += _currentSoundFamily.waveformMix[2] * _triangle(_phase1); // Triangle wave
+      sample += _currentSoundFamily.waveformMix[3] * _sawtooth(_phase1); // Sawtooth wave (was MISSING!)
 
       // Add minimal musical noise for warmth
       sample += (_random.nextDouble() * 2.0 - 1.0) * _currentSoundFamily.noiseLevel;
