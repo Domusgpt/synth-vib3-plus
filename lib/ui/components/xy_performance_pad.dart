@@ -56,11 +56,17 @@ class _XYPerformancePadState extends State<XYPerformancePad>
   }
 
   void _handleTouchStart(PointerDownEvent event, UIStateProvider uiState, AudioProvider audioProvider) {
-    if (_activeTouches.length >= 8) return; // Max 8 touches
+    debugPrint('👆 [XYPad] Touch START received! pointer=${event.pointer} pos=${event.localPosition}');
+
+    if (_activeTouches.length >= 8) {
+      debugPrint('⚠️ [XYPad] Max 8 touches reached, ignoring');
+      return;
+    }
 
     final touchId = event.pointer;
     final position = event.localPosition;
     final size = context.size!;
+    debugPrint('👆 [XYPad] Processing touch in area ${size.width.toInt()}x${size.height.toInt()}');
 
     // Normalize position (0.0 to 1.0)
     final normalizedX = (position.dx / size.width).clamp(0.0, 1.0);
@@ -238,6 +244,9 @@ class _XYPerformancePadState extends State<XYPerformancePad>
     final audioProvider = Provider.of<AudioProvider>(context);
 
     return Listener(
+      // CRITICAL: opaque behavior ensures ALL touches in this area are captured,
+      // even when the Stack children are transparent (no background viz, etc.)
+      behavior: HitTestBehavior.opaque,
       onPointerDown: (event) => _handleTouchStart(event, uiState, audioProvider),
       onPointerMove: (event) => _handleTouchMove(event, uiState, audioProvider),
       onPointerUp: (event) => _handleTouchEnd(event, uiState, audioProvider),
