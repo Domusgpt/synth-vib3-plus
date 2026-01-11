@@ -267,58 +267,61 @@ class _SynthMainContentState extends State<_SynthMainContent> {
 
   Widget _buildVisualizationLayer(BuildContext context) {
     // Use GPU shader-based renderer for proper VIB3+ rendering
+    // CRITICAL: Wrap in IgnorePointer so touches pass through to XY pad
     return Positioned.fill(
-      child: Consumer2<VisualProvider, AudioProvider>(
-        builder: (context, visualProvider, audioProvider, child) {
-          // Map string system to enum (case-insensitive)
-          VisualSystem system;
-          switch (visualProvider.currentSystem.toLowerCase()) {
-            case 'quantum':
-              system = VisualSystem.quantum;
-              break;
-            case 'holographic':
-              system = VisualSystem.holographic;
-              break;
-            case 'faceted':
-            default:
-              system = VisualSystem.faceted;
-          }
+      child: IgnorePointer(
+        child: Consumer2<VisualProvider, AudioProvider>(
+          builder: (context, visualProvider, audioProvider, child) {
+            // Map string system to enum (case-insensitive)
+            VisualSystem system;
+            switch (visualProvider.currentSystem.toLowerCase()) {
+              case 'quantum':
+                system = VisualSystem.quantum;
+                break;
+              case 'holographic':
+                system = VisualSystem.holographic;
+                break;
+              case 'faceted':
+              default:
+                system = VisualSystem.faceted;
+            }
 
-          // Get audio features for reactivity
-          final features = audioProvider.currentFeatures;
-          AudioReactivityData? audioData;
-          if (features != null && audioProvider.isPlaying) {
-            audioData = AudioReactivityData(
-              bassEnergy: features.bassEnergy.clamp(0.0, 1.0),
-              midEnergy: features.midEnergy.clamp(0.0, 1.0),
-              highEnergy: features.highEnergy.clamp(0.0, 1.0),
-              rmsAmplitude: features.rms.clamp(0.0, 1.0),
+            // Get audio features for reactivity
+            final features = audioProvider.currentFeatures;
+            AudioReactivityData? audioData;
+            if (features != null && audioProvider.isPlaying) {
+              audioData = AudioReactivityData(
+                bassEnergy: features.bassEnergy.clamp(0.0, 1.0),
+                midEnergy: features.midEnergy.clamp(0.0, 1.0),
+                highEnergy: features.highEnergy.clamp(0.0, 1.0),
+                rmsAmplitude: features.rms.clamp(0.0, 1.0),
+              );
+            }
+
+            return VIB3AnimatedShaderWidget(
+              system: system,
+              geometryIndex: visualProvider.currentGeometry,
+              audioData: audioData,
+              audioReactivityStrength: 0.5,
+              hueShift: visualProvider.hueShift,
+              glowIntensity: visualProvider.glowIntensity,
+              autoRotateSpeed: visualProvider.rotationSpeed * 0.3,
+              enableInteraction: false,  // DISABLED: Let XY pad handle all touches for audio
+              // Pass rotation values from sliders/VisualProvider
+              externalRotationXY: visualProvider.rotationXY,
+              externalRotationXZ: visualProvider.rotationXZ,
+              externalRotationYZ: visualProvider.rotationYZ,
+              externalRotationXW: visualProvider.rotationXW,
+              externalRotationYW: visualProvider.rotationYW,
+              externalRotationZW: visualProvider.rotationZW,
+              // Pass other visual parameters
+              saturation: visualProvider.saturation,
+              morphParameter: visualProvider.morphParameter,
+              chaosAmount: visualProvider.chaosAmount,
+              tessellationDensity: visualProvider.tessellationDensity,
             );
-          }
-
-          return VIB3AnimatedShaderWidget(
-            system: system,
-            geometryIndex: visualProvider.currentGeometry,
-            audioData: audioData,
-            audioReactivityStrength: 0.5,
-            hueShift: visualProvider.hueShift,
-            glowIntensity: visualProvider.glowIntensity,
-            autoRotateSpeed: visualProvider.rotationSpeed * 0.3,
-            enableInteraction: false,  // DISABLED: Let XY pad handle all touches for audio
-            // Pass rotation values from sliders/VisualProvider
-            externalRotationXY: visualProvider.rotationXY,
-            externalRotationXZ: visualProvider.rotationXZ,
-            externalRotationYZ: visualProvider.rotationYZ,
-            externalRotationXW: visualProvider.rotationXW,
-            externalRotationYW: visualProvider.rotationYW,
-            externalRotationZW: visualProvider.rotationZW,
-            // Pass other visual parameters
-            saturation: visualProvider.saturation,
-            morphParameter: visualProvider.morphParameter,
-            chaosAmount: visualProvider.chaosAmount,
-            tessellationDensity: visualProvider.tessellationDensity,
-          );
-        },
+          },
+        ),
       ),
     );
   }
