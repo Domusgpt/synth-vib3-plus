@@ -159,9 +159,12 @@ class AudioProvider with ChangeNotifier {
 
     // Generate and feed audio
     _feedCount++;
-    final shouldLog = _feedCount % 100 == 0;
+    // Log first 5 callbacks and then every 100th for debugging
+    final shouldLog = _feedCount <= 5 || _feedCount % 100 == 0;
 
-    if (shouldLog) {
+    if (_feedCount <= 5) {
+      debugPrint('🎧 [AudioProvider] PCM CALLBACK #$_feedCount fired! remaining=$remainingFrames, note=$_currentNote');
+    } else if (shouldLog) {
       debugPrint('🔊 [AudioProvider] Feed callback #$_feedCount, remaining: $remainingFrames');
     }
 
@@ -302,23 +305,38 @@ class AudioProvider with ChangeNotifier {
 
   /// Feed initial samples to kickstart playback
   void _feedInitialSamples() async {
-    debugPrint('🔊 [AudioProvider] Feeding initial samples...');
-    // Feed several buffers to ensure smooth startup
-    for (int i = 0; i < 4; i++) {
-      final frequency = _midiNoteToFrequency(_currentNote);
-      _currentBuffer = synthesisBranchManager.generateBuffer(bufferSize, frequency);
+    debugPrint('🔊 [AudioProvider] Feeding initial samples for note $_currentNote...');
+    try {
+      // Feed several buffers to ensure smooth startup
+      for (int i = 0; i < 4; i++) {
+        final frequency = _midiNoteToFrequency(_currentNote);
+        debugPrint('🔊 [AudioProvider] Generating buffer $i with freq=${frequency.toStringAsFixed(1)}Hz');
+        _currentBuffer = synthesisBranchManager.generateBuffer(bufferSize, frequency);
 
-      if (_currentBuffer != null) {
-        final int16Buffer = Int16List(bufferSize);
-        for (int j = 0; j < bufferSize; j++) {
-          final sample = _currentBuffer![j].clamp(-1.0, 1.0);
-          int16Buffer[j] = (sample * 32767 * _masterVolume).round();
+        if (_currentBuffer != null) {
+          // Calculate max amplitude for debugging
+          double maxAmp = 0;
+          for (int j = 0; j < _currentBuffer!.length; j++) {
+            if (_currentBuffer![j].abs() > maxAmp) maxAmp = _currentBuffer![j].abs();
+          }
+          debugPrint('🔊 [AudioProvider] Buffer $i max amplitude: ${maxAmp.toStringAsFixed(4)}');
+
+          final int16Buffer = Int16List(bufferSize);
+          for (int j = 0; j < bufferSize; j++) {
+            final sample = _currentBuffer![j].clamp(-1.0, 1.0);
+            int16Buffer[j] = (sample * 32767 * _masterVolume).round();
+          }
+          await FlutterPcmSound.feed(PcmArrayInt16.fromList(int16Buffer.toList()));
+          _buffersGenerated++;
+        } else {
+          debugPrint('❌ [AudioProvider] Buffer $i was null!');
         }
-        await FlutterPcmSound.feed(PcmArrayInt16.fromList(int16Buffer.toList()));
-        _buffersGenerated++;
       }
+      debugPrint('✅ [AudioProvider] Initial samples fed: $_buffersGenerated buffers');
+    } catch (e, stackTrace) {
+      debugPrint('❌ [AudioProvider] Error feeding initial samples: $e');
+      debugPrint('   Stack: $stackTrace');
     }
-    debugPrint('🔊 [AudioProvider] Initial samples fed: $_buffersGenerated buffers');
   }
 
   /// Retry PCM initialization (called if initial setup failed)
