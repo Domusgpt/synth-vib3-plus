@@ -15,6 +15,7 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:provider/provider.dart';
 import 'dart:math' as math;
 import '../theme/synth_theme.dart';
@@ -243,33 +244,26 @@ class _XYPerformancePadState extends State<XYPerformancePad>
     final uiState = Provider.of<UIStateProvider>(context);
     final audioProvider = Provider.of<AudioProvider>(context);
 
-    // Use GestureDetector + Listener combo for maximum touch capture
-    // GestureDetector handles tap/pan gestures, Listener handles raw pointer events
+    // Use GestureDetector with immediate drag start for synthesizer response
+    // dragStartBehavior.down makes pan gestures fire immediately on touch
     return GestureDetector(
-      // Capture all taps in this area even if children are transparent
+      // Capture all touches in this area even if children are transparent
       behavior: HitTestBehavior.opaque,
-      onTapDown: (details) {
-        debugPrint('👆 [XYPad] GestureDetector TAP DOWN at ${details.localPosition}');
-        // Convert TapDownDetails to simulate PointerDownEvent
-        _handleGestureTouchStart(details.localPosition, uiState, audioProvider);
-      },
-      onTapUp: (details) {
-        debugPrint('👆 [XYPad] GestureDetector TAP UP');
-        _handleGestureTouchEnd(uiState, audioProvider);
-      },
-      onTapCancel: () {
-        debugPrint('👆 [XYPad] GestureDetector TAP CANCEL');
-        _handleGestureTouchEnd(uiState, audioProvider);
-      },
+      // CRITICAL: Start drag immediately on touch, don't wait for movement
+      dragStartBehavior: DragStartBehavior.down,
       onPanStart: (details) {
-        debugPrint('👆 [XYPad] GestureDetector PAN START at ${details.localPosition}');
+        debugPrint('👆 [XYPad] PAN START at ${details.localPosition}');
         _handleGestureTouchStart(details.localPosition, uiState, audioProvider);
       },
       onPanUpdate: (details) {
         _handleGestureTouchMove(details.localPosition, uiState, audioProvider);
       },
       onPanEnd: (details) {
-        debugPrint('👆 [XYPad] GestureDetector PAN END');
+        debugPrint('👆 [XYPad] PAN END');
+        _handleGestureTouchEnd(uiState, audioProvider);
+      },
+      onPanCancel: () {
+        debugPrint('👆 [XYPad] PAN CANCEL');
         _handleGestureTouchEnd(uiState, audioProvider);
       },
       child: Container(
