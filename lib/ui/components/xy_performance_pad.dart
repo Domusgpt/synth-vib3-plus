@@ -15,12 +15,14 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:provider/provider.dart';
 import 'dart:math' as math;
 import '../theme/synth_theme.dart';
 import '../../providers/ui_state_provider.dart';
 import '../../providers/audio_provider.dart';
 import '../../providers/visual_provider.dart';
+import '../../debug/audio_debug_overlay.dart';
 
 class XYPerformancePad extends StatefulWidget {
   final SystemColors systemColors;
@@ -56,11 +58,17 @@ class _XYPerformancePadState extends State<XYPerformancePad>
   }
 
   void _handleTouchStart(PointerDownEvent event, UIStateProvider uiState, AudioProvider audioProvider) {
-    if (_activeTouches.length >= 8) return; // Max 8 touches
+    debugPrint('👆 [XYPad] Touch START received! pointer=${event.pointer} pos=${event.localPosition}');
+
+    if (_activeTouches.length >= 8) {
+      debugPrint('⚠️ [XYPad] Max 8 touches reached, ignoring');
+      return;
+    }
 
     final touchId = event.pointer;
     final position = event.localPosition;
     final size = context.size!;
+    debugPrint('👆 [XYPad] Processing touch in area ${size.width.toInt()}x${size.height.toInt()}');
 
     // Normalize position (0.0 to 1.0)
     final normalizedX = (position.dx / size.width).clamp(0.0, 1.0);
@@ -237,45 +245,156 @@ class _XYPerformancePadState extends State<XYPerformancePad>
     final uiState = Provider.of<UIStateProvider>(context);
     final audioProvider = Provider.of<AudioProvider>(context);
 
-    return Listener(
-      onPointerDown: (event) => _handleTouchStart(event, uiState, audioProvider),
-      onPointerMove: (event) => _handleTouchMove(event, uiState, audioProvider),
-      onPointerUp: (event) => _handleTouchEnd(event, uiState, audioProvider),
-      child: Stack(
-        children: [
-          // Background visualization (VIB3+ WebGL view)
-          if (widget.backgroundVisualization != null)
-            Positioned.fill(child: widget.backgroundVisualization!),
+    // Use GestureDetector with immediate drag start for synthesizer response
+    // dragStartBehavior.down makes pan gestures fire immediately on touch
+    return GestureDetector(
+      // Capture all touches in this area even if children are transparent
+      behavior: HitTestBehavior.opaque,
+      // CRITICAL: Start drag immediately on touch, don't wait for movement
+      dragStartBehavior: DragStartBehavior.down,
+      onPanStart: (details) {
+        debugPrint('👆 [XYPad] PAN START at ${details.localPosition}');
+        _handleGestureTouchStart(details.localPosition, uiState, audioProvider);
+      },
+      onPanUpdate: (details) {
+        _handleGestureTouchMove(details.localPosition, uiState, audioProvider);
+      },
+      onPanEnd: (details) {
+        debugPrint('👆 [XYPad] PAN END');
+        _handleGestureTouchEnd(uiState, audioProvider);
+      },
+      onPanCancel: () {
+        debugPrint('👆 [XYPad] PAN CANCEL');
+        _handleGestureTouchEnd(uiState, audioProvider);
+      },
+      child: Container(
+        // Ensure container fills available space and has a color for hit testing
+        color: Colors.transparent,
+        child: Stack(
+          fit: StackFit.expand,  // Force stack to fill available space
+          children: [
+            // Background visualization (VIB3+ WebGL view)
+            if (widget.backgroundVisualization != null)
+              Positioned.fill(child: widget.backgroundVisualization!),
 
-          // Grid overlay (optional, scale-aware)
-          if (widget.showGrid)
-            CustomPaint(
-              painter: XYGridPainter(
-                systemColors: widget.systemColors,
-                pitchRangeStart: uiState.pitchRangeStart,
-                pitchRangeEnd: uiState.pitchRangeEnd,
-                scale: uiState.pitchScale,
+            // Grid overlay (optional, scale-aware)
+            if (widget.showGrid)
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: XYGridPainter(
+                    systemColors: widget.systemColors,
+                    pitchRangeStart: uiState.pitchRangeStart,
+                    pitchRangeEnd: uiState.pitchRangeEnd,
+                    scale: uiState.pitchScale,
+                  ),
+                ),
+              ),
+
+            // Touch ripples and indicators
+            Positioned.fill(
+              child: CustomPaint(
+                painter: TouchIndicatorPainter(
+                  touches: _activeTouches.values.toList(),
+                  rippleAnimations: _rippleAnimations,
+                  systemColors: widget.systemColors,
+                ),
               ),
             ),
 
-          // Touch ripples and indicators
-          CustomPaint(
-            painter: TouchIndicatorPainter(
-              touches: _activeTouches.values.toList(),
-              rippleAnimations: _rippleAnimations,
-              systemColors: widget.systemColors,
+            // Configuration overlay (top corner)
+            Positioned(
+              top: SynthTheme.spacingMedium,
+              right: SynthTheme.spacingMedium,
+              child: _buildConfigOverlay(uiState),
             ),
-          ),
-
-          // Configuration overlay (top corner)
-          Positioned(
-            top: SynthTheme.spacingMedium,
-            right: SynthTheme.spacingMedium,
-            child: _buildConfigOverlay(uiState),
-          ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+
+  // Single-touch gesture handlers (for GestureDetector)
+  int _currentGestureId = 0;
+
+  void _handleGestureTouchStart(Offset position, UIStateProvider uiState, AudioProvider audioProvider) {
+    // Record touch for debug overlay
+    recordDebugTouch();
+
+    final size = context.size!;
+    debugPrint('👆 [XYPad] Processing touch in area ${size.width.toInt()}x${size.height.toInt()}');
+
+    // Normalize position (0.0 to 1.0)
+    final normalizedX = (position.dx / size.width).clamp(0.0, 1.0);
+    final normalizedY = 1.0 - (position.dy / size.height).clamp(0.0, 1.0);
+
+    // Calculate MIDI note from X position
+    final midiNote = uiState.xyPositionToMidiNote(normalizedX);
+    final yValue = _calculateYAxisValue(normalizedY, uiState);
+
+    // Trigger note
+    audioProvider.noteOn(midiNote);
+    _applyYAxisParameter(yValue, uiState, audioProvider);
+
+    // Store touch point
+    _currentGestureId++;
+    setState(() {
+      _activeTouches[_currentGestureId] = TouchPoint(
+        id: _currentGestureId,
+        position: position,
+        midiNote: midiNote,
+        yValue: yValue,
+        startTime: DateTime.now(),
+      );
+    });
+
+    _createRippleAnimation(_currentGestureId);
+    debugPrint('🎹 Touch: Note $midiNote, Y-Param: ${yValue.toStringAsFixed(2)}');
+  }
+
+  void _handleGestureTouchMove(Offset position, UIStateProvider uiState, AudioProvider audioProvider) {
+    if (_activeTouches.isEmpty) return;
+
+    final size = context.size!;
+    final normalizedX = (position.dx / size.width).clamp(0.0, 1.0);
+    final normalizedY = 1.0 - (position.dy / size.height).clamp(0.0, 1.0);
+
+    final newMidiNote = uiState.xyPositionToMidiNote(normalizedX);
+    final currentTouch = _activeTouches[_currentGestureId];
+    if (currentTouch == null) return;
+
+    final oldMidiNote = currentTouch.midiNote;
+
+    if (newMidiNote != oldMidiNote) {
+      audioProvider.noteOff(oldMidiNote);
+      audioProvider.noteOn(newMidiNote);
+    }
+
+    final yValue = _calculateYAxisValue(normalizedY, uiState);
+    _applyYAxisParameter(yValue, uiState, audioProvider);
+
+    setState(() {
+      _activeTouches[_currentGestureId] = TouchPoint(
+        id: _currentGestureId,
+        position: position,
+        midiNote: newMidiNote,
+        yValue: yValue,
+        startTime: currentTouch.startTime,
+      );
+    });
+  }
+
+  void _handleGestureTouchEnd(UIStateProvider uiState, AudioProvider audioProvider) {
+    final currentTouch = _activeTouches[_currentGestureId];
+    if (currentTouch != null) {
+      audioProvider.noteOff(currentTouch.midiNote);
+      debugPrint('🎹 Touch released: Note ${currentTouch.midiNote}');
+    }
+
+    _rippleControllers[_currentGestureId]?.reverse();
+
+    setState(() {
+      _activeTouches.remove(_currentGestureId);
+    });
   }
 
   Widget _buildConfigOverlay(UIStateProvider uiState) {
