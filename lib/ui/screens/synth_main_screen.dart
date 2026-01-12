@@ -33,6 +33,7 @@ import '../../providers/tilt_sensor_provider.dart';
 import '../../vib3/rendering/vib3_shader_renderer.dart';
 import '../../vib3/core/vib3_engine.dart';
 import '../../mapping/parameter_bridge.dart';
+import '../../debug/audio_debug_overlay.dart';
 
 class SynthMainScreen extends StatefulWidget {
   const SynthMainScreen({Key? key}) : super(key: key);
@@ -432,8 +433,8 @@ class _SynthMainContentState extends State<_SynthMainContent> {
   }
 
   bool _shouldShowDebugOverlay(BuildContext context) {
-    // Show debug overlay in debug mode only
-    return false; // Set to true for debugging
+    // Show debug overlay - enabled for Firebase Test Lab diagnosis
+    return true;
   }
 
   Widget _buildDebugOverlay(
@@ -441,46 +442,10 @@ class _SynthMainContentState extends State<_SynthMainContent> {
     UIStateProvider uiState,
     VisualProvider visualProvider,
   ) {
-    return Positioned(
-      bottom: SynthTheme.panelCollapsedHeight + SynthTheme.spacingMedium,
-      right: SynthTheme.spacingMedium,
-      child: Container(
-        padding: const EdgeInsets.all(SynthTheme.spacingSmall),
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.8),
-          borderRadius: BorderRadius.circular(SynthTheme.radiusSmall),
-          border: Border.all(color: Colors.red),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'DEBUG',
-              style: SynthTheme.textStyleCaption.copyWith(
-                color: Colors.red,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'FPS: ${visualProvider.currentFPS.round()}',
-              style: SynthTheme.textStyleCaption.copyWith(color: Colors.white),
-            ),
-            Text(
-              'System: ${visualProvider.currentSystem}',
-              style: SynthTheme.textStyleCaption.copyWith(color: Colors.white),
-            ),
-            Text(
-              'Geometry: ${visualProvider.currentGeometry}',
-              style: SynthTheme.textStyleCaption.copyWith(color: Colors.white),
-            ),
-            Text(
-              'Orb: ${uiState.orbControllerPosition.dx.toStringAsFixed(2)}, ${uiState.orbControllerPosition.dy.toStringAsFixed(2)}',
-              style: SynthTheme.textStyleCaption.copyWith(color: Colors.white),
-            ),
-          ],
-        ),
-      ),
+    // Use the new AudioDebugOverlay for comprehensive audio diagnostics
+    return AudioDebugOverlay(
+      key: audioDebugOverlayKey,
+      enabled: true,
     );
   }
 }

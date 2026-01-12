@@ -22,6 +22,7 @@ import '../theme/synth_theme.dart';
 import '../../providers/ui_state_provider.dart';
 import '../../providers/audio_provider.dart';
 import '../../providers/visual_provider.dart';
+import '../../debug/audio_debug_overlay.dart';
 
 class XYPerformancePad extends StatefulWidget {
   final SystemColors systemColors;
@@ -316,6 +317,9 @@ class _XYPerformancePadState extends State<XYPerformancePad>
   int _currentGestureId = 0;
 
   void _handleGestureTouchStart(Offset position, UIStateProvider uiState, AudioProvider audioProvider) {
+    // Record touch for debug overlay
+    recordDebugTouch();
+
     final size = context.size!;
     debugPrint('👆 [XYPad] Processing touch in area ${size.width.toInt()}x${size.height.toInt()}');
 
